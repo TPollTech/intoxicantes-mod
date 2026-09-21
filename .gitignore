@@ -15,3 +15,4 @@ out/
 # Sistema operacional
 .DS_Store
 Thumbs.db
+__pycache__/
