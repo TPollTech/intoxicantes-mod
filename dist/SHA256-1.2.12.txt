@@ -1,0 +1,1 @@
+523f267d54d39a6f2675601ad232c544fdb9d74c3d950daad047cddab1f40e98 *build/libs/intoxicantes-1.2.12.jar

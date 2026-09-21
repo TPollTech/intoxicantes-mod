@@ -1,0 +1,59 @@
+plugins {
+    // 26.1+ usa o plugin loom SEM remapping (jogo nao-ofuscado); nao existe linha de mappings.
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+// Valida worldgen ANTES de empacotar: um JSON com referencia orfa (ex. processors
+// "minecraft:none") derruba o registry no boot e TRAVA a criacao de mundo.
+tasks.register('validateWorldgen', Exec) {
+    group = 'verification'
+    description = 'Valida JSONs de worldgen + NBT do mod contra o jar vanilla.'
+    workingDir = projectDir
+    def py = org.gradle.internal.os.OperatingSystem.current().isWindows() ? 'python' : 'python3'
+    commandLine py, 'tools/validate_worldgen.py'
+}
+// roda junto com check e build (e falha o build se achar erro)
+tasks.named('check') { dependsOn validateWorldgen }
+tasks.matching { it.name in ['build', 'remapJar'] }.configureEach { dependsOn validateWorldgen }
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = 'UTF-8'
+}
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'intoxicantes-commerce-tests'
+        enableGameTests = true
+        enableClientGameTests = true
+        clearRunDirectory = false
+    }
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "intoxicantes",
+  "version": "${version}",
+  "name": "Bebidas & Drogas (Ficção)",
+  "description": "Bebidas alcoólicas e substâncias 100% fictícias para diversão e roleplay. Nenhum conteúdo real: tudo é fabricado no Minecraft.",
+  "authors": ["enzop"],
+  "license": "MIT",
+  "environment": "*",
+  "icon": "assets/intoxicantes/icon.png",
+  "entrypoints": {
+    "main": ["com.intoxicantes.IntoxicantesMod"],
+    "client": ["com.intoxicantes.IntoxicantesClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.3-",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

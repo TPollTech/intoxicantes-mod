@@ -1,0 +1,17 @@
+# Gradle — artefatos locais (regenerados com ./gradlew build)
+.gradle/
+build/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+bin/
+out/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

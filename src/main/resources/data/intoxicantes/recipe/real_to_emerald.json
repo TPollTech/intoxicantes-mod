@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real",
+    "intoxicantes:real"
+  ],
+  "result": {
+    "id": "minecraft:emerald_block",
+    "count": 1
+  }
+}

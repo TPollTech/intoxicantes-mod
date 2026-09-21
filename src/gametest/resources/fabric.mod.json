@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "intoxicantes-commerce-tests",
+  "version": "1.0.0",
+  "name": "Intoxicantes commerce tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["com.intoxicantes.CommerceGameTest"],
+    "fabric-client-gametest": ["com.intoxicantes.CommerceClientTest"]
+  }
+}

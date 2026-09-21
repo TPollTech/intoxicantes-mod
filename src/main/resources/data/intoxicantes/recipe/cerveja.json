@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "intoxicantes:lupulo",
+    "intoxicantes:lupulo",
+    "minecraft:glass_bottle",
+    "minecraft:wheat"
+  ],
+  "result": {
+    "id": "intoxicantes:cerveja",
+    "count": 2
+  }
+}

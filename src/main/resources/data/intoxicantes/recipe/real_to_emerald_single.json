@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "intoxicantes:real"
+  ],
+  "result": {
+    "id": "minecraft:emerald",
+    "count": 1
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "intoxicantes:item/nevoa_do_deserto"
+  }
+}
