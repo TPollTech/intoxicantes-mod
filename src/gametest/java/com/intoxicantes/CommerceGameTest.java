@@ -1874,56 +1874,39 @@ public class CommerceGameTest {
             ItemStack arma = atirador.getMainHandItem();
             helper.assertTrue(arma.is(IntoxicantesMod.ESCOPETA), "shotgun in main hand");
 
-            // ---- 1) ARMA VAZIA, SEM CARTUCHO: click seco — FAIL, nada consumido
-            var resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.FAIL,
-                    "Empty shotgun dry-fires (FAIL): " + resultado);
+            // ---- 1) ARMA VAZIA, SEM CARTUCHO: click seco — nada consumido
+            // v1.2.57: o disparo mora no GATILHO (payload), não no use()
+            GatilhoPayload.dispararTeste(atirador);
             EscopetaEstado vazio = EscopetaItem.estado(arma);
             helper.assertTrue(vazio.fase() == EscopetaEstado.FASE_PRONTA && !vazio.camara()
                             && vazio.noTubo() == 0,
                     "Dry fire leaves the mechanism untouched");
 
-            // ---- 2) COM CARTUCHOS: use() inicia a recarga (fase RECARREGANDO)
+            // ---- 2) COM CARTUCHOS: a TECLA R inicia a recarga (fase TECLA) e o
+            // mecanismo fecha SOZINHO ao encher tubo+câmara (v1.2.48)
             atirador.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO, 5));
-            resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(
-                    resultado.consumesAction() && atirador.isUsingItem(),
-                    "Holding right-click starts the reload: " + resultado);
+            RecargaPayload.despacharTeste(atirador, true);
             helper.assertTrue(EscopetaItem.estado(arma).fase()
-                            == EscopetaEstado.FASE_RECARREGANDO,
-                    "Reload phase is RECARREGANDO");
-
-            // ---- 3) SIMULO 11 ticks de uso (onUseTick direto = deterministico):
-            // shells entram um a um (a cada 2 ticks; tubo cap 3)
-            int duracao = arma.getItem().getUseDuration(arma, atirador);
-            for (int restante = duracao - 1; restante >= duracao - 11; restante--) {
-                arma.getItem().onUseTick(helper.getLevel(), atirador, arma, restante);
+                            == EscopetaEstado.FASE_TECLA,
+                    "Pressing R starts the reload (TECLA)");
+            for (int t = 0; t < 60 && EscopetaItem.estado(arma).fase()
+                    == EscopetaEstado.FASE_TECLA; t++) {
+                arma.inventoryTick(helper.getLevel(), atirador,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
             }
-            EscopetaEstado carregando = EscopetaItem.estado(arma);
-            helper.assertTrue(carregando.noTubo() >= 2,
-                    "Shells entered the tube one-by-one: tubo=" + carregando.noTubo());
-
-            // solta o botao: fecha a recarga — e a CAMARA fica carregada
-            arma.getItem().releaseUsing(arma, helper.getLevel(), atirador, 0);
             EscopetaEstado fechada = EscopetaItem.estado(arma);
-            helper.assertTrue(fechada.camara(),
-                    "Releasing the reload chambers the first shell");
-            helper.assertTrue(fechada.fase() == EscopetaEstado.FASE_PRONTA,
-                    "Closed reload is PRONTA");
+            helper.assertTrue(fechada.camara() && fechada.fase() == EscopetaEstado.FASE_PRONTA,
+                    "One R press fills the tube and chambers the first shell (fase="
+                            + fechada.fase() + ")");
             int noPente = 5 - (EscopetaItem.contarCartuchos(atirador) + fechada.noTubo()
                     + (fechada.camara() ? 1 : 0));
             helper.assertTrue(noPente == 0,
                     "Every shell came from the inventory (nenhum sumido)");
 
-            // ---- 4) TIRO: consome a CAMARA (nao o inventario) e engata o pump
+            // ---- 3) TIRO (GATILHO ESQUERDO): consome a CAMARA e engata o pump
             var alvo = helper.spawn(IntoxicantesMod.TRAFICANTE, new BlockPos(1, 1, 3));
             float vidaAlvo = alvo.getHealth();
-            resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
-                    "Chambered shotgun fires: " + resultado);
+            GatilhoPayload.dispararTeste(atirador);
             EscopetaEstado aposTiro = EscopetaItem.estado(arma);
             helper.assertTrue(!aposTiro.camara(),
                     "Firing consumes the CHAMBER, not the inventory");
@@ -1976,38 +1959,24 @@ public class CommerceGameTest {
             ItemStack arma = atirador.getMainHandItem();
             helper.assertTrue(arma.is(IntoxicantesMod.REVOLVER), ".38 in main hand");
 
-            // ---- 1) TAMBOR VAZIO, SEM CARTUCHO: click seco — FAIL, nada consumido
-            var resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.FAIL,
-                    "Empty .38 dry-fires (FAIL): " + resultado);
+            // ---- 1) TAMBOR VAZIO, SEM CARTUCHO: click seco — nada consumido
+            // v1.2.57: o disparo mora no GATILHO (payload), não no use()
+            GatilhoPayload.dispararTeste(atirador);
             RevolverEstado vazio = RevolverItem.estado(arma);
             helper.assertTrue(vazio.fase() == RevolverEstado.FASE_PRONTA && vazio.balas() == 0,
                     "Dry fire leaves the drum untouched");
 
-            // ---- 2) COM CARTUCHOS: use() inicia a recarga (fase RECARREGANDO)
+            // ---- 2) COM CARTUCHOS: a TECLA R inicia a recarga e fecha SOZINHA
             atirador.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO_38, 6));
-            resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(
-                    resultado.consumesAction() && atirador.isUsingItem(),
-                    "Holding right-click starts the cylinder reload: " + resultado);
+            RecargaPayload.despacharTeste(atirador, true);
             helper.assertTrue(RevolverItem.estado(arma).fase()
-                            == RevolverEstado.FASE_RECARREGANDO,
-                    "Reload phase is RECARREGANDO");
-
-            // ---- 3) SIMULO 7 ticks de uso (onUseTick direto = deterministico):
-            // shells entram um a um (a cada 2 ticks; o 1º entra em t=1)
-            int duracao = arma.getItem().getUseDuration(arma, atirador);
-            for (int restante = duracao - 1; restante >= duracao - 7; restante--) {
-                arma.getItem().onUseTick(helper.getLevel(), atirador, arma, restante);
+                            == RevolverEstado.FASE_TECLA,
+                    "Pressing R starts the cylinder reload (TECLA)");
+            for (int t = 0; t < 60 && RevolverItem.estado(arma).fase()
+                    == RevolverEstado.FASE_TECLA; t++) {
+                arma.inventoryTick(helper.getLevel(), atirador,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
             }
-            RevolverEstado carregando = RevolverItem.estado(arma);
-            helper.assertTrue(carregando.balas() >= 3,
-                    "Shells entered the drum one-by-one: balas=" + carregando.balas());
-
-            // solta o botao: fecha a recarga (fase FERRAMENTA = fecho do ferrolho)
-            arma.getItem().releaseUsing(arma, helper.getLevel(), atirador, 0);
             RevolverEstado fechada = RevolverItem.estado(arma);
             helper.assertTrue(fechada.fase() == RevolverEstado.FASE_FERRAMENTA
                             && fechada.timer() > 0,
@@ -2015,7 +1984,7 @@ public class CommerceGameTest {
 
             // ---- 4) SIMULO o fecho: tambor travado, PRONTA pra atirar
             for (int t = 0; t < teste.revolverTicksFecho + 1; t++) {
-                arma.getItem().inventoryTick(arma, helper.getLevel(), atirador,
+                arma.inventoryTick(helper.getLevel(), atirador,
                         net.minecraft.world.entity.EquipmentSlot.MAINHAND);
             }
             RevolverEstado fechado = RevolverItem.estado(arma);
@@ -2034,10 +2003,7 @@ public class CommerceGameTest {
             for (int tiro = 0; tiro < 3; tiro++) {
                 // cooldown do tiro anterior expira por tempo de jogo: reseta pra 0
                 atirador.getCooldowns().addCooldown(arma, 0);
-                resultado = arma.getItem().use(helper.getLevel(), atirador,
-                        net.minecraft.world.InteractionHand.MAIN_HAND);
-                helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
-                        "Cascavel shot " + (tiro + 1) + " fires: " + resultado);
+                GatilhoPayload.dispararTeste(atirador);
                 RevolverEstado apos = RevolverItem.estado(arma);
                 helper.assertTrue(apos.balas() == balasAntes - tiro - 1,
                         "Shot " + (tiro + 1) + " consumes exactly one chamber: "
@@ -2061,10 +2027,7 @@ public class CommerceGameTest {
             atirador.getCooldowns().addCooldown(arma, 0); // cooldown do último tiro expira
             arma.set(RevolverItem.ESTADO, new RevolverEstado(
                     1 << 3, 0, 0, RevolverEstado.FASE_PRONTA)); // bit 3, câmara 0 seca
-            resultado = arma.getItem().use(helper.getLevel(), atirador,
-                    net.minecraft.world.InteractionHand.MAIN_HAND);
-            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
-                    "Empty chamber with loaded drum spins: " + resultado);
+            GatilhoPayload.dispararTeste(atirador);
             RevolverEstado girado = RevolverItem.estado(arma);
             helper.assertTrue(girado.camara() == 1 && girado.fase()
                             == RevolverEstado.FASE_FERRAMENTA,

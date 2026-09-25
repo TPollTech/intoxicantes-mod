@@ -179,9 +179,10 @@ public final class ArmasClient {
     /**
      * v1.2.53 — GATILHO: chamado pelo MouseBotaoMixin quando o BOTÃO ESQUERDO
      * desce com arma de fogo na mão (padrão CoD/BF: esquerdo atira, direito
-     * mira). O servidor é quem decide TUDO (fase do mecanismo, munição,
-     * cooldown): aqui só invoco o mesmo item.use() que o botão direito
-     * chamava antes — 1 clique = 1 tentativa de disparo, na mão da arma.
+     * mira).
+     * v1.2.57 — agora manda o GatilhoPayload C2S: o item.use() do botão
+     * direito ficou INERTE (PASS), então o disparo viaja pelo canal próprio e
+     * o servidor executa o caminho de tiro real. 1 clique = 1 tentativa.
      */
     public static void gatilhoPuxado() {
         Minecraft mc = Minecraft.getInstance();
@@ -193,7 +194,7 @@ public final class ArmasClient {
         InteractionHand mao = principal.is(IntoxicantesMod.ESCOPETA)
                 || principal.is(IntoxicantesMod.REVOLVER)
                 ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
-        mc.gameMode.useItem(player, mao);
+        ClientPlayNetworking.send(new GatilhoPayload());
         player.swing(mao, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
     }
 

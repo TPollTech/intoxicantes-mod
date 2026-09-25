@@ -139,65 +139,51 @@ public class RevolverItem extends Item {
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        // v1.2.57: O BOTÃO DIREITO NÃO ATIRA NEM RECARREGA. Disparo é o GATILHO
+        // ESQUERDO (MouseBotaoMixin → ArmasClient.gatilhoPuxado, v1.2.53), giro
+        // no seco INCLUI (o gatilho chama o mesmo caminho de tiro), e recarga é
+        // a TECLA R (recarregarViaTecla, v1.2.41/48). A mira é estado do client
+        // (isRightPressed) — não é item.use(). Só fica o gate da recarga por
+        // tecla em curso.
+        if (estado(stack).fase() == RevolverEstado.FASE_TECLA) {
+            return InteractionResult.CONSUME;
+        }
+        return InteractionResult.PASS;
+    }
+
+    /**
+     * v1.2.57 — O DISPARO pelo gatilho esquerdo (GatilhoPayload C2S): o mesmo
+     * caminho que o botão direito executava — câmara carregada ATIRA (e o giro
+     * no seco segue de brinde, o .38 de filme); sem bala nenhuma, click seco
+     * com aviso. Validação 100% servidor (fase, munição, cooldown).
+     */
+    void atirarViaGatilho(ServerPlayer player, InteractionHand hand, ItemStack stack) {
         RevolverEstado estado = estado(stack);
-
-        // em cooldown: nada acontece (silencioso, como o vanilla)
         if (player.getCooldowns().isOnCooldown(stack)) {
-            return InteractionResult.FAIL;
+            return; // em cooldown: silencioso, como o vanilla
         }
-
-        // v1.2.41: recarga pela TECLA R em curso — o botão direito não rouba
-        // o mecanismo no meio (soltar a tecla é quem fecha o tambor)
         if (estado.fase() == RevolverEstado.FASE_TECLA) {
-            return InteractionResult.CONSUME;
+            return; // recarga por tecla em curso
         }
-
-        // PRIORIDADE 1: câmara carregada e mecanismo pronto = ATIRA
+        if (!(player.level() instanceof ServerLevel servidor)) {
+            return;
+        }
+        // câmara carregada e mecanismo pronto = ATIRA
         if (estado.alinhadaCarregada() && estado.pronta()) {
-            if (level instanceof ServerLevel servidor) {
-                atirar(servidor, player, stack, estado);
-            }
-            return InteractionResult.SUCCESS;
+            atirar(servidor, player, stack, estado);
+            return;
         }
-
-        // PRIORIDADE 1.5: câmara seca mas o tambor tem bala em OUTRO buraco =
-        // o giro do tambor no seco (o .38 de filme): gira e re-alinha o próximo
+        // câmara seca mas o tambor tem bala em OUTRO buraco = o giro no seco
         if (estado.balas() > 0 && estado.pronta()) {
-            if (level instanceof ServerLevel servidor) {
-                RevolverEstado girado = estado.dispararEGirar();
-                guardar(stack, new RevolverEstado(girado.tambores(), girado.camara(),
-                        TICKS_FECHO(), RevolverEstado.FASE_FERRAMENTA));
-                tocar(servidor, player, SoundEvents.LEVER_CLICK, 0.9F, 1.5F);
-            }
-            return InteractionResult.SUCCESS;
+            RevolverEstado girado = estado.dispararEGirar();
+            guardar(stack, new RevolverEstado(girado.tambores(), girado.camara(),
+                    TICKS_FECHO(), RevolverEstado.FASE_FERRAMENTA));
+            tocar(servidor, player, SoundEvents.LEVER_CLICK, 0.9F, 1.5F);
+            return;
         }
-
-        // PRIORIDADE 2: buraco vago e reserva = RECARREGA (shell-by-shell)
-        boolean temReserva = player.getAbilities().instabuild || contarCartucho38(player) > 0;
-        if (estado.temBuracoVago() && temReserva) {
-            // INICIA A RECARGA: 43 ticks de janela; o 1º shell entra rápido
-            // (t=1) e os demais a cada TICKS_SHELL; soltar (ou o watchdog) fecha
-            // com o que entrou. A duração inteira mora no estado = client e
-            // servidor terminam juntos.
-            int duracao = getUseDuration(stack, player);
-            if (level instanceof ServerLevel servidor) {
-                guardar(stack, new RevolverEstado(estado.tambores(), estado.camara(),
-                        duracao, RevolverEstado.FASE_RECARREGANDO));
-                tocar(servidor, player, SoundEvents.ITEM_FRAME_ADD_ITEM, 0.7F, 0.8F);
-            }
-            // NOS DOIS LADOS (padrão do arco): o client precisa entrar em modo
-            // "usando" pra renderizar a pose e mandar o RELEASE quando soltar —
-            // sem isso a recarga só terminaria no watchdog.
-            player.startUsingItem(hand);
-            return InteractionResult.CONSUME;
-        }
-
-        // nada a fazer: click seco de percussão + aviso na action bar
-        if (level instanceof ServerLevel servidor) {
-            tocar(servidor, player, SoundEvents.WOODEN_TRAPDOOR_CLOSE, 0.6F, 2.0F);
-            player.sendOverlayMessage(Component.translatable("item.intoxicantes.revolver.semmunicao"));
-        }
-        return InteractionResult.FAIL;
+        // tambor vazio: click seco de percussão + aviso na action bar
+        tocar(servidor, player, SoundEvents.WOODEN_TRAPDOOR_CLOSE, 0.6F, 2.0F);
+        player.sendOverlayMessage(Component.translatable("item.intoxicantes.revolver.semmunicao"));
     }
 
     // ==================================================== RECARGA PELA TECLA R (v1.2.41)

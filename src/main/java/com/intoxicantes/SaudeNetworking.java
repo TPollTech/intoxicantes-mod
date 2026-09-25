@@ -31,7 +31,8 @@ public final class SaudeNetworking {
     public record SaudeSyncPayload(int hidratacao, int vicio, String drogaVicio,
                                    int estagioAbstinencia, int figado, int pulmao,
                                    int estomago, boolean abrirProntuario,
-                                   int alcool, int erva, int po, int pilula)
+                                   int alcool, int erva, int po, int pilula,
+                                   int curasSeguidas)
             implements CustomPacketPayload {
 
         public static final CustomPacketPayload.Type<SaudeSyncPayload> TYPE =
@@ -53,13 +54,14 @@ public final class SaudeNetworking {
                             buf.writeVarInt(p.erva());
                             buf.writeVarInt(p.po());
                             buf.writeVarInt(p.pilula());
+                            buf.writeVarInt(p.curasSeguidas());
                         },
                         buf -> new SaudeSyncPayload(
                                 buf.readVarInt(), buf.readVarInt(), buf.readUtf(32),
                                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                                 buf.readVarInt(), buf.readBoolean(),
                                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
-                                buf.readVarInt()));
+                                buf.readVarInt(), buf.readVarInt()));
 
         @Override
         public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
@@ -151,7 +153,8 @@ public final class SaudeNetworking {
                 SaudeData.dosesVida(player, "alcool"),
                 SaudeData.dosesVida(player, "erva"),
                 SaudeData.dosesVida(player, "po"),
-                SaudeData.dosesVida(player, "pilula")));
+                SaudeData.dosesVida(player, "pilula"),
+                SaudeData.curasSeguidas(player)));
     }
 
     /** A viagem ligou: client desenha o overlay enquanto durar. */

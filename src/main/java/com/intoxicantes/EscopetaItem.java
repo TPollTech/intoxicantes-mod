@@ -148,53 +148,40 @@ public class EscopetaItem extends Item {
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        // v1.2.57: O BOTÃO DIREITO NÃO ATIRA NEM RECARREGA. Disparo é o GATILHO
+        // ESQUERDO (MouseBotaoMixin → ArmasClient.gatilhoPuxado, v1.2.53) e
+        // recarga é a TECLA R (recarregarViaTecla, v1.2.41/48). A mira é estado
+        // do client (isRightPressed) — não é item.use(). Só fica o gate da
+        // recarga por tecla em curso (o direito não rouba o mecanismo no meio).
+        if (estado(stack).fase() == EscopetaEstado.FASE_TECLA) {
+            return InteractionResult.CONSUME;
+        }
+        return InteractionResult.PASS;
+    }
+
+    /**
+     * v1.2.57 — O DISPARO pelo gatilho esquerdo (GatilhoPayload C2S): o mesmo
+     * caminho que o botão direito executava — camara carregada + mecanismo
+     * pronto = ATIRA; senão, o click seco de percussão com o aviso. Validação
+     * 100% servidor (fase, munição, cooldown).
+     */
+    void atirarViaGatilho(ServerPlayer player, InteractionHand hand, ItemStack stack) {
         EscopetaEstado estado = estado(stack);
-
-        // em cooldown: nada acontece (silencioso, como o vanilla)
         if (player.getCooldowns().isOnCooldown(stack)) {
-            return InteractionResult.FAIL;
+            return; // em cooldown: silencioso, como o vanilla
         }
-
-        // v1.2.41: recarga pela TECLA R em curso — o botão direito não rouba
-        // o mecanismo no meio (soltar a tecla é quem fecha a recarga)
         if (estado.fase() == EscopetaEstado.FASE_TECLA) {
-            return InteractionResult.CONSUME;
+            return; // recarga por tecla em curso: o gatilho não rouba o mecanismo
         }
-
-        // PRIORIDADE 1: camara carregada e mecanismo pronto = ATIRA
-        if (estado.camara() && estado.pronta()) {
-            if (level instanceof ServerLevel servidor) {
-                atirar(servidor, player, stack, estado);
-            }
-            return InteractionResult.SUCCESS;
+        if (estado.camara() && estado.pronta() && player.level() instanceof ServerLevel servidor) {
+            atirar(servidor, player, stack, estado);
+            return;
         }
-
-        // PRIORIDADE 2: tubo com espaco e reserva = RECARREGA (shell-by-shell)
-        boolean tuboTemEspaco = estado.noTubo() < CAPACIDADE_TUBO();
-        boolean temReserva = player.getAbilities().instabuild || contarCartuchos(player) > 0;
-        if (tuboTemEspaco && temReserva) {
-            // INICIA A RECARGA: 41 ticks de janela; shells entram a cada
-            // TICKS_SHELL; soltar (ou o watchdog) fecha com o que entrou.
-            // A duracao inteira mora no estado = client e servidor terminam juntos.
-            int duracao = getUseDuration(stack, player);
-            if (level instanceof ServerLevel servidor) {
-                guardar(stack, new EscopetaEstado(estado.noTubo(), estado.camara(),
-                        duracao, EscopetaEstado.FASE_RECARREGANDO));
-                tocar(servidor, player, SoundEvents.ITEM_FRAME_ADD_ITEM, 0.7F, 0.75F);
-            }
-            // NOS DOIS LADOS (padrao do arco): o client precisa entrar em modo
-            // "usando" pra renderizar a pose e mandar o RELEASE quando soltar —
-            // sem isso a recarga so terminaria no watchdog.
-            player.startUsingItem(hand);
-            return InteractionResult.CONSUME;
-        }
-
-        // nada do que fazer: click seco de percurssao + aviso na action bar
-        if (level instanceof ServerLevel servidor) {
+        // sem câmara: click seco de percussão + aviso na action bar
+        if (player.level() instanceof ServerLevel servidor) {
             tocar(servidor, player, SoundEvents.WOODEN_TRAPDOOR_CLOSE, 0.6F, 1.9F);
             player.sendOverlayMessage(Component.translatable("item.intoxicantes.escopeta.semmunicao"));
         }
-        return InteractionResult.FAIL;
     }
 
     // ==================================================== RECARGA PELA TECLA R (v1.2.41)

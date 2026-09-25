@@ -558,6 +558,12 @@ public final class Embriaguez {
         int segundos = ModConfig.get().embriaguezRessacaSegundos;
         RESSACA.remove(player.getUUID()); // reinicia do zero
         if (segundos <= 0) return;
+        // v1.2.57: o FÍGADO cobra — cada 250 de dano cumulativo (de 1000)
+        // multiplica a ressaca: 0-249 = 1x, 250-499 = 1.5x, 500-749 = 2x,
+        // 750+ = 2.5x. O prontuário promete, a ressaca cumpre.
+        int figado = SaudeData.danoFigado(player);
+        float multiplicador = 1.0F + Math.min(3, figado / 250) * 0.5F;
+        segundos = Math.round(segundos * multiplicador);
         // v1.2.46: em SEGUNDOS (era *20 em ticks, decrementado 1 por segundo:
         // a ressaca de 90s durava 30 minutos — o "não cura com o tempo" do playtest)
         RESSACA.put(player.getUUID(), segundos);

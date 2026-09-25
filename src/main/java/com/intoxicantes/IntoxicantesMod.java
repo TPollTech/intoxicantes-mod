@@ -720,6 +720,7 @@ public class IntoxicantesMod implements ModInitializer {
 
         // v1.2.41: a TECLA R das armas — payload C2S de recarga + canal S2C de status
         RecargaPayload.registrar();
+        GatilhoPayload.registrar();
         RecargaPayload.registrarStatus();
 
         // v1.2.53: botões CoD/BF — estado de mira (ADS) via payload C2S, limpa no logout

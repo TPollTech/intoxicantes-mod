@@ -74,7 +74,8 @@ public final class SaudeClient {
                                 payload.hidratacao(), payload.figado(), payload.pulmao(),
                                 payload.estomago(), payload.vicio(), payload.drogaVicio(),
                                 payload.alcool(), payload.erva(), payload.po(),
-                                payload.pilula())));
+                                payload.pilula(), payload.curasSeguidas(),
+                                payload.estagioAbstinencia())));
                     }
                 }));
         // S2C: a viagem ligou

@@ -1,5 +1,40 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.57 — "O QUÃO FUDIDO TU ESTÁ" + TEXTURAS HD + CONTROLES DE FPS (25/09/2026)
+
+### 📋 O Prontuário renasce (tecla H)
+- **Renomeado**: "Prontuário do Fregues" → **"O Quão Fudido Tu Está"** (a ficha
+  médica da esquina com o nome que ela merecia).
+- **Redesenhado de verdade**, fiel ao preview aprovado: painel CINZA estilo GUI
+  vanilla com bevel (o clássico branco/cinza), um bloco por órgão com nome +
+  estágio na mesma linha, BARRA SUNKEN destrutível (verde → amarelo →
+  vermelho) e a consequência de gameplay na terceira linha.
+- **A consequência agora é VERDADE** (eram só promessas na tela): fígado ruim
+  (250+/500+/750+ de dano) multiplica a RESSACA em até 2.5×; pulmão ruim dá
+  TOSSE seca (fraqueza + fumaça) depois de todo baseado; estômago ruim alonga
+  a NÁUSEA da queda do LSD em até 2.5×.
+- Histórico em GRADE 2×2 (bebidas/ervas/pós/pílulas), DIAS LIMPOS exibidos,
+  caixa de vício rosada com PIPS (|||||·····) e status DEPENDENTE/sob
+  controle, aviso de abstinência e o veredito do Dr. Gago na caixa sunken do
+  rodapé.
+
+### 🎨 Texturas HD embutidas no jar
+- **70 texturas importadas do resourcepack** `minhas-texturas` pra dentro do
+  mod: **asfalto**, as 6 fases da **uva**, café, lúpulo, maconha, papoula,
+  postes, hidrantes, placa do Esquinão, sementes e itens (uva, vinho, rum,
+  LSD, heroína, pó estelar…) — até 1254×1254 de arte original, agora no jar.
+  O pack fica redundante (mas segue funcionando por cima).
+
+### 🔫 Controles de FPS definitivos
+- **Botão direito NÃO atira mais** — em nenhuma situação. Direito SEGURADO =
+  MIRA (ADS, client-side, não é mais `item.use()`); disparo é o GATILHO
+  ESQUERDO via payload próprio (GatilhoPayload), com validação server-side
+  completa; recarga segue na TECLA R (um aperto). O `use()` dos itens ficou
+  INERTE (PASS) — o vazamento que deixava o direito atirar (interação com
+  entidade → PASS → use()) morreu.
+- Testes de arma migrados pros caminhos novos (gatilho/R). **70/70 game
+  tests passando.**
+
 ## v1.2.56 — BALANCEAMENTO DA SAÚDE PRA PRIMEIRA PARTIDA (25/09/2026)
 
 ### 💧 Sede

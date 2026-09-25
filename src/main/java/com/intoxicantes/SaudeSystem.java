@@ -268,6 +268,14 @@ public final class SaudeSystem {
         // efeitos vanilla complementares por tier (a base fisica da viagem)
         aplicarBaseVanilla(player, ficha, intensidade);
 
+        // v1.2.57: o PULMÃO cobra — fumante crônico (250+ de dano) tosse seco
+        // depois de todo baseado: fraqueza curta + fumaça na cara
+        if (ficha.orgao() == SaudeData.Orgao.PULMAO && SaudeData.danoPulmao(player) >= 250) {
+            player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, 0, true, false));
+            player.level().sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE,
+                    player.getX(), player.getY() + 1.4, player.getZ(), 6, 0.2, 0.3, 0.2, 0.01);
+        }
+
         // 5. a QUEDA: agenda o aftershock pro fim da viagem (+15s de gloria)
         QUEDA_EM.put(id, ficha.duracaoSegundos() + 15);
         QUEDA_VIAGEM.put(id, ficha.viagem().name());
@@ -379,7 +387,11 @@ public final class SaudeSystem {
                 player.sendSystemMessage(Component.translatable("effect.intoxicantes.queda.overdrive"));
             }
             case "VIAGEM" -> {
-                player.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 300 * intensidade, 0));
+                // v1.2.57: o ESTÔMAGO cobra — cada 250 de dano alonga a náusea
+                // da queda em 50% (até 2.5x): quem vive de pílula sofre mais
+                int fator = 100 + Math.min(3, SaudeData.danoEstomago(player) / 250) * 50;
+                player.addEffect(new MobEffectInstance(MobEffects.NAUSEA,
+                        300 * intensidade * fator / 100, 0));
                 player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 200 * intensidade, 0));
                 player.sendSystemMessage(Component.translatable("effect.intoxicantes.queda.viagem"));
             }
