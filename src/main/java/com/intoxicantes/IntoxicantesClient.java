@@ -35,6 +35,14 @@ public class IntoxicantesClient implements ClientModInitializer {
         // ADS (zoom) e HUD do mecanismo, tudo num lugar so
         ArmasClient.init();
 
+        // v1.2.53: o relógio de sempre no HUD (canto superior direito, discreto)
+        RelogioHud.init();
+
+        // v1.2.54: a SAÚDE do fregues — HUD de sede/vício, overlays das viagens,
+        // alucinações (Gago gigante) e a tecla H do prontuário
+        SaudeVisionClient.init();
+        SaudeClient.init();
+
         EntityRendererRegistry.register(IntoxicantesMod.TRAFICANTE, TraficanteRenderer::new);
         EntityRendererRegistry.register(IntoxicantesMod.GAGO, GagoRenderer::new);
         // v1.2.39: o JUÇA — mesmo corpo de barrigão do Gago, skin própria
@@ -48,6 +56,22 @@ public class IntoxicantesClient implements ClientModInitializer {
         // v1.2.36: o PAINEL DE LED craftável (mesma fonte, cor/brilho do NBT)
         net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
                 IntoxicantesMod.PAINEL_LED_ENTITY, PainelLedRenderer::new);
+
+        // v1.2.55: AS MÁQUINAS VIVAS — líquido subindo, serpentina esquentando,
+        // rolo girando, espuma no barril. Máquina ociosa = custo zero (o
+        // early-out é na primeira linha do submit).
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.DORNA_BEBIDA_ENTITY, MaquinasVivasRenderer.DornaRenderer::new);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.ALAMBIQUE_ENTITY, MaquinasVivasRenderer.AlambiqueRenderer::new);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.MOENDA_CANA_ENTITY, MaquinasVivasRenderer.PrimaRenderer::new);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.PRENSA_UVAS_ENTITY, MaquinasVivasRenderer.PrimaRenderer::new);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.CALDEIRAO_MOSTURA_ENTITY, MaquinasVivasRenderer.PrimaRenderer::new);
+        net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
+                IntoxicantesMod.BARRIL_BEBIDA_ENTITY, MaquinasVivasRenderer.BarrilRenderer::new);
 
         // ==================================================== PONTO DO TRAFICANTE (v1.2.44)
         // S2C: o traficante mandou o estado do ponto -> abre a tela dele.
@@ -166,10 +190,12 @@ public class IntoxicantesClient implements ClientModInitializer {
         }
     }
 
-    /** Render state do Gago/Juca: fantasia (bioma) + modo PUTO. */
+    /** Render state do Gago/Juca: fantasia (bioma) + modo PUTO + fantasma. */
     private static class GagoRenderState extends HumanoidRenderState {
         public int roupa;
         public boolean puto;
+        /** v1.2.54: o Gago FANTASMA da viagem de LSD — desenha 4x. */
+        public boolean fantasma;
     }
 
     /**
@@ -218,6 +244,16 @@ public class IntoxicantesClient implements ClientModInitializer {
             super.extractRenderState(entidade, state, parcial);
             state.roupa = Math.floorMod(entidade.getRoupa(), GagoEntity.ROUPAS);
             state.puto = entidade.isPuto();
+            // v1.2.54: o Gago FANTASMA da viagem (SaudeVisionClient) desenha 4x
+            state.fantasma = entidade.entityTags().contains(SaudeVisionClient.TAG_FANTASMA);
+        }
+
+        @Override
+        protected void scale(GagoRenderState state, com.mojang.blaze3d.vertex.PoseStack pose) {
+            if (state.fantasma) {
+                // o mercadão no céu: 4x o corpo (quase o letreiro deitado kkkk)
+                pose.scale(4.0F, 4.0F, 4.0F);
+            }
         }
 
         @Override

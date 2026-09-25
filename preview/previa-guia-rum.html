@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Guia do SNC: página do Rum com fluxo completo auditado</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px;max-width:960px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:#f2d06b}
+  .tag{display:inline-block;background:#23863622;color:#3fb950;border:1px solid #238636;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+  .tag.novo{background:#1f6feb22;color:#58a6ff;border-color:#1f6feb}
+  .tag.fix{background:#f8514922;color:#f85149;border-color:#f85149}
+  .livro{background:#EFE3C0;border-radius:4px;padding:14px 16px;color:#3A2E1C;font-size:13.5px;line-height:1.5;box-shadow:0 2px 10px #00000066}
+  .titulo{font-size:15px;color:#9C3B25;font-weight:600;border-bottom:1px solid #D9C79A;padding-bottom:4px;margin-bottom:10px}
+  .passo{display:flex;align-items:center;gap:8px;margin:6px 0;font-family:monospace;font-size:12.5px}
+  .passo .ic{width:26px;height:26px;background:#D9C79A;border:1px solid #8A7B5A;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+  .passo .seta{color:#9C3B25;font-weight:700}
+  .passo .tmp{background:#e2e0b8;border:1px solid #6B6B34;border-radius:3px;padding:0 5px;font-size:11px;color:#6B6B34}
+  .passo .leg{color:#8A7B5A;font-size:11.5px}
+  .passo.err{opacity:.55;text-decoration:line-through}
+  .secao{font-weight:600;color:#9C3B25;margin-top:12px;font-size:13px}
+  .caixa{background:#fff3d6;border:1px dashed #C8971E;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total{background:#e8efda;border:1px solid #6B8E23;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total b{color:#3d5a11}
+  .auditoria{margin-top:18px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1160px;font-size:13px}
+  .auditoria b{color:#f2d06b}
+  table{border-collapse:collapse;margin-top:8px;width:100%}
+  td,th{border:1px solid #30363d;padding:5px 10px;font-size:12.5px;text-align:left}
+  th{background:#21262d;color:#f2d06b}
+  .ok{color:#3fb950}.info{color:#8b949e}.alerta{color:#f85149}
+</style>
+</head>
+<body>
+<h1>Guia do SNC — página do Rum com o fluxo completo <small>v1.2.53</small></h1>
+<div class="sub">Auditoria confirmou sua spec (60/60 testes) e pegou <b>um erro real no guia antigo</b>: a cadeia mostrava cana indo direto pra fornalha, mas a receita do melaço recebe <b>caldo</b> (a cana precisa da esmagadora primeiro). Era impossível seguir o livro antigo.</div>
+<div class="grid">
+  <div class="card">
+    <h2>Cadeia do rum <span class="tag fix">1 correção</span></h2>
+    <div class="livro">
+      <div class="titulo">O caminho do caribe</div>
+      <div class="passo"><span class="ic">🌾</span> ×4 <span class="leg">cana de açúcar</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">⚙️</span><span class="tmp">40s</span><span class="leg">esmagadora de cana <b>← NOVO no guia (faltava!)</b></span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🥤</span> ×4 <span class="leg">caldo de cana</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🔥</span><span class="leg">fornalha: 1 caldo → 1 melaço</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🟫</span> melaço</div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">7min</span><span class="leg">barril de fermentação (1 melaço → 4)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🧪</span> ×4 <span class="leg">melaço fermentado</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🔥</span><span class="tmp">1min30</span><span class="leg">alambique (precisa de fogo embaixo)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍶</span> ×2 <span class="leg">rum jovem</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">10min</span><span class="leg">barril de rum (madeira tostada)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍾</span> ×4 <span class="leg">rum</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Continuação <span class="tag novo">2 seções NOVAS</span></h2>
+    <div class="livro">
+      <div class="secao">O mesmo alambique</div>
+      <div class="caixa">✦ O alambique é <b>GENÉRICO</b>: a mesma máquina de cobre que destila caldo pra cachaça destila melaço fermentado pra rum. A receita decide o que sai — monte UMA estação de destilação só.</div>
+      <div class="secao">O caminho mais longo</div>
+      <div class="total">Da cana à garrafa: <b>20min40s</b> de relógio (esmagar 40s + cozinhar o melaço + fermentar 7min + destilar 1min30 + envelhecer 10min). A tradição cobra o preço — e paga no sabor. Config ajusta tudo.</div>
+      <div class="secao">No copo</div>
+      <div>🍾 Resistência ao fogo (60s) e Náusea (15s) — o combustível do aventureiro.</div>
+    </div>
+  </div>
+</div>
+<div class="auditoria">
+<b>Auditoria código × guia (sua spec passo a passo):</b>
+<table>
+<tr><th>Etapa</th><th>Sua spec</th><th>Código</th><th>Guia</th></tr>
+<tr><td>Melaço</td><td>caldo de cana → fornalha = melaço</td><td class="ok">✓ smelting_melaco.json: caldo_de_cana → melaco (100t, 0.15 XP)</td><td class="alerta">⚠ guia antigo mostrava CANA → fornalha (impossível!) → <b>cadeia corrigida</b> com a esmagadora no meio</td></tr>
+<tr><td>Fermentação</td><td>1 melaço → 4 mosto</td><td class="ok">✓ Dorna(MELACO, 1 → MOSTO_RUM_FERMENTADO, 4), 420s</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Alambique</td><td>o MESMO da cachaça</td><td class="ok">✓ máquina genérica: ALAMBIQUES tem 2 receitas, a entrada decide</td><td class="info">⚠ não explicava → <b>seção nova</b></td></tr>
+<tr><td>Rum jovem → barril</td><td>madeira tostada (10min) → 4 garrafas</td><td class="ok">✓ Barril("rum", 2 jovens, 0, 600) → 4 garrafas</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Caminho mais longo</td><td>tradição</td><td class="ok">✓ 40+100(fornalha)+420+90+600 = 1250s = <b>20min50s</b></td><td class="info"><b>seção nova</b> — computada das constantes (a fornalha entra como "cozinhar o melaço" sem número fixo)</td></tr>
+</table>
+<br><span class="info">Comparação do caminho: cachaça 19min10s × rum 20min50s (+2 min de fornalha) — o rum É o caminho mais longo, como manda a tradição. Mesmo alambique, mesmo barril de fermentação, barril de rum diferente (madeira tostada escura).</span>
+</div>
+</body>
+</html>

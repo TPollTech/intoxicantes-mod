@@ -7,7 +7,8 @@ O NBT segue o formato REAL do 26.3 (decifrado do igloo/top.nbt do jar vanilla):
   palette  = TAG_List de TAG_Compound {id: str, properties?: {str:str}, nbt?}
   DataVersion = TAG_Int
 
-Layout (v1.2.18 — 15x8x19): o PRÉDIO (15x5x11, z0..z10) igual à foto da SUL
+Layout (v1.2.18 — 15x8x19; FAIXA CHEIA + porta-grade + mini display na v1.2.51):
+o PRÉDIO (15x5x11, z0..z10) igual à foto da SUL
 DISTRIBUIDORA & MERCADO ESQUINÃO e, na frente, o PÁTIO DO ESQUINÃO (z11..z18):
 calçada, meio-fio, ESTACIONAMENTO demarcado com postes de luz. Duas garantias
 de "espaço seguro":
@@ -61,10 +62,19 @@ PALETTE = {
     # real (perto de hidrante é onde se PROÍBE estacionar). A 1.2.24~28
     # plantava DOIS dentro das vagas; o zelador recolhe os velhos.
     "H": {"id": "intoxicantes:hidrante"},
-    "d": {"id": "minecraft:spruce_door", "properties": {
-        "half": "lower", "facing": "south", "hinge": "left", "open": "false"}},
-    "D": {"id": "minecraft:spruce_door", "properties": {
-        "half": "upper", "facing": "south", "hinge": "left", "open": "false"}},
+    # v1.2.51: a PORTA-GRADE do guichê (porta dupla do mod, codada do zero):
+    # de madrugada o guichê FECHA (colisão no vão embaixo) e o Gago atende
+    # POR TRÁS da grade de ferro; de dia abre (passagem livre). A virada é do
+    # Zelador do mercado (MarketSystem) — a entidade-dono "porta_grade" é
+    # colocada junto (o Java aceita se já existir por código).
+    "g": {"id": "intoxicantes:porta_grade", "properties": {
+        "facing": "south", "half": "lower", "fechada": "false"}},
+    # metade de cima da porta-grade: CHAR PROPRIO ("d"). Na 1.2.51 ela era
+    # "G" — e o Python deixa a última definição vencer, então o "G" da
+    # porta SOBRESCREVEU o "G" das paredes: o mercado inteiro nasceu como
+    # porta de guichê (o print do Skyu). "d" não colide com parede nenhuma.
+    "d": {"id": "intoxicantes:porta_grade", "properties": {
+        "facing": "south", "half": "upper", "fechada": "false"}},
     "L": {"id": "minecraft:spruce_log", "properties": {"axis": "y"}},  # colunas
     "s": {"id": "minecraft:smooth_stone_slab", "properties": {"type": "bottom"}},  # balcão
     "t": {"id": "minecraft:smooth_stone_slab", "properties": {"type": "top"}},     # prateleira
@@ -72,13 +82,13 @@ PALETTE = {
     "k": {"id": "minecraft:lantern", "properties": {"hanging": "true"}},
     "B": {"id": "minecraft:black_stained_glass_pane", "properties": {
         "east": "true", "west": "true", "north": "false", "south": "false"}},
-    # LETREIRO DO ESQUINÃO (v1.2.31): DISPLAY DE FACHADA estilo Satisfactory
-    # — a faixa de display atravessa TODA a fachada do prédio (os 15 blocos
-    # da linha y3, z10), MONTADA NA PAREDE sob o beiral, ACIMA da porta.
-    # NADA de torres/pólos na calçada e NADA na frente da entrada (as torres
-    # da 1.2.24–1.2.30 viraram legado; mundos velhos migram pelo zelador).
-    # Só o PAINEL CENTRAL (J, em x7) tem block entity com o texto; os outros
-    # 14 blocos são EXTENSÃO (só a caixa preta contínua).
+    # LETREIRO DO ESQUINÃO (v1.2.31; CONSERTADO na v1.2.51): DISPLAY DE
+    # FACHADA estilo Satisfactory — a faixa atravessa TODA a fachada (15
+    # blocos da linha y3, z10), MONTADA NA PAREDE sob o beiral. O PAINEL
+    # (J, x7) é o ÚNICO com block entity (o texto renderiza 1×); os outros
+    # 14 são EXTENSÃO (X) — a faixa preta contínua. A 1.2.31–1.2.50 semeava
+    # só o J (o X nunca era usado): 1 bloco de placa no meio da parede de
+    # concreto, com o texto desenhado POR CIMA da fachada errada (o caos).
     "J": {"id": "intoxicantes:placa_esquinao", "properties": {
         "facing": "south", "parte": "painel", "nivel": "coluna",
         "lit": "true"}},
@@ -99,6 +109,12 @@ PALETTE = {
     # letreiro, mostrando as ofertas (texto editável pela Central de Comando).
     "V": {"id": "intoxicantes:painel_led", "properties": {
         "facing": "south", "telas": "3", "lit": "true"}},
+    # v1.2.51: O MINI DISPLAY "ABERTO · 24H" — a plaquinha de LED ao lado
+    # DIREITO da porta (espelho do painel de ofertas, que fica à esquerda).
+    # PainelLedBlock com NBT de fábrica no CABEÇA (M); o "·" renderiza como
+    # "." na fonte LED (sem glifo próprio — o visual fica idêntico).
+    "M": {"id": "intoxicantes:painel_led", "properties": {
+        "facing": "south", "telas": "1", "lit": "true"}, "interativo": True},
     ".": {"id": "minecraft:air"},
 }
 
@@ -198,7 +214,7 @@ ROWS = [
         "G.............G",
         "G.............G",
         "G.............G",
-        "GGmBBBBdBBBBmGG",  # z9: moldura + vitrines + porta (x7)
+        "GGmBBBBgBBBBmGG",  # z9: moldura + vitrines + PORTA-GRADE (x7)
         ".L...........L.",  # z10: colunas x1 e x13
         ".....fffff.....",  # z11: faixa de pedestre (a placa NÃO mora mais aqui)
         "...H...........",  # z12: HIDRANTE — calçada, pé do meio-fio, ao lado da faixa
@@ -220,8 +236,8 @@ ROWS = [
         "G.............G",
         "G.............G",
         "G.............G",
-        "GGmBBBBDBBBBmGG",  # z9: moldura + porta superior
-        ".LVVV........L.",  # z10: PAINEL DE LED (3 telas) À ESQUERDA da porta (x7)
+        "GGmBBBBdBBBBmGG",  # z9: moldura + PORTA-GRADE superior (a grade)
+        ".LVVV.......ML.",  # z10: PAINEL DE LED (3 telas, x2..4) À ESQUERDA da porta (x7)
                             # — NUNCA na frente dela (1.2.36–39 plantava x5..9
                             # cruzando a porta). NBT só no CABEÇA (x2); os outros
                             # 2 são extensão (sem NBT = sem texto duplicado).
@@ -246,7 +262,7 @@ ROWS = [
         "W.............W",
         "W.............W",
         "WWWWWWWWWWWWWWW",  # z9: parede cheia
-        "WWWWWWWJWWWWWWW",  # z10: DISPLAY DE FACHADA — a faixa de display atravessa os 15 blocos (texto no x7)
+        "XXXXXXXJXXXXXXX",  # z10: DISPLAY DE FACHADA — faixa COMPLETA: 7 X + J (x7) + 7 X = 15 blocos
         "...............",  # z11: LIVRE (as torres da placa saíram daqui)
         "...............",
         "...............",
@@ -344,7 +360,8 @@ def build_nbt(paleta):
                 body = _int_list("pos", (x, y, z))
                 body += _tag_int("state", estado_para_indice[ch])
                 if ch == "J":
-                    # o LETREIRO CUSTOM: 4 linhas de LED + vínculo com o mercado
+                    # o LETREIRO CUSTOM: nome em 1 linha esticada + vínculo
+                    # com o mercado
                     body += _tag_compound("nbt", _placa_nbt())
                 elif ch == "V" and x == 2:
                     # v1.2.40: NBT SÓ no painel-CABEÇA (x2, a ponta oeste da
@@ -353,6 +370,13 @@ def build_nbt(paleta):
                     # postos (o display "bugado" do print). Extensão não tem
                     # texto: quem manda na linha é o cabeça.
                     body += _tag_compound("nbt", _painel_nbt())
+                elif ch == "M" and x == 12:
+                    # v1.2.51: o mini display "ABERTO · 24H" (único, x12)
+                    body += _tag_compound("nbt", _mini_display_nbt())
+                elif ch == "g":
+                    # v1.2.51: a porta-grade nasce com o dono (a entidade
+                    # porta_grade é colocada junto do bloco pela estrutura)
+                    body += _tag_compound("nbt", _porta_grade_nbt())
                 elif ch == "P":
                     # o QUADRO DE PREÇOS interno (a "parede" é a fonte visível;
                     # a tela custom detalha compra/venda/estoque em tempo real)
@@ -486,6 +510,30 @@ def _painel_nbt():
     body += _tag_int("cor", 0x39FF6E)
     body += _tag_int("brilho", 15)
     body += _tag_int("modo", 0)
+    return body
+
+
+def _mini_display_nbt():
+    """NBT do MINI DISPLAY (v1.2.51) — o ABERTO · 24H fixo ao lado direito
+    da porta (o mercado é 24h: o letreiro NUNCA mostra "FECHADO"; o ciclo
+    de status saiu do letreiro na v1.2.40 e agora mora aqui). O "·" não tem
+    glifo na fonte LED e cai no fallback do ponto (visual idêntico)."""
+    body = _tag_string("id", "intoxicantes:painel_led")
+    body += _tag_string("linha0", "ABERTO")
+    body += _tag_string("linha1", "· 24H ·")
+    body += _tag_int("cor", 0x39FF6E)
+    body += _tag_int("brilho", 15)
+    body += _tag_int("modo", 0)
+    return body
+
+
+def _porta_grade_nbt():
+    """NBT da PORTA-GRADE (v1.2.51): entidade-dono do bloco colocada pela
+    estrutura (a porta é o único bloco interativo do template — o beacon do
+    vanilla não suporta id custom). O Java aceita a entidade se ela já
+    existir por código (compatibilidade total, mesmo padrão do Gago)."""
+    body = _tag_string("id", "intoxicantes:porta_grade")
+    body += _tag_byte("KeepPacked", 0)
     return body
 
 

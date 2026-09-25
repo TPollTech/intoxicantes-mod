@@ -11,17 +11,15 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.Optional;
@@ -38,24 +36,25 @@ import java.util.Optional;
  * mão vazia recolhe. Sem fogo embaixo, o lote simplesmente pausa (a
  * destilação precisa de calor constante).
  */
-public class AlambiqueBlock extends BaseEntityBlock {
+public class AlambiqueBlock extends MaquinaGrandeBlock {
 
-    /** Silhueta: caldeira gorda + pescoço (o modelo 3D completa o resto). */
-    private static final VoxelShape SHAPE = Block.box(2.0, 0.0, 2.0, 14.0, 14.0, 14.0);
+    /** Parte BAIXA: caldeira gorda + balde condensador na lateral. */
+    private static final VoxelShape SHAPE_BAIXO = Block.box(1.4, 0.0, 1.4, 14.6, 16.0, 14.6);
+    /** Parte ALTA: domo + pescoço + braço da serpentina. */
+    private static final VoxelShape SHAPE_ALTO = Block.box(4.0, 0.0, 4.0, 15.5, 10.0, 12.0);
 
     public AlambiqueBlock(Properties properties) {
         super(properties);
     }
 
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
-            CollisionContext context) {
-        return SHAPE;
+    protected VoxelShape forma(BlockState state) {
+        return state.getValue(METADE) == DoubleBlockHalf.LOWER ? SHAPE_BAIXO : SHAPE_ALTO;
     }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new AlambiqueBlockEntity(pos, state);
+        return temBlockEntity(state) ? new AlambiqueBlockEntity(pos, state) : null;
     }
 
     @Override
@@ -66,7 +65,7 @@ public class AlambiqueBlock extends BaseEntityBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
-        if (!(level.getBlockEntity(pos) instanceof AlambiqueBlockEntity be)) {
+        if (!(level.getBlockEntity(posDoCorpo(state, pos)) instanceof AlambiqueBlockEntity be)) {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide()) {
@@ -78,7 +77,7 @@ public class AlambiqueBlock extends BaseEntityBlock {
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
             BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (!(level.getBlockEntity(pos) instanceof AlambiqueBlockEntity be)) {
+        if (!(level.getBlockEntity(posDoCorpo(state, pos)) instanceof AlambiqueBlockEntity be)) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide()) {
@@ -99,27 +98,30 @@ public class AlambiqueBlock extends BaseEntityBlock {
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos,
             net.minecraft.util.RandomSource random) {
-        if (!(level.getBlockEntity(pos) instanceof AlambiqueBlockEntity be) || !be.destilando()) {
+        // o vapor sai do pescoço na parte ALTA (o BE mora na baixa)
+        boolean alto = state.getValue(METADE) == DoubleBlockHalf.UPPER;
+        var bePos = alto ? pos.below() : pos;
+        if (!(level.getBlockEntity(bePos) instanceof AlambiqueBlockEntity be) || !be.destilando()) {
             return;
         }
         if (random.nextInt(20) != 0) {
             return;
         }
-        // vapor sai da válvula do topo da caldeira
+        // vapor sai do pescoço (parte alta) — cobre quente também brilha embaixo
         double x = pos.getX() + 0.3 + random.nextDouble() * 0.4;
         double z = pos.getZ() + 0.3 + random.nextDouble() * 0.4;
-        level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, x, pos.getY() + 1.0, z,
-                0, 0.015, 0);
+        double y = alto ? pos.getY() + 0.6 : pos.getY() + 1.0;
+        level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, x, y, z, 0, 0.015, 0);
         if (random.nextInt(4) == 0) {
-            level.addParticle(ParticleTypes.SMOKE, x, pos.getY() + 1.05, z, 0, 0.01, 0);
+            level.addParticle(ParticleTypes.SMOKE, x, y + 0.05, z, 0, 0.01, 0);
         }
     }
 
-    /** Ticker do servidor: o relógio da destilação (pausa sem fogo). */
+    /** Ticker do servidor: o relógio da destilação (pausa sem fogo) — só a parte baixa. */
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level,
             BlockState state, BlockEntityType<T> type) {
-        if (level.isClientSide()) {
+        if (level.isClientSide() || !temBlockEntity(state)) {
             return null;
         }
         return (nivel, pos, estado, be) -> {

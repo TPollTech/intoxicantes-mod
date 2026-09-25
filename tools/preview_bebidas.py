@@ -28,7 +28,29 @@ BARRIS = [
 MAQUINAS = ["dorna_bebida", "alambique", "moenda_cana", "prensa_uvas", "caldeirao_mostura"]
 
 
+MAQUINAS_2BLOCOS = {"dorna_bebida", "alambique", "moenda_cana", "prensa_uvas",
+                    "caldeirao_mostura"}
+
+
 def carrega_modelo(nome):
+    """v1.2.53: máquinas de tamanho real = os DOIS modelos (_baixo + _alto)
+    fundidos (o alto deslocado +16 de volta pro espaço completo)."""
+    if nome in MAQUINAS_2BLOCOS:
+        with open(os.path.join(ASSETS, "models", "block", nome + "_baixo.json"),
+                  encoding="utf-8") as f:
+            baixo = json.load(f)
+        with open(os.path.join(ASSETS, "models", "block", nome + "_alto.json"),
+                  encoding="utf-8") as f:
+            alto = json.load(f)
+        fundido = dict(baixo)
+        els = list(baixo["elements"])
+        for e in alto["elements"]:
+            e2 = dict(e)
+            e2["from"] = [e["from"][0], e["from"][1] + 16, e["from"][2]]
+            e2["to"] = [e["to"][0], e["to"][1] + 16, e["to"][2]]
+            els.append(e2)
+        fundido["elements"] = els
+        return fundido
     with open(os.path.join(ASSETS, "models", "block", nome + ".json"), encoding="utf-8") as f:
         return json.load(f)
 

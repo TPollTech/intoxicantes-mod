@@ -125,6 +125,7 @@ public class BarrilBebidaBlockEntity extends BlockEntity {
         }
         this.ticksRestantes = ticksTotalFase;
         setChanged();
+        sincronizar(); // v1.2.55: o client acorda o renderer (espuma no airlock)
     }
 
     private void mostrarStatus(ServerLevel level, Player player,
@@ -208,6 +209,39 @@ public class BarrilBebidaBlockEntity extends BlockEntity {
             }
         }
         setChanged();
+        // v1.2.55: sincroniza no FIM de cada fase (a maturação é silenciosa;
+        // o sync por segundo do progresso não vale o tráfego aqui)
+        if (fase == FASE_MATURANDO && ticksRestantes == 0) {
+            sincronizar();
+        }
+    }
+
+    /** Manda o estado pro client (o renderer lê no getRenderData). */
+    private void sincronizar() {
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    /** O estado vivo pro renderer (mesma convenção do PainelLed). */
+    @Override
+    public Object getRenderData() {
+        return this;
+    }
+
+    /** A fase atual pro client (só a FERMENTAÇÃO anima; maturação silenciosa). */
+    public int faseClient() {
+        return fase;
     }
 
     private void concluir(ServerLevel level) {

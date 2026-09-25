@@ -4,7 +4,10 @@
   "package": "com.intoxicantes.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "CameraFovMixin"
+    "CameraFovMixin",
+    "CameraViagemMixin",
+    "MouseBotaoMixin",
+    "IronSightPoseMixin"
   ],
   "injectors": {
     "defaultRequire": 1

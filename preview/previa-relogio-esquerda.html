@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia — Relógio no canto superior ESQUERDO</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:16px}
+  .tela{position:relative;width:560px;height:340px;background:linear-gradient(180deg,#7ab0e8 0%,#a8cdf0 45%,#6e9c46 46%,#5e8a3a 100%);border:2px solid #30363d;border-radius:8px;overflow:hidden;margin-bottom:14px}
+  .cruz{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff;font-size:15px;text-shadow:0 1px 2px #000}
+  .coracao{position:absolute;font-size:11px;color:#fff;text-shadow:1px 1px 0 #000}
+  .hotbar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:2px}
+  .slot{width:26px;height:26px;background:rgba(20,20,20,.55);border:2px solid #4a4a4a}
+  .slot.sel{border-color:#e6e6e6}
+  /* relógio: painel translúcido igual ao do mod */
+  .relogio{position:absolute;display:flex;align-items:center;gap:6px;background:rgba(14,12,10,.35);border-top:1px solid rgba(58,52,44,.35);padding:3px 7px 3px 5px;font-size:13px;font-weight:600;color:#e8d8b0;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+  .relogio .corpo{width:9px;height:9px;border-radius:50%;background:#e8c84a;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+  .relogio.lua .corpo{background:#c8ccd8;box-shadow:inset -3px -1px 0 1px rgba(90,14,12,1)}
+  .relogio .dia{font-size:11px;font-weight:400;color:#8a8274}
+  .antiga{opacity:.45}
+  .seta{position:absolute;font-size:11px;color:#f0883e;font-weight:700;text-shadow:1px 1px 0 #000}
+  .legenda{display:flex;gap:22px;font-size:12.5px;color:#8b949e}
+  .legenda b{color:#e6edf3}
+  .ok{color:#3fb950;font-weight:700}
+</style>
+</head>
+<body>
+<h1>Relógio no HUD — canto superior <span style="color:#3fb950">ESQUERDO</span></h1>
+<div class="sub">Mesmo painel translúcido (sol/lua + HH:MM + Dia N), só a posição mudou. O HUD de munição das armas continua embaixo à direita, e o relógio continua sumindo com tela aberta.</div>
+
+<div class="tela">
+  <!-- NOVA posição -->
+  <div class="relogio" style="left:4px;top:4px">
+    <div class="corpo"></div><span>12:34</span><span class="dia">Dia 27</span>
+  </div>
+
+  <!-- posição antiga (referência) -->
+  <div class="relogio antiga" style="right:4px;top:4px">
+    <div class="corpo"></div><span>12:34</span><span class="dia">Dia 27</span>
+  </div>
+  <div class="seta" style="right:6px;top:44px">← posição antiga (some)</div>
+
+  <div class="cruz">+</div>
+  <div class="coracao" style="left:44%;bottom:44px">❤ ❤ ❤ ❤ ❤ ❤ ❤ ❤ ❤ ❤</div>
+  <div class="coracao" style="right:12%;bottom:44px">🍗</div>
+  <div class="hotbar">
+    <div class="slot sel"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+    <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+  </div>
+</div>
+
+<div class="legenda">
+  <span><b>NOVO:</b> canto superior esquerdo</span>
+  <span class="ok">✔ nada coberto: crosshair, hotbar e HUD de munição intactos</span>
+</div>
+</body>
+</html>

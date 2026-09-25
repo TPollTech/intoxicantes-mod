@@ -2251,7 +2251,7 @@ public class CommerceGameTest {
 
     @GameTest(maxTicks = 3000)
     public void cadeiaCachacaMoendaDornaAlambiqueBarril(GameTestHelper helper) {
-        ModConfig.setVelocidadeTeste(0.05F); // x20: processos de minutos viram segundos
+        // escala de teste (0.05) fixada no boot: TestesBebidaBoot (global, sem briga entre testes paralelos)
         var level = helper.getLevel();
         var player = helper.makeMockServerPlayerInLevel();
         var centro = helper.absolutePos(BlockPos.ZERO);
@@ -2298,8 +2298,7 @@ public class CommerceGameTest {
                         }
                         helper.assertTrue(conta(player, IntoxicantesMod.CACHACA) >= 4,
                                 "Barril de cachaca deve render 4 garrafas");
-                        ModConfig.setVelocidadeTeste(null);
-                        helper.succeed();
+                                            helper.succeed();
                     });
                 });
             });
@@ -2308,7 +2307,6 @@ public class CommerceGameTest {
 
     @GameTest(maxTicks = 3000)
     public void cadeiaCervejaCaldeiraoBarril(GameTestHelper helper) {
-        ModConfig.setVelocidadeTeste(0.05F);
         var level = helper.getLevel();
         var player = helper.makeMockServerPlayerInLevel();
         var centro = helper.absolutePos(BlockPos.ZERO);
@@ -2337,8 +2335,7 @@ public class CommerceGameTest {
                     }
                     helper.assertTrue(conta(player, IntoxicantesMod.CERVEJA) >= 4,
                             "Barril de cerveja deve render 4 garrafas");
-                    ModConfig.setVelocidadeTeste(null);
-                    helper.succeed();
+                                    helper.succeed();
                 });
             });
         });
@@ -2346,7 +2343,6 @@ public class CommerceGameTest {
 
     @GameTest(maxTicks = 3000)
     public void cadeiaRumMelacoBarril(GameTestHelper helper) {
-        ModConfig.setVelocidadeTeste(0.05F);
         var level = helper.getLevel();
         var player = helper.makeMockServerPlayerInLevel();
         var centro = helper.absolutePos(BlockPos.ZERO);
@@ -2382,8 +2378,7 @@ public class CommerceGameTest {
                     }
                     helper.assertTrue(conta(player, IntoxicantesMod.RUM) >= 4,
                             "Barril de rum deve render 4 garrafas");
-                    ModConfig.setVelocidadeTeste(null);
-                    helper.succeed();
+                                    helper.succeed();
                 });
             });
         });
@@ -2391,7 +2386,6 @@ public class CommerceGameTest {
 
     @GameTest(maxTicks = 3000)
     public void cadeiaVinhoPrensaBarril(GameTestHelper helper) {
-        ModConfig.setVelocidadeTeste(0.05F);
         var level = helper.getLevel();
         var player = helper.makeMockServerPlayerInLevel();
         var centro = helper.absolutePos(BlockPos.ZERO);
@@ -2416,15 +2410,13 @@ public class CommerceGameTest {
                 }
                 helper.assertTrue(conta(player, IntoxicantesMod.VINHO) >= 4,
                         "Barril de vinho deve render 4 garrafas");
-                ModConfig.setVelocidadeTeste(null);
-                helper.succeed();
+                            helper.succeed();
             });
         });
     }
 
     @GameTest
     public void dornaPersisteLoteAposSaveLoad(GameTestHelper helper) {
-        ModConfig.setVelocidadeTeste(0.05F);
         var level = helper.getLevel();
         var player = helper.makeMockServerPlayerInLevel();
         var pos = helper.absolutePos(BlockPos.ZERO);
@@ -2441,7 +2433,6 @@ public class CommerceGameTest {
             be.loadWithComponents(entrada);
             helper.assertTrue(((DornaBebidaBlockEntity) be).fermentando(),
                     "O lote da dorna deve sobreviver a save/load");
-            ModConfig.setVelocidadeTeste(null);
             helper.succeed();
         });
     }

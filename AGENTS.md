@@ -6,6 +6,7 @@ Estas instruções se aplicam a todo o projeto. Instruções explícitas do usu�
 
 - **Onde ficam as regras:** quando o usuário falar em "regra", "nova regra" ou pedir para salvar/guardar uma regra ou instrução permanente, registre-a SEMPRE neste `AGENTS.md` — é este arquivo que guia todo o trabalho de criação no mod. Nunca salve regras em outro arquivo, em comentário de código ou apenas na conversa.
 - **Correção na raiz, sem bolas de neve (regra do usuário):** NUNCA crie arquivos novos de correção/versão — nada de `v2`, `v21`, `fix`, `hotfix`, `corrige_*`, `refaz_*`, `completa_*`, `adiciona_*`, `finaliza_*` ou qualquer variante disso. Quando algo estiver errado, corrija DIRETO no arquivo fonte: a classe Java responsável ou o gerador `tools/gen_*.py` que é a fonte principal daquele asset. Scripts-patch paralelos acumulam lixo, envelhecem, são esquecidos e fazem a próxima regeneração da fonte desfazer o conserto. Scripts de patch que já cumpriram o papel devem ser absorvidos pela fonte e apagados (conferindo antes se não têm conteúdo único), não deixados acumulando em `tools/`.
+- **Textura sempre em alta resolução (regra do usuário):** toda textura nova (item, bloco, entidade) deve nascer em ALTA RESOLUÇÃO e com acabamento caprichado — por padrão **128×128**, pintada pixel a pixel pela fonte (gerador `tools/gen_*.py`), com gradiente/shading, variação de tom, brilho, contorno legível e coerência de paleta com o resto do mod. Exceção: modelos 3D usam seu próprio atlas na resolução que o modelo pedir (a geometria é o detalhe). Nada de 16×16 preguiçoso: se a textura parece "simples demais" em zoom, ela não está pronta.
 - **O nome oficial do mod é `SNC Adventures`** (já é o `name` do `fabric.mod.json`). O mod id/namespace `intoxicantes` é técnico/legado e NÃO deve aparecer ao jogador como nome do mod; não renomear IDs existentes.
 - **Documentação no Guia (regra do usuário):** toda nova funcionalidade relevante do SNC Adventures deve ser documentada no Guia do SNC Adventures no MESMO trabalho em que for implementada — implementação, receitas, assets, lang, página do guia, changelog. Uma feature não é considerada completa se o guia ficar desatualizado. (Guia em planejamento — ver `PLANO-GUIA.md`; a regra passa a valer a partir da implementação dele.)
 - **Arma só está pronta depois de revisar lateral, isométrica e primeira pessoa.** Não considerar uma arma finalizada apenas porque o JSON é válido — o modelo pode estar tecnicamente correto e ainda ficar estranho na mão (foi o que fez a diferença na escopeta 12).
@@ -282,6 +283,21 @@ O pack do usuário SOBRESCREVE os assets do jar (regra geral de resource pack). 
 - NUNCA copiar `textures/item/<arma>.png` de arma 3D pro pack. O atlas de materiais vive SÓ no jar.
 - Item novo em 3D: conferir que não existe PNG residual da versão antiga (sprite) no pack — mover pra `backups/` se existir.
 - Validação rápida: rodar as UVs do modelo contra a textura efetiva (jar + pack) e exigir alpha médio ~255 nas faces.
+
+## Guia do SNC espelha a progressão real (regra do usuário)
+
+- Sempre que um fluxo de progressão mudar (cadeia de bebidas, tempos de máquina, quantidades, fontes de loot, economia), o livro Guia do SNC deve ser atualizado NO MESMO ciclo, refletindo os valores do código.
+- O Guia é fonte derivada: `GuiaConteudo` lê tempos/quantidades de `ProcessosBebida` e `ModConfig` — nunca escreva número fixo no guia quando existir constante no código.
+- Cada página de bebida deve mostrar: a cadeia completa (matéria-prima → máquinas → barril → garrafas), tempo real de jogo do ciclo completo, e efeitos da bebida.
+- Antes de entregar, conferir cada passo descrito no guia contra o registro real (`ProcessosBebida.registrar()`, receitas, tempos). Passo no guia que não existe no jogo é bug.
+
+## Máquinas com tamanho real — multi-bloco (regra do usuário)
+
+- Máquinas de produção (dorna/barril de fermentação, alambique, esmagadora, prensa, caldeirão e futuras) NÃO são blocos-toy de 1m³: nascem com o tamanho REAL da versão grande — hoje 2 blocos de altura (padrão PARTE: BAIXO/ALTO, como o PosteLuzBlock).
+- A metade BAIXO carrega o BlockEntity e a lógica; a metade ALTO é estrutural (sem BE). Cliques na parte ALTO roteiam pra BAIXO; quebrar uma parte quebra a outra; colocar em cima de slot ocupado é recusado.
+- Barris de bebida ficam 1 bloco DE PROPÓSITO: barril real tem ~1m de altura — já é tamanho real.
+- O modelo é desenhado no gerador (`tools/gen_bebidas.py`) no espaço COMPLETO (0..32 de altura) e fatiado em dois modelos (baixo 0..16, alto 16..32 deslocado -16). O item mostra a máquina inteira (modelo próprio de item).
+- Toda máquina NOVA segue o padrão desde a criação: propriedade PARTE, formas por parte, colocação de 2 blocos, quebra acoplada, blockstate com 2 variantes, modelo fatiado no gerador.
 
 ## Comércio e menu do Gago
 

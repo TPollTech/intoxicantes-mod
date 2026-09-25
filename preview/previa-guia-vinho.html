@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Guia do SNC: página do Vinho com fluxo completo auditado</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px;max-width:960px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:#f2d06b}
+  .tag{display:inline-block;background:#23863622;color:#3fb950;border:1px solid #238636;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+  .tag.novo{background:#1f6feb22;color:#58a6ff;border-color:#1f6feb}
+  .livro{background:#EFE3C0;border-radius:4px;padding:14px 16px;color:#3A2E1C;font-size:13.5px;line-height:1.5;box-shadow:0 2px 10px #00000066}
+  .titulo{font-size:15px;color:#9C3B25;font-weight:600;border-bottom:1px solid #D9C79A;padding-bottom:4px;margin-bottom:10px}
+  .passo{display:flex;align-items:center;gap:8px;margin:7px 0;font-family:monospace;font-size:12.5px}
+  .passo .ic{width:26px;height:26px;background:#D9C79A;border:1px solid #8A7B5A;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+  .passo .seta{color:#9C3B25;font-weight:700}
+  .passo .tmp{background:#e2e0b8;border:1px solid #6B6B34;border-radius:3px;padding:0 5px;font-size:11px;color:#6B6B34}
+  .passo .leg{color:#8A7B5A;font-size:11.5px}
+  .secao{font-weight:600;color:#9C3B25;margin-top:12px;font-size:13px}
+  .caixa{background:#fff3d6;border:1px dashed #C8971E;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total{background:#e8efda;border:1px solid #6B8E23;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total b{color:#3d5a11}
+  .auditoria{margin-top:18px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1160px;font-size:13px}
+  .auditoria b{color:#f2d06b}
+  table{border-collapse:collapse;margin-top:8px;width:100%}
+  td,th{border:1px solid #30363d;padding:5px 10px;font-size:12.5px;text-align:left}
+  th{background:#21262d;color:#f2d06b}
+  .ok{color:#3fb950}.info{color:#8b949e}
+  .ranking{margin-top:14px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1160px;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Guia do SNC — página do Vinho fecha as 4 bebidas <small>v1.2.53</small></h1>
+<div class="sub">Auditoria confirmou sua spec (60/60 testes). A página ganhou <b>"dois estágios no mesmo bloco"</b> (a mágica do barril de vinho) e <b>o tempo total</b>. As 4 bebidas agora seguem o padrão: cadeia + tempos + pegadinhas + ciclo completo.</div>
+<div class="grid">
+  <div class="card">
+    <h2>Cadeia do vinho <span class="tag">já existia, confirmada</span></h2>
+    <div class="livro">
+      <div class="titulo">Da uva à garrafa</div>
+      <div class="passo"><span class="ic">🍇</span> ×6 <span class="leg">uvas</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">⚙️</span><span class="tmp">40s</span><span class="leg">prensa de uvas (esmaga e coa)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🧃</span> ×4 <span class="leg">caldo de uva</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">5min + 5min</span><span class="leg">barril de vinho</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍾</span> ×4 <span class="leg">vinho</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Continuação <span class="tag novo">3 seções NOVAS</span></h2>
+    <div class="livro">
+      <div class="secao">O barril</div>
+      <div>🛢️ 4 caldo de uva por lote; fermenta e matura no mesmo barril; engarrafa com garrafa de vidro.</div>
+      <div class="secao">Dois estágios no mesmo bloco</div>
+      <div class="caixa">✦ O barril de vinho <b>FERMENTA</b> primeiro (bolhas e barulho) e, quando a fermentação acaba, passa <b>SOZINHO</b> pra <b>MATURAÇÃO</b> (silêncio de adega). Não precisa retirar nada no meio — carregou, esperou, engarrafou.</div>
+      <div class="secao">O ciclo completo</div>
+      <div class="total">Da uva à garrafa: <b>11min10s</b> de relógio (esmagar 40s + fermentar 5min + maturar 5min). A bebida mais rápida da destilaria. Config ajusta tudo.</div>
+      <div class="secao">Adega completa</div>
+      <div class="caixa">✦ Prensa + barril de vinho: só <b>duas máquinas</b> e você tem uma adega inteira. As uvas amadurecem com a lâmpada UV (cacho no UV máximo dobra a colheita).</div>
+    </div>
+  </div>
+</div>
+<div class="auditoria">
+<b>Auditoria código × guia (sua spec passo a passo):</b>
+<table>
+<tr><th>Etapa</th><th>Sua spec</th><th>Código</th><th>Guia</th></tr>
+<tr><td>Prensa</td><td>6 uvas → 4 mosto (caldo de uva)</td><td class="ok">✓ Prima(UVA, 6 → MOSTO_DE_UVA, 4), 40s</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Barril</td><td>fermenta 5min + matura 5min, dois estágios no mesmo bloco</td><td class="ok">✓ Barril("vinho", 300s, 300s); a transição FASE_FERMENTANDO→FASE_MATURANDO é AUTOMÁTICA no tick (BARREL_CLOSE soa, sem intervenção)</td><td class="info">⚠ não explicava a transição automática → <b>seção nova</b></td></tr>
+<tr><td>Garrafas</td><td>4</td><td class="ok">✓ 4 por lote, retirada 1 a 1</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Uvas</td><td>—</td><td class="ok">✓ age 4 = 1 uva; UV máximo (uv_age 3) = 2 uvas por cacho</td><td class="ok">✓ página de cultivos + seção já diziam</td></tr>
+<tr><td>Ciclo completo</td><td>—</td><td class="ok">40+300+300 = 640s = <b>10min40s</b></td><td class="info"><b>seção nova</b> — computada das constantes</td></tr>
+</table>
+</div>
+<div class="ranking">
+<b>🏆 As 4 bebidas, do mais rápido ao mais longo (tempo de relógio do ciclo completo):</b><br>
+🍷 <b>Vinho — 10min40s</b> (prensa + barril: a adega de 2 máquinas) · 🍺 <b>Cerveja — 9min40s</b> do malte (12min50s com torrefação) · 🥃 <b>Cachaça — 19min10s</b> · 🏴‍☠️ <b>Rum — 20min50s</b> (o caminho mais longo, como manda a tradição).<br>
+<span class="info">Todas com "ciclo completo" computado das constantes do código — mudou o config, muda o livro.</span>
+</div>
+</body>
+</html>

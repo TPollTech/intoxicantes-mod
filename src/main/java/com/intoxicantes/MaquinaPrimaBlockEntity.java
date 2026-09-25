@@ -86,7 +86,7 @@ public class MaquinaPrimaBlockEntity extends BlockEntity {
                 stack.shrink(r.get().secQtd());
                 this.esperandoSegunda = false;
                 this.fervuraEmCurso = true; // a próxima expiração SERVE (não volta pro lúpulo)
-                this.ticksTotal = Math.max(2, Math.round(30F * ModConfig.get().velocidadeEfetiva()));
+                this.ticksTotal = ModConfig.ticksDeSegundos(30F); // v1.2.51: seg→ticks
                 this.ticksRestantes = ticksTotal; // a fervura com lúpulo
                 setChanged();
                 avisar(player, Component.translatable(
@@ -118,13 +118,14 @@ public class MaquinaPrimaBlockEntity extends BlockEntity {
         this.resultado = new ItemStack(rec.output(), rec.qtdOut());
         this.extra = rec.extraQtd() > 0 ? new ItemStack(rec.extraOut(), rec.extraQtd())
                 : ItemStack.EMPTY;
-        // 1ª dose (mostura): 40s
-        this.ticksTotal = Math.max(2, Math.round(40F * ModConfig.get().velocidadeEfetiva()));
+        // 1ª dose (mostura): 40s (v1.2.51: seg→ticks — era 40 TICKS = 2 segundos)
+        this.ticksTotal = ModConfig.ticksDeSegundos(40F);
         this.ticksRestantes = ticksTotal;
         this.servido = false;
         this.esperandoSegunda = false;
         this.fervuraEmCurso = false;
         setChanged();
+        sincronizar(); // v1.2.55: o client acorda o renderer (rolos/parafuso)
         avisar(player, Component.translatable(
                 "block.intoxicantes.prima_carregada", ticksTotal / 20), true);
         return true;
@@ -155,6 +156,7 @@ public class MaquinaPrimaBlockEntity extends BlockEntity {
             servido = false;
             fervuraEmCurso = false;
             setChanged();
+            sincronizar(); // v1.2.55: máquina vazia de novo
             level.playSound(null, worldPosition, SoundEvents.WOOD_PLACE,
                     net.minecraft.sounds.SoundSource.BLOCKS, 0.8F, 1.1F);
             return;
@@ -202,6 +204,7 @@ public class MaquinaPrimaBlockEntity extends BlockEntity {
             }
         }
         setChanged();
+        sincronizar(); // v1.2.55: progresso anda (barra/parafuso do client)
     }
 
     private boolean temSegundaDosePendente() {
@@ -212,6 +215,42 @@ public class MaquinaPrimaBlockEntity extends BlockEntity {
 
     public boolean processando() {
         return !insumo.isEmpty() && !servido && !esperandoSegunda && ticksRestantes > 0;
+    }
+
+    // ==================================================== SYNC DO RENDERER (v1.2.55)
+
+    /** Manda o estado pro client (o renderer lê no getRenderData). */
+    private void sincronizar() {
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    /** O estado vivo pro renderer (mesma convenção do PainelLed). */
+    @Override
+    public Object getRenderData() {
+        return this;
+    }
+
+    /** Progresso do lote 0..1 (o client usa no parafuso/barra). */
+    public float progressoClient() {
+        if (ticksTotal <= 0) return 0F;
+        return Math.max(0F, Math.min(1F, 1F - ticksRestantes / (float) ticksTotal));
+    }
+
+    /** O TIPO da máquina (o renderer escolhe a animação: rolo/parafuso/rodopio). */
+    public MaquinaPrimaBlock.Tipo tipoClient() {
+        return tipo;
     }
 
     private void entregar(ServerLevel level, Player player, ItemStack stack) {

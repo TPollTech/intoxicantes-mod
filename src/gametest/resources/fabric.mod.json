@@ -5,7 +5,8 @@
   "name": "Intoxicantes commerce tests",
   "environment": "*",
   "entrypoints": {
-    "fabric-gametest": ["com.intoxicantes.CommerceGameTest", "com.intoxicantes.GuiaGameTest"],
+    "main": ["com.intoxicantes.TestesBebidaBoot"],
+    "fabric-gametest": ["com.intoxicantes.CommerceGameTest", "com.intoxicantes.GuiaGameTest", "com.intoxicantes.MarketOverhaulGameTest", "com.intoxicantes.SaudeGameTest"],
     "fabric-client-gametest": ["com.intoxicantes.CommerceClientTest"]
   }
 }

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.52 — Guia do SNC: texto sem sombra pesada</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1200px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+  .card h2{font-size:14px;margin:0 0 10px;color:#f2d06b;font-weight:600}
+  .card p{font-size:12px;color:#8b949e;margin:8px 0 0}
+  .tag{display:inline-block;background:#23863622;color:#3fb950;border:1px solid #238636;
+       border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+  .tag.ruim{background:#f8514922;color:#f85149;border-color:#f85149}
+  canvas{image-rendering:pixelated;border-radius:6px;display:block;width:100%;height:auto}
+</style>
+</head>
+<body>
+<h1>Guia do SNC — letras sem a "negrito forte" <small>v1.2.52</small></h1>
+<div class="sub">Causa: o texto do papel era desenhado COM sombra (padrão do <code>g.text</code> de 5 args).
+Sobre o papel claro, cada letra ganha uma cópia preta deslocada +1px — lia como negrito pesado.
+Correção: <code>dropShadow=false</code> em todo texto do papel (13 pontos). Capa escura e botões de couro mantêm a sombra (ajuda lá).</div>
+<div class="grid">
+  <div class="card">
+    <h2>ANTES — com sombra <span class="tag ruim">difícil de ler</span></h2>
+    <canvas id="antes" width="520" height="300"></canvas>
+    <p>Cada letra tem cópia preta +1px: sobre papel claro vira "gordura" escura ao redor do glifo.</p>
+  </div>
+  <div class="card">
+    <h2>DEPOIS — sem sombra <span class="tag">tinta limpa</span></h2>
+    <canvas id="depois" width="520" height="300"></canvas>
+    <p>Só a tinta (cor pura, sem cópia): leitura leve, estilo livro manuscrito.</p>
+  </div>
+</div>
+<script>
+// Simula pixel a pixel o desenho do MC: glifo 5x7 em tinta, com/sem sombra deslocada +1,+1.
+const PAPEL="#EFE3C0", TINTA="#3A2E1C", SOMBRA="rgba(0,0,0,0.55)", VERM="#9C3B25", FRACA="#8A7B5A";
+// glifos 5x7 ("SNC ADVENTURES" simulado com letras genéricas)
+function letra(c){ // colunas de bits 5x7
+  const F={
+   "S":[".####","#....","#....",".###.","....#","....#","####."],
+   "N":["#...#","##..#","#.#.#","#..##","#..##","#...#","#...#"],
+   "C":[".###.","#...#","#....","#....","#....","#...#",".###."],
+   "A":[".###.","#...#","#...#","#####","#...#","#...#","#...#"],
+   "D":["####.","#...#","#...#","#...#","#...#","#...#","####."],
+   "V":["#...#","#...#","#...#","#...#","#...#",".#.#.","..#.."],
+   "E":["#####","#....","#....","####.","#....","#....","#####"],
+   "T":["#####","..#..","..#..","..#..","..#..","..#..","..#.."],
+   "U":["#...#","#...#","#...#","#...#","#...#","#...#",".###."],
+   "R":["####.","#...#","#...#","####.","#.#..","#..#.","#...#"],
+   "O":[".###.","#...#","#...#","#...#","#...#","#...#",".###."],
+   "F":["#####","#....","#....","####.","#....","#....","#...."],
+   "M":["#...#","##.##","#.#.#","#.#.#","#...#","#...#","#...#"],
+   "L":["#....","#....","#....","#....","#....","#....","#####"],
+   "I":["#####","..#..","..#..","..#..","..#..","..#..","#####"],
+   "B":["####.","#...#","#...#","####.","#...#","#...#","####."],
+   "P":["####.","#...#","#...#","####.","#....","#....","#...."],
+   "G":[".###.","#...#","#....","#.###","#...#","#...#",".###."],
+   "H":["#...#","#...#","#...#","#####","#...#","#...#","#...#"],
+   "X":["#...#","#...#",".#.#.","..#..",".#.#.","#...#","#...#"],
+   "Q":[".###.","#...#","#...#","#...#","#.#.#","#..#.",".##.#"],
+   "J":["..###","...#.","...#.","...#.","...#.","#..#.",".##.."],
+   "K":["#...#","#..#.","#.#..","##...","#.#..","#..#.","#...#"],
+   "W":["#...#","#...#","#...#","#.#.#","#.#.#","##.##","#...#"],
+   "Z":["#####","....#","...#.","..#..",".#...","#....","#####"],
+   "Y":["#...#","#...#",".#.#.","..#..","..#..","..#..","..#.."],
+   ",":[".....",".....",".....",".....","..#..","..#..",".#..."],
+   ".":[".....",".....",".....",".....",".....","..##.","..##."],
+   " ":[".....",".....",".....",".....",".....",".....","....."],
+  };
+  return F[c]||F[" "];
+}
+function desenhar(canvas, comSombra){
+  const ctx=canvas.getContext("2d");
+  ctx.fillStyle=PAPEL; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // manchas de papel
+  ctx.fillStyle="rgba(201,178,126,0.25)";
+  ctx.beginPath();ctx.arc(60,250,40,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(430,60,55,0,7);ctx.fill();
+  const escala=3;
+  function texto(s,x0,y,cor){
+    let x=x0;
+    for(const c of s){
+      const gl=letra(c);
+      for(let l=0;l<7;l++)for(let col=0;col<5;col++){
+        if(gl[l][col]==="#"){
+          if(comSombra){ctx.fillStyle=SOMBRA;ctx.fillRect(x+col*escala+escala,y+l*escala+escala,escala,escala);}
+        }
+      }
+      for(let l=0;l<7;l++)for(let col=0;col<5;col++){
+        if(gl[l][col]==="#"){ctx.fillStyle=cor;ctx.fillRect(x+col*escala,y+l*escala,escala,escala);}
+      }
+      x+=6*escala;
+    }
+  }
+  // título de página (carimbo)
+  ctx.fillStyle="rgba(156,59,37,0.19)";
+  ctx.fillRect(24,18,240,30); ctx.strokeStyle=VERM; ctx.lineWidth=2; ctx.strokeRect(24,18,240,30);
+  texto("SNC",40,26,VERM);
+  texto("ADVENTURES",86,26,VERM);
+  // corpo
+  texto("A DORNA FERMENTA O",30,86,TINTA);
+  texto("CALDO DE CANA EM 7",30,118,TINTA);
+  texto("MINUTOS ANTES DO",30,150,TINTA);
+  texto("ALAMBIQUE. A DE CERVEJA",30,182,TINTA);
+  texto("USA BARRIL DIRETO.",30,214,FRACA);
+  // dica
+  texto("DIC: TROQUE O FILTRO",30,258,VERM);
+}
+desenhar(document.getElementById("antes"),true);
+desenhar(document.getElementById("depois"),false);
+</script>
+</body>
+</html>

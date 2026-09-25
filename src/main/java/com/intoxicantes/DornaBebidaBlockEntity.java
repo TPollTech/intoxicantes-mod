@@ -75,6 +75,7 @@ public class DornaBebidaBlockEntity extends BlockEntity {
         this.ticksRestantes = ticksTotal;
         this.servido = false;
         setChanged();
+        sincronizar(); // v1.2.55: o client acorda o renderer (bolhas/vapor)
         avisar(player, Component.translatable("block.intoxicantes.dorna_carregada",
                 ticksTotal / 20 / 60, (ticksTotal / 20) % 60));
         return true;
@@ -88,6 +89,7 @@ public class DornaBebidaBlockEntity extends BlockEntity {
             servido = false;
             insumo = ItemStack.EMPTY;
             setChanged();
+            sincronizar(); // v1.2.55: dorna vazia de novo
             entregar(level, player, saida);
             level.playSound(null, worldPosition, SoundEvents.BREWING_STAND_BREW,
                     SoundSource.BLOCKS, 0.8F, 1.2F);
@@ -121,15 +123,54 @@ public class DornaBebidaBlockEntity extends BlockEntity {
             ticksRestantes = 0;
             servido = true;
             setChanged();
+            sincronizar(); // v1.2.55: fim do lote (renderer para)
             level.playSound(null, worldPosition, SoundEvents.BREWING_STAND_BREW,
                     SoundSource.BLOCKS, 0.9F, 0.8F);
         } else {
             setChanged();
+            // v1.2.55: o VAPOR da fermentação (1 puff por segundo, server-side,
+            // só enquanto borbulha — a máquina viva sem custo quando ociosa)
+            if (level.getRandom().nextInt(3) == 0) {
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                        worldPosition.getX() + 0.5, worldPosition.getY() + 0.75,
+                        worldPosition.getZ() + 0.5, 1, 0.2, 0.05, 0.2, 0.004);
+            }
         }
     }
 
     public boolean fermentando() {
         return !insumo.isEmpty() && !servido && ticksRestantes > 0;
+    }
+
+    // ==================================================== SYNC DO RENDERER (v1.2.55)
+
+    /** Manda o estado pro client (o renderer lê no getRenderData). */
+    private void sincronizar() {
+        if (level != null && !level.isClientSide()) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    @Override
+    public net.minecraft.nbt.CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    /** O estado vivo pro renderer (mesma convenção do PainelLed). */
+    @Override
+    public Object getRenderData() {
+        return this;
+    }
+
+    /** Progresso do lote 0..1 (o client usa pro nível do caldo). */
+    public float progressoClient() {
+        if (ticksTotal <= 0) return 0F;
+        return Math.max(0F, Math.min(1F, 1F - ticksRestantes / (float) ticksTotal));
     }
 
     private int porcentagem() {

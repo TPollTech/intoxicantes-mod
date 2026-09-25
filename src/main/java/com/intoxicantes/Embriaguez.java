@@ -390,6 +390,8 @@ public final class Embriaguez {
         if (novo >= cfg.embriaguezLimiarHic && !PROXIMO_HIC.containsKey(id)) {
             PROXIMO_HIC.put(id, 60 + player.getRandom().nextInt(60));
         }
+        // v1.2.54: a bebedeira desidrata (a cabeça de manhã não é só da ressaca)
+        SaudeSystem.bebidaDesidratou(player, dose);
         save();
 
         // v1.2.10: cruzou o limiar da fala bêbada? o Gago do balcão COMENTA

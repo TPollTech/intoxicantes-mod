@@ -67,12 +67,17 @@ public final class MarketSystem {
     private static final String DATA_FILE = "intoxicantes_market.dat";
 
     /**
-     * Offsets locais (rotacao NONE) a partir do CENTRO do template 15x5x11:
-     * - porta: alpendre na frente da porta (z=10, centro x=7)
+     * Offsets locais (rotacao NONE) a partir do CENTRO do template (x7,z5):
+     * - porta: v1.2.51 — o posto da madrugada é ATRÁS DO GUICHÊ (x7, z8):
+     *   1 bloco DENTRO da loja, encostado na porta-grade; de madrugada o
+     *   guichê fecha (embaixo sólido, em cima grade) e ele atende POR TRÁS,
+     *   visível através da grade de ferro — igual bodega de esquina kkkk.
+     *   (Antes era o alpendre z10 — na FRENTE da porta: com o guichê fechado
+     *   o dono ficaria trancado FORA da própria loja.)
      * - balcao: atras do balcão (x=4, z=3) — onde o Gago nasce pelo template
      * O jigsaw gira os DOIS junto com a rotacao real da estrutura.
      */
-    private static final net.minecraft.core.Vec3i PORTA_LOCAL = new net.minecraft.core.Vec3i(0, 0, 5);
+    private static final net.minecraft.core.Vec3i PORTA_LOCAL = new net.minecraft.core.Vec3i(0, 0, 3);
     private static final net.minecraft.core.Vec3i BALCAO_LOCAL = new net.minecraft.core.Vec3i(-3, 0, -2);
 
     @Nullable
@@ -97,8 +102,8 @@ public final class MarketSystem {
     @Nullable
     private static ChunkPos centroVarredura = null;
     private static int clockCooldownTick = 0;
-    /** v1.2.19: estado ABERTO/FECHADO conhecido do letreiro (detecção da virada). */
-    private static boolean mercadoAberto = true;
+    /** v1.2.51: estado do GUICHÊ conhecido (a porta-grade) — detecção da virada. */
+    private static boolean guicheFechadoAnterior = false;
     /** v1.2.19: a 1a avaliação pós-boot só sincroniza (sem tocar o arpejo). */
     private static boolean viradaIniciada = false;
     private static int manageCooldown = 0;
@@ -224,8 +229,26 @@ public final class MarketSystem {
      * (1.2.18–1.2.23) não tem a marca "nova" no NBT. Qualquer passada desmonta
      * SÓ as velhas — chunk longe é limpo assim que carrega.
      */
+    /**
+     * v1.2.53: a parede do mercado na PELE da região (o zelador usa pra
+     * devolver as paredes que nasceram porta no bug do "G" duplicado).
+     * Na 26.3 os blocos coloridos são ColorCollection — pick(DyeColor).
+     */
+    private static net.minecraft.world.level.block.Block paredeDaRegiao() {
+        return switch (regiaoMercado) {
+            case "sertao" -> net.minecraft.world.level.block.Blocks.DYED_TERRACOTTA
+                    .pick(net.minecraft.world.item.DyeColor.ORANGE);
+            case "serra" -> net.minecraft.world.level.block.Blocks.SPRUCE_PLANKS;
+            default -> net.minecraft.world.level.block.Blocks.CONCRETE
+                    .pick(net.minecraft.world.item.DyeColor.GREEN);
+        };
+    }
+
     static void zeladorDaPropriedade(ServerLevel level, BlockPos pos) {
         BlockPos base = pos.offset(-10, 0, -10);
+        // v1.2.55: a posição REAL da porta (metade-superior dela) — fora
+        // dali, porta-grade é parede que nasceu porta (bug do "G" duplicado)
+        BlockPos portaReal = posPortaReal(pos).above();
         for (int dx = 0; dx < 21; dx++) {
             for (int dy = 0; dy < 8; dy++) {
                 for (int dz = 0; dz < 21; dz++) {
@@ -245,6 +268,20 @@ public final class MarketSystem {
                             && !be.isNova()) {
                         level.destroyBlock(p, false);
                     }
+                    // v1.2.53/1.2.55: conserto do mercado "porta" — o gerador
+                    // 1.2.51 definia o char "G" (parede) DUAS vezes na paleta e
+                    // a metade-superior da porta venceu: as PAREDES nasceram
+                    // porta. Como as falsas empilham (colunas de upper), a
+                    // checagem "de baixo não é porta" não pega nada — a regra
+                    // certa é POSICIONAL: só é porta de verdade a metade-superior
+                    // que está EXATAMENTE sobre a porta real (portaOffset, girada
+                    // igual à estrutura). Toda outra porta-grade vira parede da
+                    // região — sem tocar na porta genuína.
+                    else if (estado.getBlock() instanceof PortaGradeBlock
+                            && estado.getValue(PortaGradeBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER
+                            && !p.equals(portaReal)) {
+                        level.setBlockAndUpdate(p, paredeDaRegiao().defaultBlockState());
+                    }
                 }
             }
         }
@@ -252,32 +289,52 @@ public final class MarketSystem {
         // já é o asfalto do mercado — mundos 1.2.23/1.2.24 ganham a travessia
         if (level.isLoaded(pos)) {
             reformarPatio(level, pos);
+            // v1.2.51: reforma a ENTRADA (porta vanilla → porta-grade + mini
+            // display) nos mundos 1.2.50 e anteriores
+            reformarEntrada(level, pos);
         }
     }
 
     /**
-     * v1.2.19 — O LETREIRO VIVO: detecta a VIRADA do horário do mercado
-     * (00:00 fecha / 07:00 abre, a MESMA conta do plantão do Gago) e:
-     * 1) manda a placa do letreiro trocar o status (ABERTO verde/FECHADO
-     * vermelho, sync pro client);
-     * 2) toca o ARPEJO DA VIRADA na placa (sobe ao abrir, desce ao fechar);
-     * 3) reforça os POSTES DE LUZ do pátio (anti-fuso: o scheduleTick do
-     * poste pode atrasar com o chunk longe).
+     * v1.2.55: a posição da porta REAL (metade LOWER) — template (x7, z9),
+     * ou seja local (0, 0, 4), girado pela rotação da estrutura. Fonte única
+     * usada pelo reformarEntrada (que coloca a porta) e pelo zelador
+     * (que agora protege EXATAMENTE ela e derruba as falsas).
+     */
+    private static BlockPos posPortaReal(BlockPos centro) {
+        net.minecraft.core.Vec3i g = girar(new net.minecraft.core.Vec3i(0, 0, 4),
+                rotacaoDaPorta(portaOffset));
+        return new BlockPos(centro.getX() + g.getX(), centro.getY(),
+                centro.getZ() + g.getZ());
+    }
+
+    /**
+     * v1.2.19 — O ZELADOR DO HORÁRIO (refeito na v1.2.51): o mercado é 24h,
+     * então NÃO existe mais "virada ABERTO/FECHADO" (era código morto: o
+     * abertoAgora=true cravado nunca disparava nada). O que fica vivo aqui,
+     * a cada passada:
+     * 1) o GUICHÊ: sincroniza a PORTA-GRADE (fecha às 00:00 — o Gago atende
+     *    POR TRÁS da grade; abre às 07:00 — passagem livre);
+     * 2) reforça os POSTES DE LUZ do pátio (anti-fuso: o scheduleTick do
+     *    poste pode atrasar com o chunk longe).
      */
     private static void avaliarViradaDoMercado(ServerLevel overworld, BlockPos pos) {
-        // v1.2.44 — MERCADO 24H: acabou o expediente. O dono da esquina não
-        // fecha mais (a madrugada é quando a esquina mais ferve kkkk). A
-        // varredura continua POR VIA DAS DÚVIDAS: conserta placa de save
-        // antigo que ficou "FECHADO" e mantém os postes de luz acertados.
-        boolean abertoAgora = true;
-        if (viradaIniciada && abertoAgora == mercadoAberto) return;
-        boolean silencioso = !viradaIniciada; // 1a avaliação do boot: sem fanfarra
-        viradaIniciada = true;
-        mercadoAberto = abertoAgora;
+        boolean naPorta = estaNaPorta(overworld);
+        boolean virada = !viradaIniciada || naPorta != guicheFechadoAnterior;
+        if (virada) {
+            viradaIniciada = true;
+            guicheFechadoAnterior = naPorta;
+        } else if (overworld.getGameTime() % 1000L != 0L) {
+            // sem virada: a varredura (3.5k leituras) só roda na virada do
+            // guichê e como reforço 1×/hora do jogo — NUNCA por tick
+            return;
+        }
 
         // a estrutura GIRA na geração, então a caixa é SIMÉTRICA em torno do
         // centro do prédio (meia-extensão máx do template 15×19 = ±10). Uma
-        // varredura por VIRADA (rara): acha a placa do letreiro e os postes.
+        // varredura por passada (a cada tick é barata demais pra valer o
+        // custo; o Zelador de 30s cobre o resto): acha a porta-grade, o
+        // mini display e os postes.
         BlockPos base = pos.offset(-10, 0, -10);
         for (int dx = 0; dx < 21; dx++) {
             for (int dy = 0; dy < 8; dy++) {
@@ -303,15 +360,22 @@ public final class MarketSystem {
                         // 1.2.24 deixou um corpo 1 bloco pro lado, o "negócio
                         // preto flutuando" do print) — recolhida sem drop
                         overworld.destroyBlock(p, false);
-                    } else if (estado.getBlock() == IntoxicantesMod.PLACA_ESQUINAO
-                            && estado.getValue(PlacaEsquinaoBlock.PARTE) == PlacaEsquinaoBlock.Parte.PAINEL
-                            && overworld.getBlockEntity(p) instanceof PlacaEsquinaoBlockEntity placa
-                            && placa.isLinkMercado()) {
-                        if (placa.isAberto() != abertoAgora) {
-                            placa.abertoChanged(abertoAgora);
-                        }
-                        if (!silencioso) {
-                            placa.tocarAcordeVirada(abertoAgora);
+                    } else if (estado.getBlock() instanceof PortaGradeBlock
+                            && estado.getValue(PortaGradeBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER) {
+                        // v1.2.51: O GUICHÊ segue o relógio (00:00 fecha — o
+                        // Gago atende POR TRÁS da grade; 07:00 abre de novo)
+                        PortaGradeBlock.sincronizar(p,
+                                estado.getValue(PortaGradeBlock.FACING),
+                                naPorta, overworld);
+                    } else if (estado.getBlock() == IntoxicantesMod.PAINEL_LED
+                            && overworld.getBlockEntity(p) instanceof PainelLedBlockEntity mini
+                            && mini.getLinhas().equals(java.util.List.of("ABERTO", "· 24H ·"))) {
+                        // v1.2.51: o MINI DISPLAY “ABERTO · 24H” nunca dorme
+                        // (defesa: se o freguês apagou o LED pela Central, o
+                        // dono da esquina religa — a esquina NUNCA “fecha”)
+                        if (!estado.getValue(PainelLedBlock.LIT)) {
+                            overworld.setBlockAndUpdate(p,
+                                    estado.setValue(PainelLedBlock.LIT, Boolean.TRUE));
                         }
                     }
                 }
@@ -550,13 +614,28 @@ public final class MarketSystem {
         // o tick dele o devolve ao posto e o gerenciador reassume
         if (gago.isPuto()) return;
 
-        // v1.2.44 — O GAGO NUNCA MAIS LARGA O POSTO: a "mudança de plantão"
-        // teleportava o dono da esquina a cada ciclo (o posto da madrugada não
-        // existe mais, mas o código antigo continuava mexendo) e é EXATAMENTE
-        // assim que ele "falava no chat sem aparecer": entalado em bloco em
-        // alguma passada de madrugada. Agora o manager CONSERTA ONDE ELE ESTÁ:
-        // desobstrui o corpo (garantia do 1.2.30) e trava o posto aí mesmo.
-        gago.consolidarAqui(level);
+        // v1.2.51 — A ÂNCORA DUPLA (balcão de dia, guichê de madrugada): a
+        // v1.2.44 "consertava onde ele estava" e o dono da esquina ficava
+        // solto do horário (a raiz do "Gago sumiu/de cara pro muro"). Na
+        // VIRADA (00:00 desce pro guichê / 07:00 volta pro balcão), se ele
+        // NÃO está no posto certo: garante o destino livre (a pauta do
+        // 1.2.30 — nunca dentro de bloco), teleporta e trava o plantão lá.
+        boolean noLugar = gago.blockPosition().distSqr(destino) < 4.0;
+        if (noLugar && gago.isNoAi() && gago.estaDePlantao()) {
+            return; // já ancorado no posto certo: caminho feliz, custo zero
+        }
+        if (noLugar) {
+            // no lugar certo mas "solto" (save velho, empurrão): trava aí
+            gago.consolidarAqui(level);
+            return;
+        }
+        // TROCA DE PLANTÃO: destino limpo, snap e NoAI — o mesmo caminho
+        // seguro da v1.2.30 (garantirPostoLivre derruba com drop SÓ bloco do
+        // próprio mercado/natureza: nunca baú, porta ou cama de jogador)
+        MarketSystem.garantirPostoLivre(level, destino);
+        gago.anunciarMudancaPosicao(level);
+        gago.absSnapTo(destino.getX() + 0.5, destino.getY(), destino.getZ() + 0.5, 180F, 0F);
+        gago.setupPostoMercado(destino);
     }
 
     /**
@@ -916,6 +995,54 @@ public final class MarketSystem {
                 : (px < 0 && pz == 0) ? net.minecraft.world.level.block.Rotation.CLOCKWISE_90
                 : (px == 0 && pz < 0) ? net.minecraft.world.level.block.Rotation.CLOCKWISE_180
                 : net.minecraft.world.level.block.Rotation.COUNTERCLOCKWISE_90;
+    }
+
+    /**
+     * v1.2.51 — A REFORMA DA ENTRADA (mundos 1.2.50 e anteriores): troca a
+     * porta de spruce vanilla do template pela PORTA-GRADE do mod (o guichê
+     * de madrugada) e planta o MINI DISPLAY "ABERTO · 24H" ao lado direito
+     * da porta — os mesmos offsets do template novo, girados pela rotação
+     * real. Idempotente e seguro: só age em bloco DO PRÓPRIO template
+     * (porta de spruce no vão, ar nas posições novas; nunca em construção
+     * de jogador).
+     */
+    private static void reformarEntrada(ServerLevel level, BlockPos centro) {
+        java.util.function.BiFunction<Integer, Integer, BlockPos> noMundo = (lx, lz) -> {
+            net.minecraft.core.Vec3i g = girar(new net.minecraft.core.Vec3i(lx - 7, 0, lz - 5),
+                    rotacaoDaPorta(portaOffset));
+            return new BlockPos(centro.getX() + g.getX(), centro.getY(), centro.getZ() + g.getZ());
+        };
+        // 1) a PORTA-GRADE no vão da porta (template x7, z9) — a mesma conta
+        // do posPortaReal (fonte única com o zelador): lower + upper
+        BlockPos raiz = posPortaReal(centro);
+        if (level.isLoaded(raiz)
+                && level.getBlockState(raiz).getBlock() == net.minecraft.world.level.block.Blocks.SPRUCE_DOOR
+                && level.getBlockState(raiz.above()).getBlock() == net.minecraft.world.level.block.Blocks.SPRUCE_DOOR) {
+            net.minecraft.world.level.block.Rotation rot = rotacaoDaPorta(portaOffset);
+            net.minecraft.core.Direction facingMundo = rot.rotate(net.minecraft.core.Direction.SOUTH);
+            BlockState portaNova = IntoxicantesMod.PORTA_GRADE.defaultBlockState()
+                    .setValue(PortaGradeBlock.FACING, facingMundo)
+                    .setValue(PortaGradeBlock.FECHADA, estaNaPorta(level));
+            level.setBlockAndUpdate(raiz, portaNova.setValue(PortaGradeBlock.HALF,
+                    net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER));
+            level.setBlockAndUpdate(raiz.above(), portaNova.setValue(PortaGradeBlock.HALF,
+                    net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER));
+        }
+        // 2) o MINI DISPLAY "ABERTO · 24H" (template x12, y2, z10) — só onde
+        // é ar (a fachada da 1.2.31+ é parede/placa; jogador nunca perde bloco)
+        BlockPos display = noMundo.apply(12, 10).above();
+        if (level.isLoaded(display) && level.getBlockState(display).isAir()) {
+            net.minecraft.world.level.block.Rotation rot = rotacaoDaPorta(portaOffset);
+            net.minecraft.core.Direction facingMundo = rot.rotate(net.minecraft.core.Direction.SOUTH);
+            level.setBlockAndUpdate(display, IntoxicantesMod.PAINEL_LED.defaultBlockState()
+                    .setValue(PainelLedBlock.FACING, facingMundo)
+                    .setValue(PainelLedBlock.TELAS, 1)
+                    .setValue(PainelLedBlock.LIT, Boolean.TRUE));
+            if (level.getBlockEntity(display) instanceof PainelLedBlockEntity mini) {
+                mini.aplicar(java.util.List.of("ABERTO", "· 24H ·"),
+                        PlacaEsquinaoBlockEntity.COR_LED, 15, PainelLedBlockEntity.MODO_FIXO);
+            }
+        }
     }
 
     /** Seta a posição do mercado (null limpa — usado pelos game tests pra manter o run hermético). */

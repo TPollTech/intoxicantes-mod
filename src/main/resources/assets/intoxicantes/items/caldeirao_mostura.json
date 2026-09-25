@@ -1,6 +1,6 @@
 {
  "model": {
   "type": "minecraft:model",
-  "model": "intoxicantes:block/caldeirao_mostura"
+  "model": "intoxicantes:block/caldeirao_mostura_item"
  }
 }

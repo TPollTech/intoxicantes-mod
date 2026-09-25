@@ -1,8 +1,29 @@
-# TODO — Intoxicantes Mod (atualizado em v1.2.27)
+# TODO — Intoxicantes Mod (atualizado em v1.2.51)
 
 O mercado, a economia e a fazenda estão completos e funcionais. O que sobra é lapidação:
 
 ## Próximos passos (ordem sugerida)
+
+0d. **(FEITO na v1.2.51)** O OVERHAUL DO MERCADO: o playtest cravou três
+   chagas — o display de fachada desalinhado (o template semeava SÓ o
+   painel `J`; o `X` de extensão existia na paleta e nunca era usado — o
+   texto "esticado por cima de parede errada"), o mini display de status
+   esquecido e o Gago sumindo. Agora: (1) A FAIXA DE LED INTEIRA — o
+   template semeia `X×7 + J + X×7` (15 blocos, texto de ponta a ponta), o
+   renderer sem o código morto de FECHADO/esmaecimento, e o ZELADOR DA
+   AUTOCURA completa a faixa em mundos 1.2.31–50 (semeia extensões em AR,
+   PARA no primeiro obstáculo — parede de jogador NUNCA sobrescrita — e a
+   largura do BE reflete a faixa real); (2) O MINI DISPLAY "ABERTO · 24H"
+   — PainelLedBlock verde fixo ao lado da porta, editável pela Central de
+   Comando; (3) A PORTA-GRADE DO GUICHÊ — bloco novo codado do zero
+   (DoubleBlockHalf): embaixo vira parede de madrugada, a grade de cima
+   vira guichê de atendimento (o Gago atrás dela), abre às 07:00 pelo
+   relógio do jogo; (4) O GAGO ÂNCORA DUPLA — balcão de dia, guichê de
+   madrugada, teleporte só na virada, mantendo NoAI + anti-sufocamento;
+   (5) ZELADOR REFORMA MUNDOS VELHOS — troca a porta vanilla pela
+   porta-grade, planta o mini display, completa a faixa. 3 game tests
+   novos (faixa, guichê, âncora dupla) + validador de worldgen estendido
+   (faixa, mini display, porta-grade). 60/60 testes passando.
 
 0c. **(FEITO na v1.2.27)** O POSTE DE RUA DE VERDADE: o playtest pegou o
    poste "bugado" (caixas pretas desconexas) e o scanner do save cravou a

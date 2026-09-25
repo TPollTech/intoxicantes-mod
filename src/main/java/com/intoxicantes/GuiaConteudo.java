@@ -263,7 +263,17 @@ public final class GuiaConteudo {
                 .add(new PagItem(ic(IntoxicantesMod.SEMENTE_UVA), "bebidas.vinho.uvas1"))
                 .add(new PagItem(ic(IntoxicantesMod.LAMPADA_UV.asItem()), "bebidas.vinho.uvas2"))
                 .add(new PagTitulo("bebidas.vinho.barril_titulo"))
-                .add(new PagItem(ic(IntoxicantesMod.BARRIL_VINHO.asItem()), "bebidas.vinho.barril"));
+                .add(new PagItem(ic(IntoxicantesMod.BARRIL_VINHO.asItem()), "bebidas.vinho.barril"))
+                .add(new PagTitulo("bebidas.vinho.dois_estagios_titulo"))
+                .add(new PagItem(ic(IntoxicantesMod.BARRIL_VINHO.asItem()), "bebidas.vinho.dois_estagios"))
+                .add(new PagTitulo("bebidas.vinho.total_titulo"))
+                // v1.2.53: total COMPUTADO (regra do AGENTS.md)
+                .add(new PagItemDinamica(ic(IntoxicantesMod.VINHO), "bebidas.vinho.total",
+                        () -> tempo(SEG_MOSTURA + bVinho.tempoFermentacaoSeg()
+                                + bVinho.tempoMaturacaoSeg()),
+                        () -> tempo(bVinho.tempoFermentacaoSeg())))
+                .add(new PagTitulo("bebidas.vinho.adega_titulo"))
+                .add(new PagItem(ic(IntoxicantesMod.PRENSA_UVAS.asItem()), "bebidas.vinho.adega"));
 
         // ---- CACHAÇA: cana → moenda → dorna → alambique → barril
         ProcessosBebida.Barril bCachaca = ProcessosBebida.barrilDe("cachaca").orElseThrow();
@@ -284,19 +294,34 @@ public final class GuiaConteudo {
                         passoMaquina(IntoxicantesMod.BARRIL_CACHACA.asItem(), tempo(bCachaca.tempoMaturacaoSeg())),
                         passo(IntoxicantesMod.CACHACA,
                                 ProcessosBebida.garrafasPorLote(bCachaca), true))))
+                .add(new PagTitulo("bebidas.cachaca.fogo_titulo"))
+                .add(new PagItem(ic(IntoxicantesMod.ALAMBIQUE.asItem()), "bebidas.cachaca.fogo"))
+                .add(new PagTitulo("bebidas.cachaca.total_titulo"))
+                // v1.2.53: tempo total do ciclo COMPUTADO das constantes (regra do
+                // AGENTS.md: número no guia que existe no código é proibido)
+                .add(new PagItemDinamica(ic(IntoxicantesMod.CACHACA), "bebidas.cachaca.total",
+                        () -> tempo(SEG_MOSTURA + ProcessosBebida.SEG_DORNA_BASE
+                                + ProcessosBebida.SEG_ALAMBIQUE_BASE
+                                + bCachaca.tempoMaturacaoSeg()),
+                        () -> tempo(bCachaca.tempoMaturacaoSeg())))
                 .add(new PagTitulo("bebidas.cachaca.copo"))
                 .add(new PagItem(ic(IntoxicantesMod.CACHACA), "bebidas.cachaca.efeitos"))
                 .add(new PagTitulo("bebidas.cachaca.dica_titulo"))
                 .add(new PagDica("bebidas.cachaca.dica"));
 
-        // ---- RUM: cana → fornalha (melaço) → dorna → alambique → barril
+        // ---- RUM: cana → esmagadora → caldo → fornalha (melaço) → dorna → alambique → barril
+        // v1.2.53 CORREÇÃO: a cadeia antiga mostrava cana indo pra fornalha
+        // direto — mas smelting_melaco.json recebe CALDO (a cana precisa da
+        // esmagadora antes). A spec do usuário confirmou o fluxo real.
         ProcessosBebida.Barril bRum = ProcessosBebida.barrilDe("rum").orElseThrow();
         ProcessosBebida.Dorna dRum = ProcessosBebida.dornaDe(IntoxicantesMod.MELACO).orElseThrow();
         ProcessosBebida.Alambique aRum = ProcessosBebida.alambiqueDe(IntoxicantesMod.MOSTO_RUM_FERMENTADO).orElseThrow();
         bebidas.entrada("rum", ic(IntoxicantesMod.RUM))
                 .add(new PagTitulo("bebidas.rum.hero"))
                 .add(new PagCadeia(List.of(
-                        passo(IntoxicantesMod.CANA_DE_ACUCAR, 1, false),
+                        passo(IntoxicantesMod.CANA_DE_ACUCAR, pMoenda.qtdIn(), false),
+                        passoMaquina(IntoxicantesMod.MOENDA_CANA.asItem(), tempo(SEG_MOSTURA)),
+                        passo(IntoxicantesMod.CALDO_DE_CANA, pMoenda.qtdOut(), true),
                         passoFase(Items.FURNACE, "cadeia.fornalha"),
                         passo(IntoxicantesMod.MELACO, 1, true),
                         passoMaquina(IntoxicantesMod.DORNA_BEBIDA.asItem(), tempo(ProcessosBebida.SEG_DORNA_BASE)),
@@ -306,6 +331,16 @@ public final class GuiaConteudo {
                         passoMaquina(IntoxicantesMod.BARRIL_RUM.asItem(), tempo(bRum.tempoMaturacaoSeg())),
                         passo(IntoxicantesMod.RUM,
                                 ProcessosBebida.garrafasPorLote(bRum), true))))
+                .add(new PagTitulo("bebidas.rum.mesmo_alambique_titulo"))
+                .add(new PagItem(ic(IntoxicantesMod.ALAMBIQUE.asItem()), "bebidas.rum.mesmo_alambique"))
+                .add(new PagTitulo("bebidas.rum.total_titulo"))
+                // v1.2.53: total COMPUTADO (regra do AGENTS.md). O rum é o caminho
+                // mais longo: esmagar + cozinhar + fermentar + destilar + maturar.
+                .add(new PagItemDinamica(ic(IntoxicantesMod.RUM), "bebidas.rum.total",
+                        () -> tempo(SEG_MOSTURA + ProcessosBebida.SEG_DORNA_BASE
+                                + ProcessosBebida.SEG_ALAMBIQUE_BASE
+                                + bRum.tempoMaturacaoSeg()),
+                        () -> tempo(bRum.tempoMaturacaoSeg())))
                 .add(new PagTitulo("bebidas.rum.copo"))
                 .add(new PagItem(ic(IntoxicantesMod.RUM), "bebidas.rum.efeitos"));
 
@@ -330,6 +365,15 @@ public final class GuiaConteudo {
                 .add(new PagTitulo("bebidas.cerveja.duas_doses"))
                 .add(new PagItem(ic(IntoxicantesMod.MALTE, pCaldeirao.qtdIn()), "bebidas.cerveja.dose1"))
                 .add(new PagItem(ic(IntoxicantesMod.LOUPULO_FRESCO, pCaldeirao.secQtd()), "bebidas.cerveja.dose2"))
+                .add(new PagTitulo("bebidas.cerveja.agua_titulo"))
+                .add(new PagItem(ic(Items.WATER_BUCKET), "bebidas.cerveja.agua"))
+                .add(new PagTitulo("bebidas.cerveja.total_titulo"))
+                // v1.2.53: total COMPUTADO das constantes (regra do AGENTS.md)
+                .add(new PagItemDinamica(ic(IntoxicantesMod.CERVEJA), "bebidas.cerveja.total",
+                        () -> tempo(SEG_MOSTURA + SEG_FERVURA
+                                + bCerveja.tempoFermentacaoSeg()
+                                + bCerveja.tempoMaturacaoSeg()),
+                        () -> tempo(bCerveja.tempoFermentacaoSeg())))
                 .add(new PagTitulo("bebidas.cerveja.copo"))
                 .add(new PagItem(ic(IntoxicantesMod.CERVEJA), "bebidas.cerveja.efeitos"));
 

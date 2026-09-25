@@ -1,5 +1,233 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.55 — MÁQUINAS VIVAS + CALIBRAGEM DA SAÚDE (25/09/2026)
+
+### ⚙️ As máquinas vivas (a versão chique das animações)
+- 4 renderers novos (`MaquinasVivasRenderer`): a máquina desenho POR CIMA do
+  modelo 3D SÓ quando processa — **ociosa = custo zero** (early-out na
+  primeira linha do submit; nem entra na geometria).
+- **Dorna**: caldo de cana translúcido subindo na boca com a superfície
+  ondulando (shader de água vanilla) + vapor server-side.
+- **Alambique**: tacho de cobre pulsando quente (só com fogo embaixo) + o
+  CALOR ANDANDO elipse por elipse na serpentina (ciclo de 2.4s) + bico
+  brilhando quando o lote tá acabando (>85%).
+- **Moenda**: aletas girando nos 2 rolos (a cana sendo mastigada).
+- **Prensa**: parafuso DESCENDO com o progresso do lote + suco de uva
+  subindo na calha.
+- **Caldeirão**: mosto fervendo com onda + a "pata" quente rodando na
+  superfície (a corrente da fervura).
+- **Barril**: espuma subindo no buraco da rolha SÓ na FERMENTAÇÃO (a
+  maturação continua silenciosa, como no código real).
+- Sync server→client por update tag (mesmo padrão do PainelLed): estado
+  manda nas MUDANÇAS (carregar/fim de lote) + progresso a cada segundo
+  do lote; zero tráfego com máquina parada.
+- Zero textura nova: líquido no shader translúcido do mundo e brilho no
+  atlas LED da casa com cor de vértice (o mesmo pipeline do letreiro).
+
+### 🎚 Calibragem da saúde (primeira partida)
+- `saudeSedeSegundos` 45 → **60**: ~100 min parado, ~40 correndo, ~20 na
+  bebedeira correndo — perceptível sem irritar (45 secia rápido demais).
+- Suco detox: cura de órgão 120 → **60 por unidade** — reverter uma vida
+  de bebedeira custa ~9 sucos (a redenção é lenta como tem que ser).
+- Game tests agora leem o config (sem número mágico): mudar o balance
+  não quebra a suíte.
+
+## v1.2.54 — SAÚDE DO FREGUES + EFEITOS POR DROGA (25/09/2026)
+
+### A espinha: SaudeData (intoxicantes_saude.json)
+- Um arquivo por mundo, padrão Embriaguez/PlayerMoney: hidratação, dano dos
+  3 órgãos, vício (nível + droga), doses por substância (janela das viagens),
+  histórico de doses da vida (alcool/erva/pó/pílula), relógio limpo e curas
+  seguidas. Server-authoritative; o client recebe por payload S2C.
+
+### 💧 Sede
+- Barra própria 0-100 que some do HUD quando cheia. Drena 1 ponto a cada
+  `saudeSedeSegundos` (45s), x2.5 correndo, x2 no Nether e x2 bêbado.
+- Zerada: Weakness + Slowness + Nausea — **NUNCA dano** (castiga, não mata).
+- Fontes: garrafa d'água +20, **Água de Coco** (nova, +50), **Suco Detox** +35.
+- Droga pesada e álcool desidratam (a boca de algodão é real).
+
+### ⛓ Vício e abstinência
+- Dose repetida da mesma droga sobe a dependência (peso por tier: cocaína
+  12/dose, heroína 10, ópio 6, LSD 4, erva 2-3). Acima de 30 (config): dependente.
+- SÍNDROME DE ABSTINÊNCIA em 4 estágios (½/1x/2x/4x do config, 90s):
+  efeito próprio + nausea + weakness + trevas intermitentes + tremor.
+- COLAPSO (estágio 4): dano periodico que desce a vida **até 1 coração e
+  para** — o mod NÃO mata por abstinência (regra de ouro).
+- RECAÍDA: usar na síndrome alivia na hora, mas zera a cura e sobe o vício.
+- CURA: dia limpo (1200s sem dose) derrete 10 de vício; zerou = curado.
+
+### 📋 Prontuário do Fregues (tecla H)
+- Sem item novo: **keybind H** abre a ficha médica (configurável); H fecha.
+- Papel-moeda bege igual ao cardápio: 3 órgãos com barra verde→amarela→
+  vermelha e estágio com humor ("Fígado de Aço" → **"Cirrose em estágio de
+  Jucelino"**), histórico de doses da vida e veredito do Dr. Gago.
+- HUDzinho contextual: só aparece com sede < 100 ou vício > 0; em
+  abstinência o painel TREME junto com o fregues.
+- Gameplay dos órgãos (extensões futuras usam os mesmos getters): fígado
+  ruim multiplica a ressaca, pulmão ruim = tosse, estômago = náusea.
+- MARKUP DO DESPERADO: fregues em abstinência paga até +30% no Gago
+  (config `saudeMarkupDesesperado`) — ele aceita qualquer preço kkkk.
+
+### 🍄 Efeitos por droga (as "Viagens")
+- 5 MobEffects novos registrados com ícone próprio: **Tranquilo** (T1
+  baseado — fome da boa + regen), **Morno** (T2 ópio — casaco quente),
+  **Sonho** (T2.5 heroína — o nod), **Overdrive** (T3 cocaína — coração de
+  metralhadora que queima saturação), **Viagem** (T4 LSD).
+- Intensidade por janela de doses (1-2: I, 3-4: II, 5+: III) — dose
+  repetida = viagem mais forte.
+- QUEDA: aftershock no fim de toda viagem T2+ (ópio = cansaço, heroína =
+  fome+lentidão, cocaína = fraqueza+mining fatigue, LSD = trevas+náusea).
+- Alucinações client-only: no LSD o **Gago GIGANTE (4x)** atravessa o céu
+  (entidade fantasma criada só no client — outros players não veem nada);
+  FOV pulsa com a batida no overdrive e respira no LSD (mixin novo).
+
+### Cura e hidratação (itens novos)
+- **Suco Detox** (garrafa + maçã + melão → 2): regenera os 3 órgãos (120 de
+  dano cada) e hidrata +35.
+- **Água de Coco** (garrafa + cacau → 1): o isotônico do sertão (+50).
+
+### Validação
+- 8 game tests novos (sede drena/desidrata bêbado, debuff sem dano, detox,
+  vício em estágios, **colapso nunca mata**, recaída/cura, efeito por droga,
+  intensidade por dose, persistência no relog) — **69/69 passando**.
+- Config novo: `saudeSedeSegundos`, `saudeVicioLimiar`,
+  `saudeAbstinenciaSegundos`, `saudeMarkupDesesperado` (clamped).
+
+## v1.2.53 — CONSERTO DO MERCADO DO GAGO + DETALHES FINOS (25/09/2026)
+
+### Mercado do Gago (bugs do playtest)
+- **Paredes viravam porta (causa raiz):** no gen_mercado.py o char "G" da paleta
+  estava definido 2x — 1ª green_concrete (parede), depois metade de cima da
+  porta-grade. Python deixa a última vencer => o mercado inteiro nascia porta.
+  Corrigido com char próprio ("d") e os 3 templates (mercado/serra/sertão)
+  regenerados (paleta com green_concrete de volta).
+- **Conserto em mundos existentes:** o Zelador do mercado (varredura de 30s)
+  detecta porta-superior sem a inferior embaixo (parede que nasceu porta) e
+  restaura a parede na pele da região (verde/terracota/pinho).
+- **sincronizar não planta mais meia-porta:** se o bloco de cima não é porta,
+  ele é deixado em paz em vez de virar metade de cima da porta.
+
+### Porta-grade
+- **Xadrez rosa (sem skin):** o blockstate declarava variantes lit=true/false,
+  mas o bloco não tem a propriedade lit (herança da placa antiga) — nenhuma
+  variante casava => modelo faltando. Regenerado só com facing × half × fechada.
+- **Modelo 3D HD:** gerador novo tools/gen_porta_grade.py (substitui o velho
+  gen_blockstate_porta_grade.py, sem arquivos v2): 4 modelos 3D + texturas
+  128×128, grade de ferro com remaches e cutout (vãos transparentes de
+  verdade), balcão de madeira na posição aberta, plaquinha FECHADO + cadeado
+  na fechada, item mostrando a porta inteira. Prévia: tools/preview_porta.py.
+
+### Cardápio do Mercado
+- **Crash ArrayIndexOutOfBounds:** scrollAbas tinha 2 posições pra 3 abas —
+  abrir Exclusives travava a tela e matava todos os cliques (buy/sell). Fix na
+  raiz + aba Exclusives vazia (Gago) agora mostra "passe no ponto do
+  Traficante" em vez de ficar em branco.
+- **Teste client:** coordenadas do clique de venda atualizadas pro layout de
+  3 abas (clicava na aba errada e dava timeout falso).
+
+### Detalhes finos (pedidos do playtest)
+- **Baseado:** animação de arco-e-flecha ao fumar (2,2s = 3 puxadas curtas,
+  braço recua levando o baseado à boca) + estalo de fósforo acendendo e bafo.
+- **Drogas:** pó e cápsulas vão ao NARIZ (animação de luneta, 1,6s, som de
+  papel) — o player não "come" mais droga.
+- **Botões CoD/BF:** ESQUERDO atira (1 clique = 1 tiro), DIREITO mira
+  (segurar). Com arma na mão o esquerdo não soca/quebra e o direito não coloca
+  bloco. Exceção: mirando num NPC (Gago/Traficante/Juça) o direito abre o menu.
+- **Iron sight de verdade:** mirando, a arma sobe até os olhos e centraliza
+  (mixin da pose de primeira pessoa + fator de zoom suave). SHIFT voltou a ser
+  só agachar. Mira sincronizada ao servidor via payload (dispersão/alcance
+  continuam validados lá). Tooltips atualizados nos 2 idiomas.
+- **Relógio sempre visível:** painel translúcido no canto superior esquerdo com
+  sol/lua, HH:MM (06:00 = amanhecer) e Dia N — some com tela aberta.
+
+### Validação
+- 60/60 game tests (servidor) + client gametest verde (compra pagando:
+  carteira 500 -> 485, 1 purchase).
+- Alvos dos 3 mixins conferidos por javap nos mappings 26.3.
+
+---
+
+---
+
+## v1.2.52 — TEXTURAS HD + CONSERTOS DO PLAYTEST DAS BEBIDAS (24/09/2026)
+
+### Texturas em alta resolução (regra nova do AGENTS.md: tudo 128×128)
+- **Cevada (8 estágios) refeita em 128×128:** colmos com nós, lâminas em
+  arco, sombra de contato, espigas douradas com grãos aos pares + arestas
+  (as "barbas"), estágio final amarelecendo.
+- **12 itens intermediários refeitos em 128×128** (eram ASCII-art 16×16 e
+  alguns saíam 100% TRANSPARENTES no jogo — bug do _png16 corrigido na
+  raiz, com guarda de regressão no gerador): garrafas com vidro bojudo,
+  gradiente, bolhas e brilho; feixes de cevada/malte amarrados; pote de
+  melaço com rolha; montinho de bagaço; pacote de sementes kraft
+  (absorvido pro gerador — tinha nascido sem fonte).
+
+### Consertos do playtest (reports da sessão de hoje)
+- **Abas do cardápio do Mercado travadas:** `scrollAbas = new int[2]` mas a
+  1.2.44 criou a 3ª aba (Exclusives) — clicar nela lançava
+  ArrayIndexOutOfBoundsException e a tela ficava PRESA na aba. Agora é
+  `new int[3]`.
+- **Compras do Mercado não funcionavam:** `ComprarPayload`/`VenderPayload`
+  registrados 2× — o 2º receiver (traficante) SOBRESCREVIA o 1º (Mercado)
+  e a compra morria silenciosamente. Agora: receiver único que roteia pela
+  sessão ativa (Mercado ⇄ Traficante).
+- **Máquinas exigiam quantidade EXATA na mão** (6 uvas = 6 uvas, nem 7):
+  seletores de dorna/alambique/prima agora aceitam pilha MAIOR e consomem
+  só o necessário.
+- **Bebidas envelheciam 20× rápido demais:** durações estavam declaradas
+  em SEGUNDOS mas consumidas como TICKS (600 "s" = 30s reais). Conversor
+  único `ModConfig.ticksDeSegundos` aplicado em barril/dorna/alambique/
+  máquinas de prima. Barril agora: 10 min de maturação de verdade.
+- **Gago andava durante o atendimento** (sessão aberta, tela fechava por
+  watchdog): congelado no início da sessão (padrão estatueta do Traficante).
+
+### Testes
+- Gancho de escala de teste virou STATIC com boot único
+  (`TestesBebidaBoot`, x20): testes paralelos não brigam mais pela escala
+  (as 4 cadeias falhavam por reset cruzado). 60/60 verdes.
+
+---
+
+## v1.2.51 — OVERHAUL DO MERCADO: FAIXA DE LED COMPLETA, MINI DISPLAY 24H, PORTA-GRADE E GAGO ÂNCORA DUPLA (24/09/2026)
+
+### O conserto do caos do display (spec: playtest da 1.2.44–50)
+- **A faixa de LED de ponta a ponta:** o gerador do mercado semeava SÓ o
+  painel central — o char de extensão (`X`) existia na paleta e nunca era
+  usado, e o texto esticava por cima da parede errada. Agora a fileira é
+  `X×7 + J + X×7` (15 blocos) e o texto cruza a fachada inteira.
+- **Zelador da autocura completa a faixa** em mundos 1.2.31–50: semeia
+  extensões só em AR, PARA no primeiro obstáculo (parede de jogador nunca
+  sobrescrita, sem pular por cima) e a largura do BE reflete a faixa real.
+- **Renderer limpo:** código morto de FECHADO/esmaecimento removido; o
+  letreiro agora é só o nome + status 24H.
+
+### A porta-grade do guichê (bloco novo, codado do zero)
+- `PortaGradeBlock` (DoubleBlockHalf + FECHADA): de madrugada o vão de
+  baixo vira parede sólida e a grade de cima vira guichê; abre às 07:00
+  pelo relógio do jogo (e fecha na virada). Colisão validada em game test
+  (fechado = max 1.0, aberto ≤ 0.26).
+- Blockstate completo (32 variantes), modelos com texturas vanilla
+  (spruce + ferro), loot table, lang pt/en.
+
+### Mini display "ABERTO · 24H"
+- PainelLed verde fixo ao lado da porta (o mercado é 24h desde a 1.2.44 —
+  o letreiro agora conta a verdade), editável pela Central de Comando,
+  semeado pelo template e plantado pelo zelador em mundos velhos.
+
+### O Gago nunca mais sumido (âncora dupla)
+- Balcão de dia, guichê (atrás da grade) de madrugada; teleporte seguro
+  só na virada, com NoAI, anti-sufocamento e anti-fantasma mantidos.
+- O zelador sincroniza a porta e planta o mini display junto da reforma
+  do pátio.
+
+### Validação
+- 3 game tests novos (faixa, guichê, âncora dupla) — **60/60 passando**;
+  validador de worldgen estendido (faixa 1+14, mini display na x12,
+  porta-grade no template) sobre os 3 NBTs regenerados.
+- Jar instalado na instância "mod cet" (hash conferido); 1.2.50 em
+  `backups/`.
+
 ---
 
 ## v1.2.50 — SISTEMA DE BEBIDAS COMPLETO: CADEIAS, MÁQUINAS HD E BARRIS 3D (24/09/2026)

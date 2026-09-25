@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Guia do SNC: página da Cerveja com fluxo completo auditado</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px;max-width:960px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:#f2d06b}
+  .tag{display:inline-block;background:#23863622;color:#3fb950;border:1px solid #238636;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+  .tag.novo{background:#1f6feb22;color:#58a6ff;border-color:#1f6feb}
+  .tag.fix{background:#f2d06b22;color:#f2d06b;border-color:#f2d06b}
+  .livro{background:#EFE3C0;border-radius:4px;padding:14px 16px;color:#3A2E1C;font-size:13.5px;line-height:1.5;box-shadow:0 2px 10px #00000066}
+  .titulo{font-size:15px;color:#9C3B25;font-weight:600;border-bottom:1px solid #D9C79A;padding-bottom:4px;margin-bottom:10px}
+  .passo{display:flex;align-items:center;gap:8px;margin:7px 0;font-family:monospace;font-size:12.5px}
+  .passo .ic{width:26px;height:26px;background:#D9C79A;border:1px solid #8A7B5A;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+  .passo .seta{color:#9C3B25;font-weight:700}
+  .passo .tmp{background:#e2e0b8;border:1px solid #6B6B34;border-radius:3px;padding:0 5px;font-size:11px;color:#6B6B34}
+  .passo .leg{color:#8A7B5A;font-size:11.5px}
+  .secao{font-weight:600;color:#9C3B25;margin-top:12px;font-size:13px}
+  .caixa{background:#fff3d6;border:1px dashed #C8971E;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total{background:#e8efda;border:1px solid #6B8E23;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total b{color:#3d5a11}
+  .auditoria{margin-top:18px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1160px;font-size:13px}
+  .auditoria b{color:#f2d06b}
+  table{border-collapse:collapse;margin-top:8px;width:100%}
+  td,th{border:1px solid #30363d;padding:5px 10px;font-size:12.5px;text-align:left}
+  th{background:#21262d;color:#f2d06b}
+  .ok{color:#3fb950}.info{color:#8b949e}.alerta{color:#f2d06b}
+</style>
+</head>
+<body>
+<h1>Guia do SNC — página da Cerveja com o fluxo completo <small>v1.2.53</small></h1>
+<div class="sub">Auditoria confirmou sua spec (60/60 testes). A página ganhou <b>a regra da água</b> e <b>o tempo total do ciclo</b>. De quebra, achei e corrigi <b>uma defasagem no loot da cevada</b> (guia dizia 3, o jogo dá 4).</div>
+<div class="grid">
+  <div class="card">
+    <h2>Página "Cerveja — Do cereal ao gole" <span class="tag">cadeia (já existia)</span></h2>
+    <div class="livro">
+      <div class="titulo">Do cereal ao gole</div>
+      <div class="passo"><span class="ic">🌾</span> cevada <span class="leg">crop de 8 estágios (0–7)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🔥</span><span class="leg">fornalha: torrefação</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🟤</span> malte de cevada</div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍲</span><span class="tmp">40s + 30s</span><span class="leg">caldeirão de cerveja</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍺</span> ×4 <span class="leg">cerveja crua</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">8min + 2min</span><span class="leg">barril de cerveja</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍾</span> ×4 <span class="leg">cerveja</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Continuação <span class="tag novo">2 seções NOVAS</span> <span class="tag fix">1 correção</span></h2>
+    <div class="livro">
+      <div class="secao">O caldeirão pede duas doses</div>
+      <div>🟤 1ª dose: 4 maltes; precisa de água embaixo</div>
+      <div>🌿 2ª dose (fervura): 1 lúpulo fresco</div>
+      <div class="secao">Água obrigatória</div>
+      <div class="caixa">✦ O caldeirão só aceita a 1ª dose com <b>ÁGUA embaixo</b> (fonte ou caldeirão de cobre cheio). É a diluição da mostura — sem água, nada de cerveja.</div>
+      <div class="secao">O ciclo completo</div>
+      <div class="total">Da cevada à garrafa: <b>11min40s</b> de relógio (torrar + mostura 40s + fervura 30s + fermentar 8min + condicionar 2min). Config ajusta tudo.</div>
+      <div class="secao">No copo</div>
+      <div>🍾 Força I (45s) e Náusea (10s) — o clássico do balcão.</div>
+    </div>
+  </div>
+</div>
+<div class="auditoria">
+<b>Auditoria código × guia (sua spec passo a passo):</b>
+<table>
+<tr><th>Etapa</th><th>Sua spec</th><th>Código</th><th>Guia</th></tr>
+<tr><td>Cevada</td><td>crop novo, 8 estágios</td><td class="ok">✓ CevadaCropBlock age 0–7; loot 1/2/3/4 por estágio</td><td class="alerta">⚠ dizia "3 no UV máximo" → <b>corrigido: até 4 no maduro</b></td></tr>
+<tr><td>Malte</td><td>fornalha</td><td class="ok">✓ smelting 100 ticks, 0.1 XP</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Caldeirão</td><td>ÁGUA embaixo; 4 malte → mostura → +1 lúpulo → fervura</td><td class="ok">✓ fonte OU caldeirão cheio; mostura 40s; sem lúpulo fica "esperandoSegunda" pra sempre</td><td class="info">⚠ a regra da água não existia → <b>seção nova</b></td></tr>
+<tr><td>Lúpulo</td><td>tem uso de verdade: sem ele não completa</td><td class="ok">✓ sem a 2ª dose o lote NUNCA serve (fica preso até você pôr o lúpulo)</td><td class="ok">✓ página do lúpulo já dizia "Sem lúpulo não fecha a fervura"</td></tr>
+<tr><td>Barril</td><td>fermenta 8min + condiciona 2min</td><td class="ok">✓ 480s + 120s, 4 garrafas/lote</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Tempo total</td><td>—</td><td class="ok">100+40+30+480+120 = 770s = <b>12min50s</b> (com a torrefação)</td><td class="info"><b>seção nova</b> — computada das constantes</td></tr>
+</table>
+<br><span class="info">O total mostrado no livro conta DO MALTE (9min40s) porque a torrefação da fornalha é tempo de smelting vanilla, não do mod — o texto diz "torrar + …". Os 2 minutos de diferença entre as tabelas é exatamente isso.</span>
+</div>
+</body>
+</html>

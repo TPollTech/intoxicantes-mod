@@ -38,7 +38,7 @@ import net.minecraft.world.phys.Vec3;
  *   so volta a carregar com o tubo; tubo vazio = click seco
  * - RECOIL com KICK DE CAMERA: servidor manda payload S2C e o client chuta
  *   pitch+yaw com retorno suave (a mira volta sozinha pro alvo)
- * - ADS ao SEGURAR SHIFT com a 12 na mao: zoom de FOV suave, overlay de mira,
+ * - ADS ao SEGURAR O BOTÃO DIREITO com a 12 na mao (v1.2.53): zoom de FOV suave, overlay de mira,
  *   dispersao pela metade e alcance maior
  *
  * Municao: intoxicantes:cartucho (polvora + papel + prego de ferro).
@@ -400,8 +400,9 @@ public class EscopetaItem extends Item {
         level.sendParticles(ParticleTypes.FLAME, boca.x, boca.y, boca.z,
                 4, 0.05, 0.05, 0.05, 0.01);
 
-        // ADS: mira = metade da dispersao + 25% mais alcance
-        boolean ads = player.isShiftKeyDown();
+        // ADS: mira = metade da dispersao + 25% mais alcance (v1.2.53: botão
+        // direito — MiraPayload sincroniza; sem arma, sem mira)
+        boolean ads = MiraPayload.estaMirando((ServerPlayer) player);
         float fatorDisp = ads ? 0.5F : 1.0F;
         double alcanceEfetivo = ads ? ALCANCE_MAXIMO() * 1.25 : ALCANCE_MAXIMO();
 

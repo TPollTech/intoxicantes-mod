@@ -132,10 +132,11 @@ public final class ProcessosBebida {
 
     // ==================================================== CONSULTAS
 
-    /** A fermentação de dorna que consome exatamente {@code qtd} deste item. */
+    /** A fermentação de dorna que consome {@code qtd} deste item (a pilha da mão
+     *  pode ser MAIOR: consome só o qtdIn — v1.2.51, fim da exigência de quantidade exata). */
     public static Optional<Dorna> dornaQueAceita(Item item, int qtd) {
         for (Dorna r : DORNAS) {
-            if (r.input() == item && r.qtdIn() == qtd) {
+            if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
         }
@@ -154,7 +155,7 @@ public final class ProcessosBebida {
 
     public static Optional<Alambique> alambiqueQueAceita(Item item, int qtd) {
         for (Alambique r : ALAMBIQUES) {
-            if (r.input() == item && r.qtdIn() == qtd) {
+            if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
         }
@@ -216,7 +217,9 @@ public final class ProcessosBebida {
             case CALDEIRAO -> CALDEIROES;
         };
         for (Prima r : lista) {
-            if (r.input() == item && r.qtdIn() == qtd) {
+            // v1.2.51: aceita pilha MAIOR que a receita (consome só qtdIn);
+            // antes exigia contagem EXATA (6 uvas = 6, nem 7, nem uma pilha)
+            if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
         }
@@ -274,20 +277,22 @@ public final class ProcessosBebida {
      */
     public static int tempoFermentacao(Barril r) {
         int base = r.tempoFermentacaoSeg();
-        return base == 0 ? 0 : Math.max(5, Math.round(base * ModConfig.get().velocidadeEfetiva()));
+        // v1.2.51: base está em SEGUNDOS de design — converte pra ticks (antes
+        // o número entrava como ticks: tudo 20× mais rápido que o planejado)
+        return base == 0 ? 0 : ModConfig.ticksDeSegundos(base);
     }
 
     public static int tempoMaturacao(Barril r) {
         int base = r.tempoMaturacaoSeg();
-        return base == 0 ? 0 : Math.max(5, Math.round(base * ModConfig.get().velocidadeEfetiva()));
+        return base == 0 ? 0 : ModConfig.ticksDeSegundos(base);
     }
 
     public static int tempoDorna() {
-        return Math.max(5, Math.round(420F * ModConfig.get().velocidadeEfetiva()));
+        return ModConfig.ticksDeSegundos(420F);
     }
 
     public static int tempoAlambique() {
-        return Math.max(5, Math.round(90F * ModConfig.get().velocidadeEfetiva()));
+        return ModConfig.ticksDeSegundos(90F);
     }
 
     public static int garrafasPorLote(Barril r) {

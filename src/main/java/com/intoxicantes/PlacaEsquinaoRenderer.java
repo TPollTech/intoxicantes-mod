@@ -30,8 +30,10 @@ import java.util.List;
  * ABERTO/FECHADO entra sozinho no ciclo, sempre grande.
  *
  * Efeitos vivos mantidos: brilho pulsando (alimentação), flicker de neon,
- * status ABERTO (verde) / FECHADO (vermelho) piscante, placa apaga o LED de
- * dia (LIT do bloco), zumbido de proximidade.
+ * placa apaga o LED de dia (LIT do bloco), zumbido de proximidade.
+ * v1.2.51: o status ABERTO/FECHADO saiu daqui (o mercado é 24h — NUNCA
+ * mostra "FECHADO"); o anúncio de status agora é o MINI DISPLAY de LED
+ * ao lado da porta ("ABERTO · 24H", ver _mini_display_nbt).
  *
  * Pipeline 26.3: submitCustomGeometry com RenderTypes.textPolygonOffset
  * (atlas de quadrados brancos do mod dá a cor; o vertex color pinta cada
@@ -90,10 +92,8 @@ public class PlacaEsquinaoRenderer
         state.linhas.clear();
         state.linhas.addAll(placa.getLinhas());
         state.acesa = placa.isLinkMercado();
-        // v1.2.19: estado ABERTO/FECHADO pro client desenhar na hora. A placa
-        // solta (sem link) fica sempre "aberta"; a do mercado usa o CLOCK DO
-        // CLIENTE — o mesmo relógio que o freguês vê.
-        state.aberto = !state.acesa || mercadoAbertoAgora(placa.getLevel());
+        // v1.2.19 → v1.2.51: o estado ABERTO/FECHADO mora no MINI DISPLAY
+        // (painel de LED ao lado da porta). O letreiro é o NOME, sempre.
         state.ledLigado = placa.getBlockState().hasProperty(PlacaEsquinaoBlock.LIT)
                 ? placa.getBlockState().getValue(PlacaEsquinaoBlock.LIT)
                 : true;
@@ -124,16 +124,6 @@ public class PlacaEsquinaoRenderer
                         0.18F, 1.8F, false);
             }
         }
-    }
-
-    /**
-     * A regra do horário LADO CLIENTE (mesma conta do MarketSystem: dia começa
-     * em 06:00 = tick 0, então 07:00 = tick 1000 e 00:00 = tick 18000).
-     */
-    private static boolean mercadoAbertoAgora(net.minecraft.world.level.Level level) {
-        if (!(level instanceof net.minecraft.client.multiplayer.ClientLevel client)) return true;
-        long t = client.getOverworldClockTime() % 24000L;
-        return t >= 1000L && t < 18000L;
     }
 
     @Override
@@ -172,10 +162,9 @@ public class PlacaEsquinaoRenderer
         // v1.2.23: o pulso da alimentação — brilho sobe/desce 10% devagar
         float pulso = 0.9F + 0.1F * Mth.sin((Util.getMillis() % 4000L) / 4000F * 2F * Mth.PI);
 
-        // cor do nome: LED vivo; fechado = esmaecido (a loja dorme)
-        int corNome = state.acesa && !state.aberto
-                ? argb(pulso * 0.35F, 0x39FF6E)
-                : argb(pulso, 0x39FF6E);
+        // cor do nome: LED vivo — SEMPRE verde (o mercado é 24h; não existe
+        // mais "esmaecido de fechado": esse ramo nunca disparava)
+        int corNome = argb(pulso, 0x39FF6E);
 
         pose.pushPose();
         // centro do bloco: a faixa de LED ocupa o painel INTEIRO (0..16px),
@@ -210,7 +199,7 @@ public class PlacaEsquinaoRenderer
                     float x0 = -largLinha / 2F;
                     boolean apagada = falha && i == linhaFalha;
 
-                    // cor da linha: o nome (verde); fechado = esmaecido
+                    // cor da linha: o nome em verde vivo; flicker apaga 1 linha
                     int cor = apagada ? argb(0.06F, 0x39FF6E) : corNome;
 
                     for (int ci = 0; ci < linha.length(); ci++) {
@@ -285,11 +274,10 @@ public class PlacaEsquinaoRenderer
         }
     }
 
-    /** Estado de render: linhas + orientação + estado do mercado + LED on/off. */
+    /** Estado de render: linhas + orientação + LED on/off. */
     public static class State extends BlockEntityRenderState {
         public final List<String> linhas = new ArrayList<>();
         public boolean acesa;
-        public boolean aberto;
         public boolean ledLigado = true;
         public long ticksDoDia;
         public net.minecraft.core.Direction facing = net.minecraft.core.Direction.SOUTH;

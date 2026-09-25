@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Conserto do mercado do Gago</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+  .card h2{font-size:14px;margin:0 0 8px;color:#f2d06b}
+  .card p{font-size:13px;line-height:1.5;margin:6px 0}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:6px;font-weight:600}
+  .root{background:#3d1d1d;color:#ff7b72;border:1px solid #f8514944}
+  .ok{background:#12261e;color:#3fb950;border:1px solid #3fb95044}
+  .fix{background:#1d2a3d;color:#58a6ff;border:1px solid #58a6ff44}
+  img{max-width:100%;border-radius:8px;border:1px solid #30363d}
+  code{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:1px 5px;font-size:12px;color:#79c0ff}
+  .antes{color:#ff7b72} .depois{color:#3fb950}
+  .fluxo{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;margin-top:8px}
+  .fluxo span{background:#21262d;border:1px solid #30363d;border-radius:6px;padding:4px 8px}
+  .fluxo b{color:#f2d06b}
+</style>
+</head>
+<body>
+<h1>🔧 Conserto do mercado do Gago — v1.2.53 <small>(prévia, nada buildado)</small></h1>
+<div class="sub">Três bugs do playtest, todos corrigidos na raiz. 60/60 testes de servidor + client gametest verdes.</div>
+
+<div class="grid">
+  <div class="card">
+    <h2><span class="tag root">RAIZ</span>Paredes viraram porta</h2>
+    <p><b>O que era:</b> no gerador do mercado (<code>gen_mercado.py</code>) o char <code>"G"</code> estava definido <b>duas vezes</b> na paleta — 1ª como <code>green_concrete</code> (parede), depois como a metade de cima da porta-grade. O Python deixa a <b>última</b> vencer: <b>o mercado inteiro nasceu como porta de guichê</b> (0 paredes verdes nos NBTs — confirmado).</p>
+    <p><b class="depois">Correção:</b> a metade de cima ganhou char próprio (<code>"d"</code>), o gerador foi reexecutado e os 3 NBTs (clássico/serra/sertão) agora têm parede e porta separados.</p>
+    <p><b class="depois">Seu mundo atual:</b> o <b>Zelador</b> do mercado (passada de 30s) detecta metade-superior de porta <i>sem</i> a inferior embaixo — parede que nasceu porta — e devolve a parede certa na pele da região (verde / terracota / pinho).</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="tag root">RAIZ</span>Porta rosa (sem skin)</h2>
+    <p><b>O que era:</b> o blockstate da porta declarava variantes com <code>lit=true/false</code> (herdado da placa antiga), mas o <code>PortaGradeBlock</code> <b>não tem</b> a propriedade <code>lit</code>. Nenhuma variante casava → o Minecraft renderiza o modelo faltando: o xadrez rosa do seu print.</p>
+    <p><b class="depois">Correção:</b> blockstate regenerado com só <code>facing × half × fechada</code> (16 variantes que casam 100% com o bloco).</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="tag fix">NOVO</span>Porta 3D em alta resolução</h2>
+    <p>Modelos 3D novos + texturas <b>128×128</b>, no padrão das máquinas de bebida (regra do AGENTS.md). 4 variantes:</p>
+    <div class="fluxo">
+      <span><b>Aberta</b> (07h–00h): balcão + vão de atendimento + soleira de pedra</span>
+      <span><b>Fechada</b> (00h–07h): painel cheio + grade de ferro com remaches + cadeado</span>
+    </div>
+    <p style="margin-top:8px">Item mostra a porta inteira; a grade usa <code>cutout</code> (barras com transparência real). Tudo gerado por <code>tools/gen_porta_grade.py</code> (fonte única, no lugar do gerador velho que só fazia blockstate).</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="tag fix">BONUS</span>Cardápio: Exclusives + crash</h2>
+    <p><b>O que era:</b> <code>ArrayIndexOutOfBoundsException</code> no log — o array de scroll tinha 2 posições para 3 abas. Ao abrir <b>Exclusives</b>, a tela travava: <i>nenhum clique em Buy/Sell funcionava mais</i> (o seu relato).</p>
+    <p><b class="depois">Correção:</b> array com 3 posições (já no workspace) + aba Exclusives vazia do Gago agora mostra "passe no ponto do Traficante" em vez de um deserto.</p>
+    <p><b class="depois">Teste:</b> o client gametest provou o fluxo — clique no Buy pagou (carteira 500→485, Purchases: 1).</p>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card">
+    <h2>🖼️ Porta em 3D (render dos modelos reais)</h2>
+    <img src="previa-porta.png" alt="Porta aberta e fechada em 3D">
+    <p style="font-size:12px;color:#8b949e">Esquerda: aberta (balcão + vão). Direita: fechada (painel + grade). Texturas 128×128: madeira com tábuas/nós, ferro forjado com brilho, grade com remaches.</p>
+  </div>
+  <div class="card">
+    <h2>📸 Prova do gametest (compra funcionando)</h2>
+    <img src="commerce-harvest-2.png" alt="Screenshot do gametest: compra paga">
+    <p style="font-size:12px;color:#8b949e">Screenshot real do teste client: Wallet R$485, Purchases: 1 — o clique que antes morria agora paga.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2>🧪 Estado dos testes</h2>
+  <p><span class="tag ok">60/60</span> game tests de servidor (inclui os que colocam máquinas de 2 blocos, cadeias de bebida e o guia) · <span class="tag ok">client</span> CommerceClientTest verde (compra/venda/fidelidade) · compilação limpa.</p>
+  <p style="font-size:12px;color:#8b949e">Arquivos: <code>tools/gen_mercado.py</code> (paleta), <code>tools/gen_porta_grade.py</code> (novo gerador completo), <code>MarketSystem.java</code> (zelador + paredeDaRegiao), <code>PortaGradeBlock.java</code> (sincronizar sem plantar porta), <code>blockstates/porta_grade.json</code>, 4 modelos + 2 texturas + item.</p>
+</div>
+</body>
+</html>

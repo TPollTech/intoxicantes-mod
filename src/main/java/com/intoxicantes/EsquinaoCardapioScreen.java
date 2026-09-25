@@ -55,7 +55,9 @@ public class EsquinaoCardapioScreen extends Screen {
     private int scrollLinha;
     private boolean arrastandoBarra;
     private double arrastoOffset;
-    private final int[] scrollAbas = new int[2];
+    /** v1.2.51: 3 posições — a aba EXCLUSIVOS (2) da v1.2.44 estourava o array
+     *  antigo de 2 e travava a tela (não dava mais pra voltar pra Buy/Sell). */
+    private final int[] scrollAbas = new int[3];
 
     public EsquinaoCardapioScreen(EsquinaoNetworking.AbrirCardapioPayload payload) {
         super(Component.translatable("gui.intoxicantes.cardapio.titulo"));
@@ -344,7 +346,17 @@ public class EsquinaoCardapioScreen extends Screen {
         g.fill(x0 + 4, listaY, x0 + LARGURA - 4, listaY + altLista, 0x18D9C89A);
         g.enableScissor(x0 + 4, listaY, x0 + LARGURA - 4, listaY + altLista);
 
-        
+        // v1.2.53: aba EXCLUSIVOS vazia no Gago (os exclusivos são do ponto do
+        // traficante) — mensagem em vez de deserto, e nada clicável
+        if (aba == 2 && totalLinhas() == 0) {
+            g.disableScissor();
+            String msg = net.minecraft.client.resources.language.I18n.get(
+                    "gui.intoxicantes.cardapio.exclusivos_vazio");
+            g.text(this.font, msg, x0 + (LARGURA - this.font.width(msg)) / 2,
+                    listaY + altLista / 2 - 4, TINTA_FRACA);
+            return;
+        }
+
         for (int v = 0; v < linhasVisiveis; v++) {
             int indice = scrollLinha + v;
             if (indice >= totalLinhas()) {

@@ -88,10 +88,20 @@ public final class FidelidadeData {
         int nivel = Embriaguez.nivel(player);
         int limiarFonar = ModConfig.get().embriaguezLimiarFonar;
         int markupPct = ModConfig.get().embriaguezMarkup;
+        // v1.2.54 — DOIS MARKUPS, VALE O MAIOR:
+        //  - bêbado visível: embriaguezMarkup % por nível acima do limiar (teto 30)
+        //  - desesperado: viciado em síndrome de abstinência paga o preço que
+        //    o Gago mandar (saudeMarkupDesesperado %) — o fregues aceita kkkk
+        int markup = 0;
         if (markupPct > 0 && nivel >= limiarFonar) {
-            int excesso = nivel - limiarFonar + 1; // já cobra no limiar: está visivelmente bêbado
-            int total = Math.min(markupPct * excesso, 30); // teto ABSOLUTO de 30%, olhe o config
-            preco = Math.round(preco * (100 + total) / 100f);
+            markup = Math.min(markupPct * (nivel - limiarFonar + 1), 30);
+        }
+        int desespero = ModConfig.get().saudeMarkupDesesperado;
+        if (desespero > 0 && SaudeSystem.emAbstinencia(player)) {
+            markup = Math.max(markup, desespero);
+        }
+        if (markup > 0) {
+            preco = Math.round(preco * (100 + markup) / 100f);
         }
         return Math.max(1, preco);
     }

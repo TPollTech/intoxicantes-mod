@@ -35,7 +35,7 @@ import net.minecraft.world.phys.Vec3;
  *   tiro o ferrolho fecha com o "tuc" do fecho — e apertar o gatilho com a
  *   câmara vazia (mas tambor carregado) GIRA o tambor no seco, como um .38 de verdade
  * - RECOIL com KICK DE CÂMERA: payload S2C compartilhado com a 12 (RecuoPayload)
- * - ADS ao SEGURAR SHIFT: zoom de FOV (mesmo mixin da 12), dispersão menor,
+ * - ADS ao SEGURAR O BOTÃO DIREITO (v1.2.53): zoom de FOV (mesmo mixin da 12), dispersão menor,
  *   alcance maior e kick reduzido
  *
  * Munição: intoxicantes:cartucho_38 (chumbo + pólvora + latão). Mais preciso
@@ -422,8 +422,9 @@ public class RevolverItem extends Item {
         level.sendParticles(ParticleTypes.CRIT, boca.x, boca.y - 0.2, boca.z,
                 2, 0.1, 0.05, 0.1, 0.1);
 
-        // ADS: mira = dispersão menor (40%) + 30% mais alcance
-        boolean ads = player.isShiftKeyDown();
+        // ADS: mira = dispersão menor (40%) + 30% mais alcance (v1.2.53: botão
+        // direito — MiraPayload sincroniza)
+        boolean ads = MiraPayload.estaMirando((ServerPlayer) player);
         float fatorDisp = ads ? 0.4F : 1.0F;
         double alcanceEfetivo = ads ? ALCANCE_MAXIMO() * 1.3 : ALCANCE_MAXIMO();
 

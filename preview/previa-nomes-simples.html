@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Nomes simples (fim da dorna/mosto/moenda/mostura)</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:16px;max-width:900px}
+  table{border-collapse:collapse;width:100%;max-width:1000px;background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden}
+  th{background:#21262d;text-align:left;padding:10px 14px;font-size:13px;color:#f2d06b}
+  td{padding:9px 14px;border-top:1px solid #21262d;font-size:14px;vertical-align:top}
+  .velho{color:#f85149;text-decoration:line-through;white-space:nowrap}
+  .novo{color:#3fb950;font-weight:600;white-space:nowrap}
+  .onde{color:#8b949e;font-size:12px}
+  .nota{margin-top:16px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1000px;font-size:13px;color:#c9d1d9}
+  .nota b{color:#f2d06b}
+  code{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>Nomes simples no jogo <small>v1.2.53 — lang pt_br + en_us (72 chaves)</small></h1>
+<div class="sub">O que você vê no inventário, no chat, no guia e nos menus. IDs internos, receitas, texturas e salvamentos <b>não mudam</b> — nada quebra em mundos existentes.</div>
+<table>
+<tr><th>ANTES (termo técnico)</th><th>DEPOIS (nome simples)</th><th>Onde aparece</th></tr>
+<tr><td class="velho">Dorna de Fermentação</td><td class="novo">Barril de Fermentação</td><td class="onde">bloco + item + guia</td></tr>
+<tr><td class="velho">Moenda de Cana</td><td class="novo">Esmagadora de Cana</td><td class="onde">bloco + item + guia</td></tr>
+<tr><td class="velho">Caldeirão de Mostura</td><td class="novo">Caldeirão de Cerveja</td><td class="onde">bloco + item + guia</td></tr>
+<tr><td class="velho">Mosto de Cana Fermentado</td><td class="novo">Caldo de Cana Fermentado</td><td class="onde">item intermediário (cachaça)</td></tr>
+<tr><td class="velho">Mosto de Rum Fermentado</td><td class="novo">Melaço Fermentado</td><td class="onde">item intermediário (rum)</td></tr>
+<tr><td class="velho">Mosto de Uva</td><td class="novo">Caldo de Uva</td><td class="onde">item intermediário (vinho)</td></tr>
+<tr><td class="velho">Mosto Lupulado</td><td class="novo">Cerveja Crua</td><td class="onde">item intermediário (cerveja)</td></tr>
+<tr><td class="velho">mosto (mensagens)</td><td class="novo">caldo</td><td class="onde">chat das máquinas: "carregue com o caldo (4 unidades)"</td></tr>
+<tr><td class="velho">mostura</td><td class="novo">mistura</td><td class="onde">guia: "Mistura e fervura numa estação só"</td></tr>
+<tr><td class="velho">moer</td><td class="novo">esmagar</td><td class="onde">guia: "como plantar, esmagar, fermentar…"</td></tr>
+<tr><td class="velho">cana → moenda → dorna → alambique</td><td class="novo">cana → esmagadora → fermentação → alambique</td><td class="onde">carimbos das cadeias no guia</td></tr>
+</table>
+<div class="nota">
+<b>Em inglês também</b> (Fermentation Vat→Fermentation Barrel, Sugarcane Mill→Sugarcane Crusher, Mash Tun→Beer Cauldron, Cane Must→Cane Juice, Hopped Wort→Raw Beer).<br><br>
+<b>Intactos de propósito:</b> <code>Alambique</code> (palavra conhecida no Brasil), <code>Prensa</code>, <code>Bagaço</code>, <code>Melaço</code> (nomes reais das coisas, sem alternativa melhor) e os IDs internos (<code>dorna_bebida</code>, <code>mosto_de_uva</code>…) — mudar ID apagaria blocos/itens de mundos existentes.
+</div>
+</body>
+</html>

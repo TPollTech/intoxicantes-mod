@@ -78,18 +78,53 @@ public final class ModConfig {
     // Servidor pode desligar; o livro continua obtível pelo CRAFT (livro + R$).
     public boolean guiaNaPrimeiraEntrada = true;
 
+    // ==================================================== saude (v1.2.54, calibrada na v1.2.55)
+    // SEDE: 1 ponto cai a cada `saudeSedeSegundos` de vida limpa (multiplicado
+    // por corrida/Nether/bêbado). Zerada = fraqueza/lentidão/nausea, NUNCA dano.
+    // 60s = ~100 min parado, ~40 min correndo, ~20 min na bebedeira correndo:
+    // perceptível sem irritar (v1.2.55: era 45 — secia rápido demais).
+    public int saudeSedeSegundos = 60;
+    // VICIO: acima deste nível o fregues é dependente (a síndrome de abstinência liga).
+    public int saudeVicioLimiar = 30;
+    // ABSTINENCIA: segundos limpos até o pico da síndrome (metade = início,
+    // 2x = grave, 4x = colapso; o colapso NUNCA mata — para em 1 coração).
+    public int saudeAbstinenciaSegundos = 90;
+    // MARKUP DO DESPERADO: % de markup pro fregues em abstinência comprando no
+    // Gago (ele aceita qualquer preço kkkk). 0 = desligado. Vira o markup MAIOR
+    // entre este e o da embriaguez.
+    public int saudeMarkupDesesperado = 30;
+
     private static ModConfig instancia;
-    /** Escala extraimposta (game tests); null = usa o valor configurado. */
-    private Float velocidadeTeste;
+    /** Escala extraimposta (game tests); null = usa o valor configurado.
+     *  STATIC de propósito (v1.2.51): os game tests rodam em PARALELO no mesmo
+     *  servidor — um teste setava a escala enquanto outro zerava, e a máquina
+     *  do primeiro calculava a duração errada (as 4 cadeias de bebida falhavam
+     *  por isso). Como static, sobrevive também à recarga do config. */
+    private static Float velocidadeTeste;
 
     /** Game tests: acelera TODOS os processos de bebida (x20 = 0.05). */
     public static void setVelocidadeTeste(Float escala) {
-        get().velocidadeTeste = escala;
+        velocidadeTeste = escala;
+    }
+
+    /** Valor atual do gancho — pra teste que mexe nele RESTAURAR, não zerar. */
+    public static Float escalaTesteAtual() {
+        return velocidadeTeste;
     }
 
     /** A velocidade efetiva: o gancho de teste vence o config. */
     public float velocidadeEfetiva() {
         return velocidadeTeste != null ? velocidadeTeste : bebidaVelocidade;
+    }
+
+    /**
+     * v1.2.51 — SEGUNDOS de design → TICKS reais. As durações do ProcessosBebida
+     * são declaradas em segundos (600 = 10 min), mas os consumidores usavam o
+     * número DIRETO como ticks (600 ticks = 30 s): tudo 20× mais rápido que o
+     * planejado — o "barril envelhece rápido demais" do playtest.
+     */
+    public static int ticksDeSegundos(float segundos) {
+        return Math.max(5, Math.round(segundos * 20F * ModConfig.get().velocidadeEfetiva()));
     }
 
     public static ModConfig get() {
@@ -189,6 +224,11 @@ public final class ModConfig {
         embriaguezLimiarFonar = Math.min(embriaguezLimiarFonar, embriaguezCap);
         embriaguezLimiarHic = Math.min(embriaguezLimiarHic, embriaguezCap + 1);
         guiaNaPrimeiraEntrada = Boolean.TRUE.equals(guiaNaPrimeiraEntrada);
+        // v1.2.54: saúde — sede de 10s a 10min, limiar de vício 10..100, síndrome 30s..30min
+        saudeSedeSegundos = (int) clamp(saudeSedeSegundos, 10, 600);
+        saudeVicioLimiar = (int) clamp(saudeVicioLimiar, 10, 100);
+        saudeAbstinenciaSegundos = (int) clamp(saudeAbstinenciaSegundos, 30, 1800);
+        saudeMarkupDesesperado = (int) clamp(saudeMarkupDesesperado, 0, 100);
     }
 
     private static double clamp(double v, double min, double max) {

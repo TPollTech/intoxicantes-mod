@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Guia do SNC: página da Cachaça com fluxo completo auditado</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px;max-width:960px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:#f2d06b}
+  .tag{display:inline-block;background:#23863622;color:#3fb950;border:1px solid #238636;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+  .tag.novo{background:#1f6feb22;color:#58a6ff;border-color:#1f6feb}
+  /* o livro */
+  .livro{background:#EFE3C0;border-radius:4px;padding:14px 16px;color:#3A2E1C;font-size:13.5px;line-height:1.5;box-shadow:0 2px 10px #00000066}
+  .livro .titulo{font-size:15px;color:#9C3B25;font-weight:600;border-bottom:1px solid #D9C79A;padding-bottom:4px;margin-bottom:10px}
+  .passo{display:flex;align-items:center;gap:8px;margin:7px 0;font-family:monospace;font-size:12.5px}
+  .passo .ic{width:26px;height:26px;background:#D9C79A;border:1px solid #8A7B5A;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+  .passo .seta{color:#9C3B25;font-weight:700}
+  .passo .tmp{background:#e2e0b8;border:1px solid #6B6B34;border-radius:3px;padding:0 5px;font-size:11px;color:#6B6B34}
+  .passo .leg{color:#8A7B5A;font-size:11.5px}
+  .secao{font-weight:600;color:#9C3B25;margin-top:12px;font-size:13px}
+  .fogo{background:#fff3d6;border:1px dashed #C8971E;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total{background:#e8efda;border:1px solid #6B8E23;border-radius:4px;padding:8px 10px;font-size:12.5px;margin:8px 0}
+  .total b{color:#3d5a11}
+  .auditoria{margin-top:18px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;max-width:1160px;font-size:13px}
+  .auditoria b{color:#f2d06b}
+  table{border-collapse:collapse;margin-top:8px;width:100%}
+  td,th{border:1px solid #30363d;padding:5px 10px;font-size:12.5px;text-align:left}
+  th{background:#21262d;color:#f2d06b}
+  .ok{color:#3fb950}.info{color:#8b949e}
+</style>
+</head>
+<body>
+<h1>Guia do SNC — página da Cachaça com o fluxo completo <small>v1.2.53</small></h1>
+<div class="sub">Auditoria do código (60/60 testes) confirmou sua spec. O guia ganhou as duas peças que faltavam: <b>a regra do fogo do alambique</b> e <b>o tempo total do ciclo</b> — computado das constantes do código, nunca fixo no texto.</div>
+<div class="grid">
+  <div class="card">
+    <h2>Página "Cachaça — Da cana ao copo" <span class="tag">cadeia + tempos (já existia)</span></h2>
+    <div class="livro">
+      <div class="titulo">Da cana ao copo</div>
+      <div class="passo"><span class="ic">🌾</span> ×4 <span class="leg">cana de açúcar</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">⚙️</span><span class="tmp">40s</span><span class="leg">esmagadora de cana</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🥤</span> ×4 <span class="leg">+ 1 bagaço (queima na fornalha)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">7min</span><span class="leg">barril de fermentação</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🧪</span> ×4 <span class="leg">caldo de cana fermentado</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🔥</span><span class="tmp">1min30</span><span class="leg">alambique de cobre</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍶</span> ×2 <span class="leg">cachaça jovem (branca)</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🛢️</span><span class="tmp">10min</span><span class="leg">barril de cachaça</span></div>
+      <div class="passo"><span class="seta">▼</span><span class="ic">🍾</span> ×4 <span class="leg">cachaça</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Continuação da página <span class="tag novo">2 seções NOVAS</span></h2>
+    <div class="livro">
+      <div class="secao">Fogo do alambique</div>
+      <div class="fogo">✦ O alambique precisa de <b>FOGO embaixo</b> (fogueira, fogo ou magma). Sem calor o lote <b>ESPERA</b> — não perde o progresso, só retoma quando o fogo voltar.</div>
+      <div class="secao">O ciclo completo</div>
+      <div class="total">Da cana à garrafa: <b>19min10s</b> de relógio (esmagar 40s + fermentar 7min + destilar 1min30 + maturar 10min). Config ajusta tudo.</div>
+      <div class="secao">No copo</div>
+      <div>🍾 Força II (45s), Náusea (20s) e Lentidão (15s) — a branca é forte de verdade.</div>
+      <div class="secao">Dica de esquina</div>
+      <div class="fogo">✦ O bagaço da esmagadora queima na fornalha: a destilaria se abastece sozinha.</div>
+    </div>
+  </div>
+</div>
+<div class="auditoria">
+<b>Auditoria código × guia (passo a passo da sua spec):</b>
+<table>
+<tr><th>Etapa</th><th>Sua spec</th><th>Código</th><th>Guia</th></tr>
+<tr><td>Esmagadora</td><td>4 canas → 4 caldo + 1 bagaço</td><td class="ok">✓ idêntico</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Fermentação</td><td>7min</td><td class="ok">✓ SEG_DORNA_BASE = 420s</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Alambique</td><td>1min30, pausa sem fogo</td><td class="ok">✓ 90s; sem campfire/fogo/magma o tick NÃO decrementa (espera sem perder)</td><td class="info">⚠ não dizia a regra do fogo → <b>seção nova</b></td></tr>
+<tr><td>Cachaça jovem</td><td>→ barril (10min) → 4 garrafas</td><td class="ok">✓ 600s, 4 garrafas/lote</td><td class="ok">✓ já mostrava</td></tr>
+<tr><td>Tempo total</td><td>~19min</td><td class="ok">✓ 40+420+90+600 = 1150s = 19min10s</td><td class="info">⚠ não existia → <b>seção nova</b>, computada das constantes</td></tr>
+</table>
+<br><b>Regra gravada no AGENTS.md:</b> todo fluxo de progressão mudado ⇒ guia atualizado no mesmo ciclo, com valores lidos do código (número fixo no guia que existe como constante = proibido). O <code>GuiaGameTest</code> já fiscaliza os tempos.
+</div>
+</body>
+</html>

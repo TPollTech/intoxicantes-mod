@@ -1,7 +1,10 @@
 {
  "variants": {
-  "": {
-   "model": "intoxicantes:block/prensa_uvas"
+  "metade=lower": {
+   "model": "intoxicantes:block/prensa_uvas_baixo"
+  },
+  "metade=upper": {
+   "model": "intoxicantes:block/prensa_uvas_alto"
   }
  }
 }

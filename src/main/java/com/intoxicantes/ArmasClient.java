@@ -21,7 +21,9 @@ import net.minecraft.world.item.ItemStack;
  * - KICK DE CÂMERA: recebe o RecuoPayload do servidor e chuta pitch+yaw na
  *   hora; 55% do chute volta suavemente nos ticks seguintes (constituição de
  *   atirador: a mira re-assenta sozinha no alvo, não fica torta pra cima)
- * - ADS: segurar SHIFT com uma das armas na mão liga o zoom — o multiplicador
+ * - ADS: segurar o BOTÃO DIREITO com uma das armas na mão liga o zoom (v1.2.53:
+ *   padrão CoD/BF — esquerdo atira, direito mira; o estado segue pro servidor
+ *   via MiraPayload na borda) — o multiplicador
  *   de FOV entra pelo mixin no Camera.calculateFov (o getFov do GameRenderer
  *   morreu no 26.3); a dispersão menor e o alcance maior acontecem no servidor
  * - HUD (v1.2.48): painel de munição estilo CoD/Battlefield no CANTO INFERIOR
@@ -46,6 +48,8 @@ public final class ArmasClient {
     private static boolean recargaViaTecla;
     /** v1.2.41: nome de lang da arma recarregando via tecla ("escopeta"/"revolver"). */
     private static String recargaNomeArma = "escopeta";
+    /** v1.2.53: último estado de mira enviado ao servidor (borda, não por tick). */
+    private static boolean miraSincronizada;
 
     // cores do painel de munição (paleta CoD/BF: âmbar sobre fundo escuro)
     private static final int COR_NOME = 0xFFB8B0A0;
@@ -112,6 +116,13 @@ public final class ArmasClient {
             ClientPlayNetworking.send(new RecargaPayload(false));
         }
         teclaRAtiva = down;
+        // v1.2.53: mira (ADS) sincronizada na BORDA do estado — o servidor lê
+        // MiraPayload.estaMirando() na hora do disparo (dispersão/alcance).
+        boolean miraAgora = mirando();
+        if (miraAgora != miraSincronizada) {
+            ClientPlayNetworking.send(new MiraPayload(miraAgora));
+            miraSincronizada = miraAgora;
+        }
         // aplica o chute bruto (45% na hora, 55% vira retorno suave)
         if (kickPitchPendente != 0 || kickYawPendente != 0) {
             player.turn(kickYawPendente, kickPitchPendente);
@@ -155,14 +166,35 @@ public final class ArmasClient {
         return null;
     }
 
-    /** Mira ativada: com arma de fogo na mão e SHIFT segurado. */
+    /** Mira ativada: arma de fogo na mão + BOTÃO DIREITO segurado (v1.2.53: padrão CoD/BF — o SHIFT voltou a ser só agachar). */
     public static boolean mirando() {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null || !player.isShiftKeyDown()) {
+        if (player == null) {
             return false;
         }
-        return segurandoArma();
+        return segurandoArma() && mc.mouseHandler.isRightPressed();
+    }
+
+    /**
+     * v1.2.53 — GATILHO: chamado pelo MouseBotaoMixin quando o BOTÃO ESQUERDO
+     * desce com arma de fogo na mão (padrão CoD/BF: esquerdo atira, direito
+     * mira). O servidor é quem decide TUDO (fase do mecanismo, munição,
+     * cooldown): aqui só invoco o mesmo item.use() que o botão direito
+     * chamava antes — 1 clique = 1 tentativa de disparo, na mão da arma.
+     */
+    public static void gatilhoPuxado() {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (player == null || mc.gui.screen() != null) {
+            return;
+        }
+        ItemStack principal = player.getItemInHand(InteractionHand.MAIN_HAND);
+        InteractionHand mao = principal.is(IntoxicantesMod.ESCOPETA)
+                || principal.is(IntoxicantesMod.REVOLVER)
+                ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+        mc.gameMode.useItem(player, mao);
+        player.swing(mao, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
     }
 
     /** 0..1 com transição suave; chamado por frame pelo mixin de FOV. */

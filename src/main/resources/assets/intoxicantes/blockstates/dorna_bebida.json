@@ -1,7 +1,10 @@
 {
  "variants": {
-  "": {
-   "model": "intoxicantes:block/dorna_bebida"
+  "metade=lower": {
+   "model": "intoxicantes:block/dorna_bebida_baixo"
+  },
+  "metade=upper": {
+   "model": "intoxicantes:block/dorna_bebida_alto"
   }
  }
 }

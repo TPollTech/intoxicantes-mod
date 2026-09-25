@@ -15,7 +15,11 @@ MAQUINAS_128 = ["dorna", "alambique", "moenda_cana", "prensa_uvas", "caldeirao_m
 ITENS = ["cevada", "semente_cevada", "malte", "caldo_de_cana", "bagaco_de_cana",
          "melaco", "mosto_cana_fermentado", "mosto_rum_fermentado",
          "mosto_de_uva", "mosto_cerveja_lupulado", "cachaca_jovem", "rum_jovem"]
-CROPS = ["cevada_stage0", "cevada_stage2", "cevada_stage4", "cevada_stage6", "cevada_stage7"]
+CROPS = ["cevada_stage%d" % i for i in range(8)]
+ITENS_HD = ["cevada", "semente_cevada", "malte", "caldo_de_cana", "bagaco_de_cana",
+            "melaco", "mosto_cana_fermentado", "mosto_rum_fermentado",
+            "mosto_de_uva", "mosto_cerveja_lupulado", "cachaca_jovem", "rum_jovem"]
+BACKUP_HD = os.path.join("backups", "20260924-texturas-hd")
 
 
 def b64(caminho):
@@ -23,22 +27,23 @@ def b64(caminho):
         return base64.b64encode(f.read()).decode()
 
 
-def grade_png(nomes, pasta, escala=4):
+def grade_png(nomes, pasta, tam=64):
+    """Grade de texturas em tamanho legível — aceita 16×16 ou 128×128."""
     imgs = []
     for n in nomes:
         img = Image.open(os.path.join(TEX, pasta, n + ".png")).convert("RGBA")
-        img = img.resize((16 * escala, 16 * escala), Image.NEAREST)
+        img = img.resize((tam, tam), Image.NEAREST)
         imgs.append((n, img))
     cols = min(len(imgs), 6)
     rows = (len(imgs) + cols - 1) // cols
-    W, H = cols * (16 * escala + 8), rows * (16 * escala + 22)
+    W, H = cols * (tam + 8), rows * (tam + 22)
     out = Image.new("RGBA", (W, H), (38, 40, 48, 255))
     from PIL import ImageDraw
     d = ImageDraw.Draw(out)
     for i, (n, img) in enumerate(imgs):
-        x, y = (i % cols) * (16 * escala + 8), (i // cols) * (16 * escala + 22)
+        x, y = (i % cols) * (tam + 8), (i // cols) * (tam + 22)
         out.paste(img, (x + 4, y + 4), img)
-        d.text((x + 4, y + 16 * escala + 5), n[:22], fill=(200, 200, 190, 255))
+        d.text((x + 4, y + tam + 5), n[:22], fill=(200, 200, 190, 255))
     return out
 
 
@@ -64,10 +69,32 @@ def compara_maquinas():
     return out
 
 
+def compara_hd(pasta, nomes, alvo):
+    """Faixa ANTES (16×16 do backup) × DEPOIS (128×128 novo) com rótulos."""
+    from PIL import ImageDraw
+    rotulos_w = 150
+    W = rotulos_w + (alvo + 10) * 2 + 30
+    H = len(nomes) * (alvo + 26) + 10
+    out = Image.new("RGBA", (W, H), (38, 40, 48, 255))
+    d = ImageDraw.Draw(out)
+    for i, n in enumerate(nomes):
+        velha = Image.open(os.path.join(BACKUP_HD, pasta, n + ".png")).convert("RGBA")
+        velha = velha.resize((alvo, alvo), Image.NEAREST)
+        nova = Image.open(os.path.join(TEX, pasta, n + ".png")).convert("RGBA")
+        nova = nova.resize((alvo, alvo), Image.LANCZOS)
+        y = 8 + i * (alvo + 26)
+        d.text((8, y + alvo // 2 - 6), n[:18], fill=(220, 220, 205, 255))
+        out.paste(velha, (rotulos_w, y), velha)
+        out.paste(nova, (rotulos_w + alvo + 20, y), nova)
+    return out
+
+
 os.makedirs(os.path.join("..", "preview"), exist_ok=True)
 compara_maquinas().save(os.path.join("..", "preview", "previa-maquinas-128.png"))
-grade_png(ITENS, "item").save(os.path.join("..", "preview", "previa-itens-bebida.png"))
-grade_png(CROPS, "block", escala=6).save(os.path.join("..", "preview", "previa-cevada-crop.png"))
+compara_hd("item", ITENS_HD, 96).save(os.path.join("..", "preview", "previa-itens-antes-depois.png"))
+compara_hd("block", CROPS, 96).save(os.path.join("..", "preview", "previa-cevada-antes-depois.png"))
+grade_png(ITENS, "item", tam=72).save(os.path.join("..", "preview", "previa-itens-bebida.png"))
+grade_png(CROPS, "block", tam=88).save(os.path.join("..", "preview", "previa-cevada-crop.png"))
 
 barril_modelos = b64("../preview/previa-barril-modelos.png")
 barril_gui = b64("../preview/previa-barril-gui.png")
@@ -76,7 +103,9 @@ maquinas_3d = b64("../preview/previa-maquinas.png")
 maquinas_tex = b64("../preview/previa-maquinas-128.png")
 zoom_maq = b64("../preview/previa-maquinas-zoom.png")
 itens = b64("../preview/previa-itens-bebida.png")
+itens_ad = b64("../preview/previa-itens-antes-depois.png")
 crop = b64("../preview/previa-cevada-crop.png")
+crop_ad = b64("../preview/previa-cevada-antes-depois.png")
 
 html = """<!DOCTYPE html>
 <html lang="pt-BR">
@@ -137,12 +166,15 @@ html = """<!DOCTYPE html>
 <h3 style="color:#79c0ff;font-size:14px;margin:18px 0 6px">Zoom de revisão — isométrica grande de cada máquina</h3>
 <img class="painel" src="data:image/png;base64,__ZOOM_MAQ__" style="max-width:1400px">
 
-<h2>Cevada — o crop novo (estágios 0, 2, 4, 6 e 7/maduro de 8)</h2>
-<img class="painel" src="data:image/png;base64,__CROP__" style="max-width:660px">
-<div class="nota">8 estágios (1:1 com os ages): colmo com nós, lâminas em arco, espiga dourada com arestas (as "barbas") e amarelecimento na maturação. No estágio 7 o bloco dropa até 4 grãos + semente extra.</div>
+<h2>Cevada — o crop novo em alta resolução (8 estágios 1:1, 128×128)</h2>
+<img class="painel" src="data:image/png;base64,__CROP_AD__" style="max-width:520px">
+<div class="nota">ANTES (esquerda): 16×16 com hastes de 1px. DEPOIS (direita): 128×128 pintado — colmos com nós e lâminas em arco, sombra de contato, espigas douradas com arestas (as "barbas") e amarelecimento na maturação. O dourado segue sendo a assinatura do "pronto"; no estágio 7 o bloco dropa até 4 grãos + semente extra.</div>
+<img class="painel" src="data:image/png;base64,__CROP__" style="max-width:900px">
 <div class="nota">Sementes também caem de grama alta (6%). Worldgen selvagem gerado e validado.</div>
 
-<h2>Itens intermediários (cada etapa vira um item com lore)</h2>
+<h2>Itens intermediários em alta resolução (cada etapa vira um item com lore)</h2>
+<img class="painel" src="data:image/png;base64,__ITENS_AD__" style="max-width:520px">
+<div class="nota">ANTES (esquerda): ASCII-art 16×16. DEPOIS (direita): 128×128 pintado — garrafas de vidro com gradiente de líquido, bolhas de fermentação, menisco, brilho e tampa de lata · pote bojudo de melaço com rolha de cortiça · feixes de cereal amarrados (cevada dourada, malte torrado) · bagaço com fibra e cacos de folha · pacote de sementes kraft com etiqueta.</div>
 <img class="painel" src="data:image/png;base64,__ITENS__" style="max-width:900px">
 
 <h2>Status</h2>
@@ -173,7 +205,9 @@ html = html.replace("__MAQUINAS_3D__", maquinas_3d)
 html = html.replace("__MAQUINAS_TEX__", maquinas_tex)
 html = html.replace("__ZOOM_MAQ__", zoom_maq)
 html = html.replace("__CROP__", crop)
+html = html.replace("__CROP_AD__", crop_ad)
 html = html.replace("__ITENS__", itens)
+html = html.replace("__ITENS_AD__", itens_ad)
 
 caminho = os.path.join("..", "preview", "previa-bebidas.html")
 with open(caminho, "w", encoding="utf-8") as f:

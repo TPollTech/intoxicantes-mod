@@ -409,7 +409,7 @@ public class GuiaScreen extends Screen {
         g.enableScissor(papelX(), papelY(), papelX() + papelL(), papelY() + papelA());
         int y = papelY() + 4 - scroll;
         Component titulo = Component.translatable("guia.intoxicantes.sumario");
-        g.text(this.font, titulo, papelX() + 8, y, TINTA);
+        g.text(this.font, titulo, papelX() + 8, y, TINTA, false);
         g.verticalLine(papelX() + 6, y + 10, y + 11, TINTA);
         y += 18;
         List<GuiaConteudo.GuiaCategoria> cats = GuiaConteudo.categorias();
@@ -423,8 +423,8 @@ public class GuiaScreen extends Screen {
             String cap = "cap. " + (i + 1);
             int wNome = this.font.width(nome);
             int wCap = this.font.width(cap);
-            g.text(this.font, nome, papelX() + 8, y, hover ? TINTA_VERMELHA : TINTA);
-            g.text(this.font, cap, papelX() + papelL() - 8 - wCap, y, TINTA_FRACA);
+            g.text(this.font, nome, papelX() + 8, y, hover ? TINTA_VERMELHA : TINTA, false);
+            g.text(this.font, cap, papelX() + papelL() - 8 - wCap, y, TINTA_FRACA, false);
             // pontilhado de índice
             for (int px = papelX() + 8 + wNome + 4; px < papelX() + papelL() - 12 - wCap; px += 4) {
                 g.fill(px, y + 7, px + 2, y + 8, LINHA_PONTILHADA);
@@ -457,11 +457,11 @@ public class GuiaScreen extends Screen {
             // ícone + nome
             g.item(e.icone.get(), papelX() + 8, y + 2);
             String nome = e.titulo().getString();
-            g.text(this.font, nome, papelX() + 28, y + 2, hover ? TINTA_VERMELHA : TINTA);
+            g.text(this.font, nome, papelX() + 28, y + 2, hover ? TINTA_VERMELHA : TINTA, false);
             // carimbo da cadeia (mini, linha de baixo)
             String carimbo = Component.translatable(
                     "guia.intoxicantes." + e.id + ".carimbo").getString();
-            g.text(this.font, carimbo, papelX() + 28, y + 12, TINTA_FRACA);
+            g.text(this.font, carimbo, papelX() + 28, y + 12, TINTA_FRACA, false);
             // linha pontilhada de ficha
             if (i < entradas.size() - 1) {
                 for (int px = papelX() + 6; px < papelX() + papelL() - 8; px += 5) {
@@ -488,7 +488,7 @@ public class GuiaScreen extends Screen {
         // título da entrada com ícone
         g.item(e.icone.get(), papelX() + 8, y + 2);
         String titulo = e.titulo().getString();
-        g.text(this.font, titulo, papelX() + 28, y + 4, TINTA);
+        g.text(this.font, titulo, papelX() + 28, y + 4, TINTA, false);
         y += 22;
         for (Object p : e.paginas) {
             y = desenharPagina(g, p, y, mx, my);
@@ -502,7 +502,7 @@ public class GuiaScreen extends Screen {
         int largura = papelL() - 16;
         if (p instanceof GuiaConteudo.PagTitulo t) {
             String s = Component.translatable("guia.intoxicantes." + t.chave()).getString();
-            g.text(this.font, s, px, y, TINTA_VERMELHA);
+            g.text(this.font, s, px, y, TINTA_VERMELHA, false);
         g.outline(px, y + 9, largura, 1, PAPEL_SOMBRA);
         g.outline(px, y + 10, largura, 1, 0x40D9C79A);
         return y + 15;
@@ -561,7 +561,7 @@ public class GuiaScreen extends Screen {
             int y, int px, int largura) {
         int cx = px + 8;
         if (passo.setaAntes()) {
-            g.text(this.font, "\u25BC", cx - 2, y + 2, TINTA_VERMELHA);
+            g.text(this.font, "\u25BC", cx - 2, y + 2, TINTA_VERMELHA, false);
         }
         ItemStack stack = passo.icone().get();
         g.item(stack, cx + 8, y + 1);
@@ -572,13 +572,13 @@ public class GuiaScreen extends Screen {
             int w = this.font.width(t) + 8;
             g.fill(tx, y + 1, tx + w, y + 13, 0x186B6B34);
             g.outline(tx, y + 1, w, 12, OLIVA);
-            g.text(this.font, t, tx + 4, y + 3, OLIVA);
+            g.text(this.font, t, tx + 4, y + 3, OLIVA, false);
             tx += w + 6;
         }
         if (passo.chaveLegenda() != null) {
             String legenda = Component.translatable(
                     "guia.intoxicantes." + passo.chaveLegenda()).getString();
-            g.text(this.font, legenda, tx, y + 3, TINTA_FRACA);
+            g.text(this.font, legenda, tx, y + 3, TINTA_FRACA, false);
         }
         g.fill(px + 20, y + 17, px + largura, y + 18, LINHA_PAUTA);
         return y + 20;
@@ -615,7 +615,7 @@ public class GuiaScreen extends Screen {
         }
         // seta
         int setaX = px + grade + 8;
-        g.text(this.font, "\u27A4", setaX, y + grade / 2 - 4, TINTA_VERMELHA);
+        g.text(this.font, "\u27A4", setaX, y + grade / 2 - 4, TINTA_VERMELHA, false);
         // resultado
         int rx = setaX + 14;
         ItemStack res = receita.resultado();
@@ -641,7 +641,8 @@ public class GuiaScreen extends Screen {
         g.fill(left, top, left + w, top + h, 0x309C3B25);
         g.outline(left, top, w, h, TINTA_VERMELHA);
         g.outline(left + 2, top + 2, w - 4, h - 4, 0x809C3B25);
-        g.centeredText(this.font, texto, cx, top + 3, TINTA_VERMELHA);
+        // v1.2.52: SEM sombra (a sombra preta sobre o papel claro lia como negrito forte)
+        g.text(this.font, texto, cx - this.font.width(texto.getString()) / 2, top + 3, TINTA_VERMELHA, false);
     }
 
     /** Texto com quebra de linha manual (o guia não usa componentes multi-linha). */
@@ -653,7 +654,7 @@ public class GuiaScreen extends Screen {
         for (String palavra : palavras) {
             String tentativa = atual.isEmpty() ? palavra : atual + " " + palavra;
             if (this.font.width(tentativa) > largura && !atual.isEmpty()) {
-                g.text(this.font, atual.toString(), x, y + linha * 10, cor);
+                g.text(this.font, atual.toString(), x, y + linha * 10, cor, false);
                 linha++;
                 atual = new StringBuilder(palavra);
             } else {
@@ -661,7 +662,7 @@ public class GuiaScreen extends Screen {
             }
         }
         if (!atual.isEmpty()) {
-            g.text(this.font, atual.toString(), x, y + linha * 10, cor);
+            g.text(this.font, atual.toString(), x, y + linha * 10, cor, false);
             linha++;
         }
         return y + linha * 10 + 2;

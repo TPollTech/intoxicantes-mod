@@ -60,7 +60,7 @@ public class CommerceClientTest implements FabricClientGameTest {
             click(context, 269, 109); // Buy one beer through the actual screen -> packet -> server.
             server.waitFor(mc -> PlayerMoney.get(mc.getPlayerList().getPlayers().getFirst()) == 485);
             context.waitTicks(5);
-            click(context, 231, 84); // Sell harvest tab.
+            click(context, 150, 84); // Sell harvest tab (abas de 100px: 6..106 buy, 109..209 sell).
             context.takeScreenshot("commerce-harvest-desktop");
             for (int purchase = 1; purchase <= 12; purchase++) {
                 click(context, 269, 109);
@@ -93,7 +93,7 @@ public class CommerceClientTest implements FabricClientGameTest {
             move(context, 120, 110);
             context.getInput().scroll(1); // Honey now in the third row.
             click(context, 79, 84);
-            click(context, 231, 84); // Selling tab preserves its scroll position.
+            click(context, 150, 84); // Selling tab preserves its scroll position.
             click(context, 269, 173);
             server.waitFor(mc -> PlayerMoney.get(mc.getPlayerList().getPlayers().getFirst()) == 569);
             context.waitTicks(3);

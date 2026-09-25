@@ -584,6 +584,62 @@ def validar_nbt_mercado():
         sufixo = "[" + ",".join(f"{k}={v}" for k, v in props.items()) + "]" if props else ""
         checar_bloco_estado(nome + sufixo, "mercado_gago.nbt paleta")
 
+    # ==================================================== v1.2.51 — ANATOMIA NOVA
+    # A faixa de LED do letreiro tem que nascer COMPLETA (1 painel J + 14
+    # extensões X na fileira y3 do prédio) — a 1.2.31–50 semeava só o J e o
+    # texto do renderer desenhava POR CIMA da fachada errada (o "caos").
+    placa = [b for b in blocks if isinstance(b, dict)
+             and id_da_entrada(b).startswith("intoxicantes:placa_esquinao")]
+    paineis = [b for b in placa
+               if (paleta[b["state"]].get("properties", {}) or {}).get("parte") == "painel"]
+    extensoes = [b for b in placa
+                 if (paleta[b["state"]].get("properties", {}) or {}).get("parte") == "extensao"]
+    if len(paineis) != 1:
+        erro(f"mercado_gago.nbt: o letreiro deve ter EXATAMENTE 1 painel (tem {len(paineis)})")
+    if len(extensoes) != 14:
+        erro(f"mercado_gago.nbt: a faixa de LED deve ter 14 EXTENSOES (tem {len(extensoes)}) "
+             "— 1 painel + 14 = 15 blocos de fachada; template velho semeava só o painel")
+    for b in placa:
+        if "nbt" in b and (paleta[b["state"]].get("properties", {}) or {}).get("parte") != "painel":
+            erro(f"mercado_gago.nbt: extensao da faixa em {b['pos']} tem nbt "
+                 "(só o PAINEL tem texto; nbt na extensão = texto duplicado)")
+            break
+
+    # Porta-grade: o vão da porta (x7, z9, y1..y2) deve ser a dupla do mod.
+    def estado_em(x, y, z):
+        b = idx_por_pos.get((x, y, z))
+        return paleta[b["state"]].get("id", "") if b else ""
+
+    if estado_em(7, 1, 9) != "intoxicantes:porta_grade" \
+            or estado_em(7, 2, 9) != "intoxicantes:porta_grade":
+        erro(f"mercado_gago.nbt: o vão da porta (x7,z9) deve ser a PORTA-GRADE "
+             f"do mod (lower+upper); veio '{estado_em(7, 1, 9)}'/'{estado_em(7, 2, 9)}' "
+             "— a porta de spruce velha não tem guichê de madrugada")
+
+    # Mini display "ABERTO · 24H": painel de LED ÚNICO com NBT no x12 (y2, z10);
+    # o painel de OFERTAS fica no cabeça x2 (v1.2.40) — os 2 coexistem.
+    def painel_nbt_em(x, y, z):
+        b = idx_por_pos.get((x, y, z))
+        if b and id_da_entrada(b) == "intoxicantes:painel_led" and isinstance(b.get("nbt"), dict):
+            return b["nbt"]
+        return None
+
+    paineis_nbt = [b for b in blocks if isinstance(b, dict)
+                   and id_da_entrada(b) == "intoxicantes:painel_led" and "nbt" in b]
+    if len(paineis_nbt) != 2:
+        erro(f"mercado_gago.nbt: deve haver EXATAMENTE 2 paineis de LED com NBT "
+             f"(ofertas x2 + mini display x12; tem {len(paineis_nbt)})")
+    mini = painel_nbt_em(12, 2, 10)
+    if mini is None:
+        erro("mercado_gago.nbt: o mini display 'ABERTO 24H' não está em (12,2,10) "
+             "(lado direito da porta; o espelho do painel de ofertas)")
+    elif mini.get("linha0") != "ABERTO":
+        erro(f"mercado_gago.nbt: mini display sem 'ABERTO' na linha 0 (veio {mini.get('linha0')!r})")
+    ofertas = painel_nbt_em(2, 2, 10)
+    if ofertas is None:
+        erro("mercado_gago.nbt: o painel de OFERTAS sem NBT no cabeça (2,2,10) "
+             "— a linha nasce sem texto (bug do display duplicado)")
+
     # entidades: lista de compounds com blockPos/pos/nbt(id)
     ents = d.get("entities", [])
     if not isinstance(ents, list):

@@ -53,10 +53,29 @@ public final class EsquinaoNetworking {
         PayloadTypeRegistry.clientboundPlay().register(
                 FecharCardapioPayload.TYPE, FecharCardapioPayload.STREAM_CODEC);
         PayloadTypeRegistry.serverboundPlay().register(VenderPayload.TYPE, VenderPayload.STREAM_CODEC);
+        // v1.2.51: UM receiver só, que ROTEIA pela sessão do jogador. Antes havia
+        // dois registerGlobalReceiver para o mesmo payload (Mercado e Ponto do
+        // traficante) — o segundo SOBRESCREVIA o primeiro no Fabric, e o
+        // Buy/Sell do Mercado ia pro handler do traficante, que ignorava
+        // silenciosamente (Purchase ficava em 0 pra sempre).
         ServerPlayNetworking.registerGlobalReceiver(ComprarPayload.TYPE,
-                (payload, ctx) -> negociar(ctx.player(), payload.indice(), false));
+                (payload, ctx) -> {
+                    ServerPlayer player = ctx.player();
+                    if (SESSOES.containsKey(player.getUUID())) {
+                        negociar(player, payload.indice(), false);
+                    } else {
+                        comprarNoTraficante(player, payload.indice());
+                    }
+                });
         ServerPlayNetworking.registerGlobalReceiver(VenderPayload.TYPE,
-                (payload, ctx) -> negociar(ctx.player(), payload.indice(), true));
+                (payload, ctx) -> {
+                    ServerPlayer player = ctx.player();
+                    if (SESSOES.containsKey(player.getUUID())) {
+                        negociar(player, payload.indice(), true);
+                    } else {
+                        venderNoTraficante(player, payload.indice());
+                    }
+                });
 
         // v1.2.44 — O PONTO DO TRAFICANTE (tela propria dele)
         PayloadTypeRegistry.clientboundPlay().register(
@@ -67,10 +86,9 @@ public final class EsquinaoNetworking {
                 FiadoPayload.TYPE, FiadoPayload.STREAM_CODEC);
         PayloadTypeRegistry.serverboundPlay().register(
                 DiazinhoPayload.TYPE, DiazinhoPayload.STREAM_CODEC);
-        ServerPlayNetworking.registerGlobalReceiver(ComprarPayload.TYPE,
-                (payload, ctx) -> comprarNoTraficante(ctx.player(), payload.indice()));
-        ServerPlayNetworking.registerGlobalReceiver(VenderPayload.TYPE,
-                (payload, ctx) -> venderNoTraficante(ctx.player(), payload.indice()));
+        // v1.2.51: os receivers de Comprar/Vender do PONTO ficam no roteador
+        // único lá em cima (registrar o mesmo TYPE duas vezes sobrescrevia o
+        // receiver do Mercado).
         ServerPlayNetworking.registerGlobalReceiver(DestrancoPayload.TYPE,
                 (payload, ctx) -> {
                     TraficanteEntity t = SESSOES_T.get(ctx.player().getUUID());
@@ -266,6 +284,9 @@ public final class EsquinaoNetworking {
         gago.refreshTradeStock();
         SESSOES.put(player.getUUID(), gago);
         gago.setTradingPlayer(player);
+        // v1.2.51: congela a IA durante o atendimento (gago de ovo/passeando
+        // saía ANDANDO com a tela aberta até o watchdog fechar por distância)
+        gago.congelarParaAtendimento();
         enviarCardapio(player, gago, true);
     }
 

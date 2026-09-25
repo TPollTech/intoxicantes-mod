@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
@@ -143,6 +144,19 @@ public class IntoxicantesMod implements ModInitializer {
                     .mapColor(net.minecraft.world.level.material.MapColor.COLOR_RED)
                     .setId(ResourceKey.create(Registries.BLOCK,
                             Identifier.fromNamespaceAndPath(MOD_ID, "hidrante")))));
+
+    // ============================================================ BLOCOS: PORTA-GRADE DO ESQUINÃO (v1.2.51)
+    // A porta do guichê: de madrugada o guichê FECHA (colisão plena no vão
+    // embaixo) e o Gago atende POR TRÁS da grade de ferro — de dia abre
+    // (passagem livre). A virada é do Zelador do mercado (MarketSystem).
+    public static final Block PORTA_GRADE = registerBlockWithItem("porta_grade",
+            new PortaGradeBlock(BlockBehaviour.Properties.of()
+                    .strength(1.2F, 4.0F)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_BROWN)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "porta_grade")))));
 
     // ============================================================ BLOCOS: DESTILARIA (v1.2.50)
     // A cadeia das bebidas: máquinas de prima, fermentação, destilação e
@@ -588,6 +602,13 @@ public class IntoxicantesMod implements ModInitializer {
             effect(MobEffects.HASTE, 2400, 0),
             effect(MobEffects.SPEED, 2400, 0));
 
+    // ==================================================== SAUDE: O CAMINHO DE CURA (v1.2.54)
+    // SUCO DETOX: a redenção do fregues — regenera os órgãos devagar (o
+    // SaudeSystem aplica a cura e a hidratação no fim do gole).
+    public static final Item SUCO_DETOX = drink("suco_detox");
+    // AGUA DE COCO: o isotônico do sertão (+50 de hidratação).
+    public static final Item AGUA_DE_COCO = drink("agua_de_coco");
+
     /** Abas vanilla onde os itens tambem aparecem (facilidade de descoberta). */
     private static final ResourceKey<CreativeModeTab> FOOD_AND_DRINKS = ResourceKey.create(
             Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath("minecraft", "food_and_drinks"));
@@ -622,6 +643,8 @@ public class IntoxicantesMod implements ModInitializer {
                 // v1.2.19: o poste de luz do estacionamento (acende de noite)
                 output.accept(POSTE_LUZ);
                 output.accept(ASFALTO);
+                // v1.2.51: a porta-grade do guichê (a porta com dono)
+                output.accept(PORTA_GRADE);
                 // Produtos agricolas
                 output.accept(LOUPULO_FRESCO);
                 output.accept(UVA);
@@ -671,6 +694,9 @@ public class IntoxicantesMod implements ModInitializer {
                 output.accept(RAIZ_DE_SOMBRA);
                 output.accept(CRISTAL_DE_EUFORIA);
                 output.accept(EXTRATO_CAFEINA);
+                // v1.2.54: o caminho de cura (saúde do fregues)
+                output.accept(SUCO_DETOX);
+                output.accept(AGUA_DE_COCO);
                 // Armas do Gago
                 output.accept(ESCOPETA);
                 output.accept(CARTUCHO);
@@ -696,6 +722,11 @@ public class IntoxicantesMod implements ModInitializer {
         RecargaPayload.registrar();
         RecargaPayload.registrarStatus();
 
+        // v1.2.53: botões CoD/BF — estado de mira (ADS) via payload C2S, limpa no logout
+        MiraPayload.registrar();
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                MiraPayload.limpar(handler.player));
+
         ResourceKey<CreativeModeTab> tabKey = ResourceKey.create(Registries.CREATIVE_MODE_TAB,
                 Identifier.fromNamespaceAndPath(MOD_ID, "main"));
         Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, tabKey, TAB);
@@ -707,6 +738,9 @@ public class IntoxicantesMod implements ModInitializer {
             output.accept(CACHACA);
             output.accept(HIDROMEL);
             output.accept(RUM);
+            // v1.2.54: os sucos entram na família
+            output.accept(SUCO_DETOX);
+            output.accept(AGUA_DE_COCO);
         });
         // Sementes na aba "Natureza" — nao duplica se ja estiver na aba do mod
         // Lampada UV na aba "Funcional"
@@ -795,6 +829,15 @@ public class IntoxicantesMod implements ModInitializer {
 
         // v1.2.9: embriaguez — dose, fala fonar no chat e HIC
         Embriaguez.register();
+
+        // ==================================================== SAUDE + VIAGENS (v1.2.54)
+        // Os MobEffects assinatura precisam estar registrados ANTES do freeze
+        // das registries: tocar a classe dispara o static que registra.
+        Efeitos.carga();
+        // Rede da saúde (sync S2C + tecla H do prontuário) e o motor (sede,
+        // vício/abstinência, queda das viagens, efeitos por droga)
+        SaudeNetworking.registrar();
+        SaudeSystem.register();
 
         // ======================================================== CARDAPIO DO ESQUINAO (rede)
         EsquinaoNetworking.register();
@@ -989,6 +1032,8 @@ public class IntoxicantesMod implements ModInitializer {
             FidelidadeData.init(worldDir);
             // v1.2.10: embriaguez sobrevive a relog/restart (intoxicantes_embriaguez.json)
             Embriaguez.init(worldDir);
+            // v1.2.54: saúde do fregues sobrevive a relog/restart (intoxicantes_saude.json)
+            SaudeData.init(worldDir);
             MarketSystem.load(worldDir);
             // v1.2.51: flag "recebeu o guia" (intoxicantes_guia.json)
             GuiaPrimeiraVez.init(worldDir);
@@ -1119,6 +1164,11 @@ public class IntoxicantesMod implements ModInitializer {
         return new MobEffectInstance(holder, durationTicks, amplifier);
     }
 
+    /** Bebida SEM efeito (v1.2.54: suco detox e água de coco — a saúde aplica no consumo). */
+    private static Item drink(String name) {
+        return drink(name, new MobEffectInstance[0]);
+    }
+
     /** Bebida: animação de beber + devolve garrafa de vidro ao terminar. */
     private static Item drink(String name, MobEffectInstance... effects) {
         Consumable.Builder builder = Consumable.builder()
@@ -1176,11 +1226,12 @@ public class IntoxicantesMod implements ModInitializer {
         return register(name, new Item.Properties().stacksTo(64));
     }
 
-    /** Pó/substância: animação de comer. */
+    /** Pó/substância: v1.2.53 — SPYGLASS (leva a mão ao nariz, como cheirar) em vez de EAT (comer): droga não é comida. */
     private static Item powder(String name, MobEffectInstance... effects) {
         Consumable.Builder builder = Consumable.builder()
-                .animation(ItemUseAnimation.EAT)
-                .sound(SoundEvents.GENERIC_EAT);
+                .animation(ItemUseAnimation.SPYGLASS)
+                .consumeSeconds(1.6F)
+                .sound(Holder.direct(SoundEvents.WOOL_STEP));  // rufar surdo do papel/ficato
         return register(name, comLore(name, new Item.Properties().stacksTo(16)
                 .food(alwaysEdible(), withEffects(builder, effects))));
     }
@@ -1190,11 +1241,12 @@ public class IntoxicantesMod implements ModInitializer {
         return powder(name, effects);
     }
 
-    /** Erva pra fumar: colunar, som de acendedor + fumaça no fim. */
+    /** Erva pra fumar: v1.2.53 — BOW (a mão leva o baseado à boca e "puxa" como arco e flecha) + fósforo. */
     private static Item smoke(String name, MobEffectInstance... effects) {
         Holder<SoundEvent> flint = Holder.direct(SoundEvents.FLINTANDSTEEL_USE);
         Consumable.Builder builder = Consumable.builder()
-                .animation(ItemUseAnimation.DRINK) // colunar, tipo col
+                .animation(ItemUseAnimation.BOW) // puxada: o braço recua igual ao arco
+                .consumeSeconds(2.2F)           // 3 puxadas curtas (o fumo não é golado)
                 .sound(flint)
                 .onConsume(new PlaySoundConsumeEffect(Holder.direct(SoundEvents.FIRE_EXTINGUISH)));
         return register(name, comLore(name, new Item.Properties().stacksTo(16)

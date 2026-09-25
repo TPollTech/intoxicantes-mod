@@ -1,6 +1,7 @@
 package com.intoxicantes;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -121,6 +122,11 @@ public class PlacaEsquinaoBlockEntity extends BlockEntity {
         if (level.isClientSide() || level.getGameTime() < be.proximaAutocura) return;
         be.proximaAutocura = level.getGameTime() + INTERVALO_AUTOCURA;
 
+        // v1.2.51 — A FAIXA INTEIRA: mundos da 1.2.31–1.2.50 nasceram com SÓ
+        // o painel (1 bloco de placa no meio da parede de concreto — o texto
+        // desenhado POR CIMA da fachada errada, o "caos" do playtest).
+        completarFaixa(level, pos, be);
+
         // v1.2.31: placa de anatomia VELHA (versao<3, torres na calçada) é
         // MIGRADA pro display de fachada — 1× só (a faixa nova nasce versao 3)
         if (be.versao < VERSAO_ANATOMIA) {
@@ -155,6 +161,53 @@ public class PlacaEsquinaoBlockEntity extends BlockEntity {
     private void resetarPadrao() {
         linhas.clear();
         for (String l : LINHAS_PADRAO) linhas.add(l);
+    }
+
+    /** v1.2.51: ajusta a largura da faixa (só encolhe — nunca some o nome). */
+    public void setLargura(int nova) {
+        int ajustada = Math.max(1, nova);
+        if (ajustada == this.largura) return;
+        this.largura = ajustada;
+        setChanged();
+        if (this.level != null && !this.level.isClientSide()) {
+            this.level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    /**
+     * v1.2.51 — A AUTOCURA DA FAIXA: completa o display de fachada com os
+     * blocos de EXTENSÃO que faltam (±7 no eixo da fachada = 15 no total).
+     * Sempre verde vivo. Seguro por construção: só SEMEIA em AR — parede do
+     * próprio mercado ou bloco de jogador NUNCA é sobrescrito (a varredura
+     * para no primeiro não-ar de cada lado). Idempotente: extensão que já
+     * existe é contada, não re-montada.
+     */
+    static void completarFaixa(Level level, BlockPos pos, PlacaEsquinaoBlockEntity be) {
+        if (level.isClientSide() || !be.isLinkMercado()) return;
+        BlockState minha = be.getBlockState();
+        BlockState caixa = IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                .setValue(PlacaEsquinaoBlock.FACING, minha.getValue(PlacaEsquinaoBlock.FACING))
+                .setValue(PlacaEsquinaoBlock.NIVEL, PlacaEsquinaoBlock.Nivel.COLUNA)
+                .setValue(PlacaEsquinaoBlock.LIT, minha.getValue(PlacaEsquinaoBlock.LIT));
+        Direction eixo = minha.getValue(PlacaEsquinaoBlock.FACING).getClockWise();
+        int montados = 1; // o painel (este bloco) já conta
+        for (int lado = -1; lado <= 1; lado += 2) {
+            for (int d = 1; d <= PlacaEsquinaoBlockEntity.LARGURA_FACHADA / 2; d++) {
+                BlockPos p = pos.relative(eixo, lado * d);
+                BlockState s = level.getBlockState(p);
+                if (s.getBlock() == IntoxicantesMod.PLACA_ESQUINAO) {
+                    montados++;
+                    continue;
+                }
+                if (!s.isAir()) break; // parede/jogador: NUNCA sobrescreve
+                level.setBlockAndUpdate(p, caixa.setValue(PlacaEsquinaoBlock.PARTE,
+                        PlacaEsquinaoBlock.Parte.EXTENSAO));
+                montados++;
+            }
+        }
+        if (montados != be.getLargura()) {
+            be.setLargura(montados);
+        }
     }
 
     public List<String> getLinhas() {

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.53 — Detalhes finos: puxada do baseado, consumo de droga, botões CoD/BF, iron sight e relógio no HUD</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px}
+  .card h2{font-size:15px;margin:0 0 8px;color:#79c0ff}
+  .card p{font-size:13px;margin:6px 0;line-height:1.5}
+  .ok{color:#7ee787;font-weight:600}
+  .atencao{color:#ffa657;font-weight:600}
+  code{background:#21262d;padding:1px 6px;border-radius:5px;font-size:12px;color:#f2cc60}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  th,td{border:1px solid #30363d;padding:6px 8px;text-align:left}
+  th{background:#21262d;color:#8b949e;font-weight:600}
+  td:first-child{color:#f2cc60;white-space:nowrap}
+  /* simulação do HUD do relógio */
+  .simulacao{background:linear-gradient(180deg,#1a2f4a 0%,#25476e 55%,#2f5d43 100%);border-radius:10px;position:relative;height:170px;overflow:hidden;border:1px solid #30363d}
+  .relogio-sim{position:absolute;top:4px;right:4px;background:rgba(14,12,10,.65);border-top:1px solid rgba(58,52,44,.9);border-bottom:1px solid rgba(58,52,44,.9);color:#ffe8d8b0;font-family:Consolas,monospace;font-size:13px;padding:2px 8px 2px 6px;display:flex;align-items:center;gap:6px}
+  .sol{width:6px;height:6px;background:#e8c84a;box-shadow:0 -3px 0 -1px #e8c84a,0 3px 0 -1px #e8c84a,-3px 0 0 -1px #e8c84a,3px 0 0 -1px #e8c84a}
+  .lua{width:6px;height:8px;background:#c8ccd8;border-radius:0 6px 6px 0;position:relative}
+  .lua::after{content:"";position:absolute;right:-3px;top:-2px;width:6px;height:6px;background:rgba(14,12,10,.65);border-radius:50%}
+  .dia-sim{color:#8a8274;font-size:11px}
+  .hotbar-sim{position:absolute;bottom:0;left:50%;transform:translateX(-50%);display:flex;gap:2px}
+  .slot-sim{width:26px;height:26px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25)}
+  .municao-sim{position:absolute;bottom:26px;right:8px;text-align:right;font-family:Consolas,monospace}
+  .municao-sim .num{font-size:26px;color:#f0e8d8;font-weight:700;text-shadow:0 2px 4px #000}
+  .municao-sim .res{font-size:11px;color:#9a9284}
+  .legenda{font-size:11.5px;color:#8b949e;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>Prévia v1.2.53 — Detalhes finos <small>(nada buildado ainda — aguardando aprovação)</small></h1>
+<div class="sub">Baseado com puxada de arco · drogas com animação própria · atirar no ESQUERDO / mirar no DIREITO (CoD/BF) · iron sight de verdade · relógio sempre no HUD</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>🚬 Baseado — a puxada de arco e flecha</h2>
+    <p>Usar o baseado agora anima como <code>ItemUseAnimation.BOW</code>: o braço recua levando o baseado à boca e "puxa" devagar (2,2s = 3 puxadas curtas), com o estalo do fósforo (<code>FLINTANDSTEEL_USE</code>) acendendo e o bafo (<code>FIRE_EXTINGUISH</code>) fechando — nada de mastigar.</p>
+    <p class="ok">Aplicado a todos os itens de fumo (baseado e derivados de <code>smoke()</code>).</p>
+  </div>
+
+  <div class="card">
+    <h2>💊 Drogas — cheirar, não comer</h2>
+    <p>Pós e cápsulas agora usam <code>SPYGLASS</code>: a mão vai ao nariz (1,6s), som surdo de papel/ficato (<code>WOOL_STEP</code>). Zero animação de mastigação — o jogador <em>consome</em>, não almoça.</p>
+    <p class="ok">Aplicado a todos os itens de <code>powder()</code>/<code>pill()</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>🖱️ Botões CoD/Battlefield</h2>
+    <table>
+      <tr><th>Ação</th><th>Antes</th><th>Agora</th></tr>
+      <tr><td>Atirar</td><td>botão direito (colidia com usar)</td><td class="ok">botão ESQUERDO (1 clique = 1 tiro)</td></tr>
+      <tr><td>Mirar (ADS)</td><td>SHIFT (encurvalava + roubava o sneak)</td><td class="ok">segurar o DIREITO</td></tr>
+      <tr><td>Recarregar</td><td colspan="2">R (1 aperto — já estava certo)</td></tr>
+    </table>
+    <p>Com arma na mão, o mixin engole os dois botões: esquerdo não quebra bloco/soca entidade, direito não coloca bloco. <span class="atencao">Exceção:</span> crosshair numa <strong>entidade</strong> (Gago, Traficante, Juça) → o direito passa e abre o menu normal — mirar em freguês não faz sentido, perder o atendimento sim.</p>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Iron sight de verdade</h2>
+    <p>Mirando, a arma <strong>sobe deslizando até os olhos e centraliza</strong> (mixin na pose de primeira pessoa, 3 eixos suavizados pelo mesmo fator do zoom): subida ×1,35, adução pro centro ×1,15 e avanço pra face — a massa de mira do modelo alinha com o centro da tela. O SHIFT voltou a ser só agachar.</p>
+    <p>Servidor: a mira agora chega via payload <code>MiraPayload</code> (borda do estado, validada com arma na mão) — dispersão e alcance continuam decididos no servidor, sem confiar em shift.</p>
+  </div>
+
+  <div class="card">
+    <h2>🕒 Relógio sempre no HUD</h2>
+    <div class="simulacao">
+      <div class="relogio-sim"><span class="sol"></span>14:20 <span class="dia-sim">Dia 42</span></div>
+      <div class="municao-sim"><div class="num">5<span style="font-size:13px;color:#9a9284">/</span></div><div class="res">17 · 12ga</div></div>
+      <div class="hotbar-sim"><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div><div class="slot-sim"></div></div>
+    </div>
+    <div class="legenda">Simulação do canto superior direito (relógio novo + HUD de munição da 1.2.48 embaixo). À noite o ☀ vira 🌙 crescente. some com tela aberta (chat/inventário), cobre nada.</div>
+    <p style="margin-top:8px">Painel translúcido discreto: sol/lua (ciclo em 1 olhada) + <strong>HH:MM</strong> (06:00 = tick 0, igual o mercado) + <strong>Dia N</strong>. Desenhado com fills — zero textura nova.</p>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="card">
+    <h2>✅ Validação (antes do build)</h2>
+    <p><span class="ok">60/60 game tests no servidor</span> · <span class="ok">client gametest verde (exit 0)</span> · compilação limpa · alvos dos 3 mixins conferidos por javap na 26.3 (<code>MouseHandler.onButton</code>, <code>FirstPersonHandsAndItemsRenderer.submitHandsWithItems</code>, <code>Camera.calculateFov</code>) · tooltips e guia atualizados pra "botão direito" nos 2 idiomas.</p>
+    <p style="color:#8b949e">Fontes: <code>MiraPayload.java</code> (novo), <code>RelogioHud.java</code> (novo), <code>MouseBotaoMixin</code>/<code>IronSightPoseMixin</code> registrados no mixins.json, <code>ArmasClient</code> (gatilho + sincronização de mira na borda), <code>EscopetaItem</code>/<code>RevolverItem</code> (ADS via payload), <code>IntoxicantesMod</code> (animações de consumo).</p>
+  </div>
+</div>
+</body>
+</html>

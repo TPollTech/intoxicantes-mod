@@ -123,15 +123,22 @@ public class GuiaGameTest {
         helper.assertTrue(ProcessosBebida.SEG_ALAMBIQUE_BASE == 90,
                 "Alambique: base 90s — o guia lê este valor");
 
-        // escala do config aplicada igual nas BEs e no guia (mesma função)
+        // escala do config aplicada igual nas BEs e no guia (mesma função).
+        // RESTAURA o valor anterior (não zera): os testes rodam em paralelo e
+        // o gancho é global — o 0.05 do boot das cadeias tem que sobreviver.
+        Float escalaAnterior = ModConfig.escalaTesteAtual();
         ModConfig.setVelocidadeTeste(0.5F);
         String dorna = GuiaConteudo.tempo(ProcessosBebida.SEG_DORNA_BASE);
         helper.assertTrue(dorna.equals("3min30s"),
                 "Tempo escalado do guia segue o config (0.5× de 420s = 3min30s): " + dorna);
-        ModConfig.setVelocidadeTeste(null);
+        ModConfig.setVelocidadeTeste(escalaAnterior);
+        // "padrão" = SEM aceleração (1.0): no servidor de testes o boot fixa
+        // 0.05, então o estado padrão aqui é explícito, não o global.
+        ModConfig.setVelocidadeTeste(1.0F);
         String dornaPadrao = GuiaConteudo.tempo(ProcessosBebida.SEG_DORNA_BASE);
         helper.assertTrue(dornaPadrao.equals("7min"),
                 "Tempo padrão da dorna no guia = 7min: " + dornaPadrao);
+        ModConfig.setVelocidadeTeste(escalaAnterior);
         helper.succeed();
     }
 

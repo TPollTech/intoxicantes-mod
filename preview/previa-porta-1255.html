@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.55 — Porta-grade consertada de verdade (item + estética + paredes)</title>
+<style>
+  body{margin:0;background:#0d1117;color:#e6edf3;font-family:"Segoe UI",system-ui,sans-serif;padding:22px}
+  h1{font-size:19px;margin:0 0 4px} h1 small{color:#8b949e;font-weight:400}
+  .sub{color:#8b949e;font-size:13px;margin-bottom:18px;max-width:900px}
+  h2{font-size:15px;margin:22px 0 8px;color:#f0883e}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+  .card h3{font-size:13.5px;margin:0 0 8px;color:#e6edf3}
+  .card img{max-width:100%;border-radius:6px;display:block;margin:0 auto}
+  .antes{border-left:3px solid #f85149;padding-left:10px;color:#ffb3ad;font-size:12.5px}
+  .depois{border-left:3px solid #3fb950;padding-left:10px;color:#aff5b4;font-size:12.5px;margin-top:6px}
+  .mono{font-family:Consolas,monospace;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:2px 6px;font-size:12px}
+  .ok{color:#3fb950;font-weight:700}
+  .imgbox{background:#0d1117;border-radius:8px;padding:8px}
+</style>
+</head>
+<body>
+<h1>Porta-grade consertada de verdade <small>v1.2.55 — 3 raízes diferentes</small></h1>
+<div class="sub">O tooltip cru, o ícone bugado e as paredes-porta tinham <b>causas distintas</b>. Todas corrigidas na fonte (gerador + zelador), nada de arquivo v2. Aguardando seu ok pra buildar.</div>
+
+<h2>1 · Item bugado no inventário (tooltip crua + cubo escuro)</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Causa raiz (eram 3 juntas)</h3>
+    <div class="antes">• Faltava <span class="mono">items/porta_grade.json</span> — a definição de item da 26.3. Sem ela o ícone vira o cubo "desconhecido" (o cubinho escuro do seu print).</div>
+    <div class="antes">• Faltava a chave <span class="mono">item.intoxicantes.porta_grade</span> no lang — só existia <span class="mono">block.*</span>, por isso o nome cru <span class="mono">item.intoxicantes.porta_grade</span> no tooltip.</div>
+    <div class="antes">• O modelo do item usava o alias <span class="mono">#soleira</span> sem declará-lo → face roxa/errada no ícone.</div>
+    <div class="depois">Gerador agora emite: item definition + modelo do item com TODOS os aliases + chave nos 2 idiomas ("Porta-Grade do Esquinão").</div>
+  </div>
+  <div class="card">
+    <h3>Ícone corrigido (render do modelo real)</h3>
+    <div class="imgbox"><img src="../preview/previa-porta.png" alt="Item da porta"></div>
+    <div style="font-size:12px;color:#8b949e;margin-top:6px">A porta inteira (2 blocos) no ícone — baixo com balcão + topo com grade.</div>
+  </div>
+</div>
+
+<h2>2 · Estética da porta (o "estranho" do print)</h2>
+<div class="grid">
+  <div class="card">
+    <h3>A raiz: UV esparramado</h3>
+    <div class="antes">Os 4 modelos não declaravam <span class="mono">texture_size</span> e as faces sem UV explícito varriam o atlas INTEIRO de 128px — madeira, pedra e ferro misturados na mesma face. Era isso que dava o aspecto de textura errada/esticada.</div>
+    <div class="depois"><span class="mono">texture_size: [128,128]</span> declarado + <b>uma textura por material</b> (madeira, ferro, soleira de pedra, verga escura, grade). Cada face agora mostra o material certo: batentes de spruce, soleira de pedra, guias de ferro, grade com remaches.</div>
+  </div>
+  <div class="card">
+    <h3>Materiais separados (como fica no jogo)</h3>
+    <div class="imgbox"><img src="../preview/previa-porta.png" alt="Porta HD"></div>
+    <div style="font-size:12px;color:#8b949e;margin-top:6px">Esquerda: aberta (balcão + vão do guichê). Direita: fechada (painel + grade + cadeado). No jogo a grade tem barras transparentes de verdade (cutout).</div>
+  </div>
+</div>
+
+<h2>3 · Paredes que continuam porta (por que o zelador não consertou)</h2>
+<div class="grid">
+  <div class="card">
+    <h3>O furo na lógica anterior</h3>
+    <div class="antes">Meu conserto 1.2.53 só trocava a metade-superior cujo bloco de baixo NÃO era porta. Mas o bug do "G" duplicado criou <b>colunas inteiras</b> de falsas empilhadas: em cada coluna, o bloco de baixo É porta (outra falsa) → a regra nunca casava e as paredes ficaram portas pra sempre.</div>
+    <div class="depois">Regra nova <b>posicional</b>: só é porta de verdade a metade-superior que está EXATAMENTE sobre a porta real (mesma conta do <span class="mono">reformarEntrada</span> — template x7,z9 girado). Toda outra porta-grade do terreno vira parede da região (verde/terracota/pinho por região). A porta genuína fica intocada.</div>
+  </div>
+  <div class="card">
+    <h3>Resultado no seu mundo</h3>
+    <div class="depois">Ao entrar com a 1.2.55: primeira passada do zelador (~5s depois de carregar a área) troca TODAS as colunas falsas por parede certa, de uma vez — sobra só a porta do guichê. Sem comando, sem rebuild.</div>
+    <div class="antes" style="margin-top:8px">Bônus auditado: <span class="mono">reformarEntrada</span> agora usa a MESMA função de posição (fonte única) — antes havia duas contas paralelas que podiam divergir.</div>
+  </div>
+</div>
+
+<div class="sub" style="margin-top:18px"><span class="ok">✔ Assets validados</span> (texture_size + aliases + texturas + item def + lang) · <span class="ok">✔ compila limpo</span> · build e testes só depois do seu ok.</div>
+</body>
+</html>

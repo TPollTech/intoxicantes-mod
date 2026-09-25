@@ -212,6 +212,17 @@ public class GagoEntity extends AbstractVillager {
         return !this.level().noCollision(this, this.getBoundingBox());
     }
 
+    /**
+     * v1.2.51 — ÂNCORA DUPLA: true se o corpo dele está parado no posto que
+     * o gerenciador marca (o “plantão” — balcão de dia, guichê de madrugada).
+     * O gerenciador usa pra saber se precisa reancorar: mesmo que o NoAI
+     * tenha sido solto por um save velho, o corpo no lugar certo conta.
+     */
+    public boolean estaDePlantao() {
+        return this.emPostoMercado && this.posPostoMercado != null
+                && this.blockPosition().distSqr(this.posPostoMercado) < 4.0;
+    }
+
     public GagoEntity(EntityType<? extends AbstractVillager> type, Level level) {
         super(type, level);
         // SEM arma por padrao: e o mercado, nao oFront. Ele SACA a 12 (enraivecer)
@@ -679,6 +690,20 @@ public class GagoEntity extends AbstractVillager {
     }
 
     // ==================================================== SAVE / LOAD
+
+    /**
+     * v1.2.51 — CONGELA pro atendimento: parado onde está, sem IA, até a
+     * tela fechar (o encerrarAtendimento devolve o comportamento normal).
+     * Vale pro Gago de plantão (já NoAI) e pro de ovo/passeando, que saía
+     * ANDANDO com a interface aberta até o watchdog fechar por distância.
+     */
+    public void congelarParaAtendimento() {
+        if (!this.level().isClientSide()) {
+            this.emPostoMercado = false;      // não é plantão: é sessão de venda
+            this.setNoAi(true);
+            this.getNavigation().stop();
+        }
+    }
 
     /** Atendimento encerrado pelo servidor (tela fechou / watchdog): solta o Gago. */
     public void encerrarAtendimento() {
