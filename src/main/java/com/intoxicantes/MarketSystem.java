@@ -13,7 +13,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
@@ -22,6 +25,8 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.clock.WorldClock;
 import net.minecraft.world.clock.WorldClocks;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.storage.LevelResource;
@@ -32,7 +37,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
@@ -47,6 +56,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class MarketSystem {
     private static final int MARKET_RANGE = 32;
+    /** v1.2.45: o relógio roda no overworld TODO (o HUD mantém a última mensagem). */
     private static final int CLOCK_INTERVAL = 100;
     private static final int MANAGE_INTERVAL = 100;
     private static final int DISCOVER_INTERVAL = 600; // 30s entre tentativas de achar a estrutura
@@ -67,6 +77,13 @@ public final class MarketSystem {
 
     @Nullable
     private static BlockPos marketPos = null;
+    /**
+     * v1.2.25 — REGIÃO DO MERCADO: qual pele o template nasceu (classico /
+     * sertao / serra). O descobridor preenche pela chave real da estrutura;
+     * o /gagomarket rebuild e o gen_mercado.py gravam na tag. "" = clássico
+     * (mundo velho: o prédio branco original do SUL DISTRIBUIDORA).
+     */
+    private static String regiaoMercado = "";
     /** Offsets JA girados (padrao: sem rotacao). */
     private static net.minecraft.core.Vec3i portaOffset = PORTA_LOCAL;
     private static net.minecraft.core.Vec3i balcaoOffset = BALCAO_LOCAL;
@@ -80,8 +97,36 @@ public final class MarketSystem {
     @Nullable
     private static ChunkPos centroVarredura = null;
     private static int clockCooldownTick = 0;
+    /** v1.2.19: estado ABERTO/FECHADO conhecido do letreiro (detecção da virada). */
+    private static boolean mercadoAberto = true;
+    /** v1.2.19: a 1a avaliação pós-boot só sincroniza (sem tocar o arpejo). */
+    private static boolean viradaIniciada = false;
     private static int manageCooldown = 0;
     private static int discoverCooldown = 0;
+
+    /**
+     * v1.2.19 — FILA DE NOTAS: o tell()/TickTask do server saiu no 1.26.3,
+     * então os jingles do mod (arpejo da virada do letreiro, blips de leitura)
+     * entram aqui com o tick-alvo e são drenados no fim de cada tick.
+     */
+    private record NotaPendente(long tick, ServerLevel level, BlockPos pos,
+                                SoundEvent som, float volume, float pitch) {}
+
+    private static final List<NotaPendente> notasPendentes = new ArrayList<>();
+
+    /** O ZELADOR passa a cada 30s (600 ticks) — árvore invasora não espera. */
+    private static final int ZELADOR_INTERVALO = 600;
+    /**
+     * v1.2.27: a PRIMEIRA passada depois de achar o mercado é IMEDIATA (e as
+     * duas seguintes em 5s) — o mundo de verdade chegou com placa de 1 bloco
+     * e poste mangrado; não tem por que esperar 30s pra começar a autocura.
+     */
+    private static final int[] ZELADOR_TURBO = {100, 100};
+    private static int zeladorTurboIdx = 0;
+
+
+
+    private static int zeladorCooldown = 0;
 
     private MarketSystem() {}
 
@@ -89,6 +134,20 @@ public final class MarketSystem {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             ServerLevel overworld = server.overworld();
             if (overworld == null) return;
+
+            // v1.2.19: toca as notas da fila que chegaram à hora (e só elas)
+            if (!notasPendentes.isEmpty()) {
+                long agora = overworld.getGameTime();
+                Iterator<NotaPendente> it = notasPendentes.iterator();
+                while (it.hasNext()) {
+                    NotaPendente nota = it.next();
+                    if (agora >= nota.tick()) {
+                        it.remove();
+                        nota.level().playSound(null, nota.pos(),
+                                nota.som(), SoundSource.BLOCKS, nota.volume(), nota.pitch());
+                    }
+                }
+            }
 
             // 1) Se ainda nao tem posicao, tenta achar a estrutura (espiral de chunks)
             if (marketPos == null) {
@@ -103,22 +162,31 @@ public final class MarketSystem {
 
             BlockPos pos = marketPos;
 
-            // 2) Clock na action bar
+            // 2) v1.2.19: a virada ABERTO/FECHADO do letreiro (barata: 1 bloco
+            // getBlockEntity por tick)
+            avaliarViradaDoMercado(overworld, pos);
+
+            // 2.2) v1.2.20: o ZELADOR DA PROPRIEDADE (árvore invasora) — 1x/30s
+            if (--zeladorCooldown <= 0) {
+                // v1.2.27: as duas primeiras repetições são rápidas (5s);
+                // depois cai no ritmo normal de 30s
+                zeladorCooldown = zeladorTurboIdx < ZELADOR_TURBO.length
+                        ? ZELADOR_TURBO[zeladorTurboIdx++] : ZELADOR_INTERVALO;
+                zeladorDaPropriedade(overworld, pos);
+            }
+
+            // 2.1) v1.2.45 — O RELÓGIO NO HUD (o pedido lá do início!): rodava
+            // num ciclo de 5s com CLOCK_INTERVAL=100 e display efêmero — o player
+            // via a mensagem 3s e ela sumia: "nunca apareceu". Agora é
+            // PERSISTENTE: mandamos a cada 5s pra TODO overworld (o client
+            // mantém a última), sempre que o mercado já foi descoberto.
             if (--clockCooldownTick <= 0) {
                 clockCooldownTick = CLOCK_INTERVAL;
                 String hora = formatarHora(overworld);
-                String local = estaNaPorta(overworld) ? "\u00a77na porta" : "\u00a77no balcao";
                 for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                    boolean noOverworld = player.level().dimension().equals(Level.OVERWORLD);
-                    if (noOverworld && player.blockPosition().distSqr(pos) < MARKET_RANGE * MARKET_RANGE) {
-                        // v1.2.14: o local ("na porta"/"no balcao") vai pro lang —
-                        // era pt cravado no código (misturava com inglês no cliente)
+                    if (player.level().dimension().equals(Level.OVERWORLD)) {
                         player.sendSystemMessage(Component.translatable(
-                                "market.intoxicantes.relogio", hora,
-                                Component.translatable(estaNaPorta(overworld)
-                                        ? "market.intoxicantes.local.porta"
-                                        : "market.intoxicantes.local.balcao")),
-                                true);
+                                "market.intoxicantes.relogio", hora), true);
                     }
                 }
             }
@@ -127,26 +195,154 @@ public final class MarketSystem {
             if (--manageCooldown > 0) return;
             manageCooldown = MANAGE_INTERVAL;
             gerenciarGago(overworld, pos);
+            gerenciarJuca(overworld, pos);
         });
+    }
+
+    /**
+     * v1.2.19: agenda uma nota (jingle da virada, blip de leitura) pra tocar
+     * dentro de alguns ticks — substituto do server.tell() que saiu no 1.26.3.
+     */
+    public static void agendarNota(ServerLevel level, BlockPos pos, SoundEvent som,
+                                   float volume, float pitch, int atrasoTicks) {
+        notasPendentes.add(new NotaPendente(
+                level.getGameTime() + Math.max(0, atrasoTicks), level, pos, som, volume, pitch));
+    }
+
+    /**
+     * v1.2.20 — O ZELADOR DO ESQUINÃO: a decoração do bioma roda DEPOIS da
+     * estrutura na geração, então árvore nascida no chunk vizinho enfia copa
+     * e tronco pra dentro da loja (o ar limpo do template só cobre o próprio
+     * box — o tester flagrou FOLHA DENTRO do prédio). A cada 30s, varre a
+     * propriedade (caixa do template: ±10 x, 8 y, ±10 z do centro) e EXPULSA
+     * material de árvore: folhas, troncos, mudas e bambu — sem drop (nada de
+     * 40 folhas nascendo no chão do freguês). Só age em chunk carregado;
+     * custo desprezível (uma varredura de 3.5k blocos por 30s).
+     *
+     * v1.2.24 — e TAMBÉM é o concerto de mundos velhos: a placa do letreiro
+     * mudou de anatomia (9 blocos: 2 torres de 4 + painel suspenso) e a velha
+     * (1.2.18–1.2.23) não tem a marca "nova" no NBT. Qualquer passada desmonta
+     * SÓ as velhas — chunk longe é limpo assim que carrega.
+     */
+    static void zeladorDaPropriedade(ServerLevel level, BlockPos pos) {
+        BlockPos base = pos.offset(-10, 0, -10);
+        for (int dx = 0; dx < 21; dx++) {
+            for (int dy = 0; dy < 8; dy++) {
+                for (int dz = 0; dz < 21; dz++) {
+                    BlockPos p = base.offset(dx, dy, dz);
+                    if (!level.isLoaded(p)) continue; // chunk fora: próxima passada
+                    BlockState estado = level.getBlockState(p);
+                    if (estado.is(net.minecraft.tags.BlockTags.LEAVES)
+                            || estado.is(net.minecraft.tags.BlockTags.LOGS)
+                            || estado.is(net.minecraft.tags.BlockTags.SAPLINGS)
+                            || estado.is(net.minecraft.world.level.block.Blocks.BAMBOO)) {
+                        level.destroyBlock(p, false);
+                    }
+                    // v1.2.24: placa VELHA (sem a marca "nova" no NBT) cai na
+                    // mesma passada — as irmãs velhas caem junto com ela
+                    else if (estado.getBlock() instanceof PlacaEsquinaoBlock
+                            && level.getBlockEntity(p) instanceof PlacaEsquinaoBlockEntity be
+                            && !be.isNova()) {
+                        level.destroyBlock(p, false);
+                    }
+                }
+            }
+        }
+        // v1.2.25: e REFORMA o pátio velho (faixa + hidrantes) quando o chão
+        // já é o asfalto do mercado — mundos 1.2.23/1.2.24 ganham a travessia
+        if (level.isLoaded(pos)) {
+            reformarPatio(level, pos);
+        }
+    }
+
+    /**
+     * v1.2.19 — O LETREIRO VIVO: detecta a VIRADA do horário do mercado
+     * (00:00 fecha / 07:00 abre, a MESMA conta do plantão do Gago) e:
+     * 1) manda a placa do letreiro trocar o status (ABERTO verde/FECHADO
+     * vermelho, sync pro client);
+     * 2) toca o ARPEJO DA VIRADA na placa (sobe ao abrir, desce ao fechar);
+     * 3) reforça os POSTES DE LUZ do pátio (anti-fuso: o scheduleTick do
+     * poste pode atrasar com o chunk longe).
+     */
+    private static void avaliarViradaDoMercado(ServerLevel overworld, BlockPos pos) {
+        // v1.2.44 — MERCADO 24H: acabou o expediente. O dono da esquina não
+        // fecha mais (a madrugada é quando a esquina mais ferve kkkk). A
+        // varredura continua POR VIA DAS DÚVIDAS: conserta placa de save
+        // antigo que ficou "FECHADO" e mantém os postes de luz acertados.
+        boolean abertoAgora = true;
+        if (viradaIniciada && abertoAgora == mercadoAberto) return;
+        boolean silencioso = !viradaIniciada; // 1a avaliação do boot: sem fanfarra
+        viradaIniciada = true;
+        mercadoAberto = abertoAgora;
+
+        // a estrutura GIRA na geração, então a caixa é SIMÉTRICA em torno do
+        // centro do prédio (meia-extensão máx do template 15×19 = ±10). Uma
+        // varredura por VIRADA (rara): acha a placa do letreiro e os postes.
+        BlockPos base = pos.offset(-10, 0, -10);
+        for (int dx = 0; dx < 21; dx++) {
+            for (int dy = 0; dy < 8; dy++) {
+                for (int dz = 0; dz < 21; dz++) {
+                    BlockPos p = base.offset(dx, dy, dz);
+                    BlockState estado = overworld.getBlockState(p);
+                    if (estado.getBlock() instanceof PosteLuzBlock
+                            && estado.getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.BASE) {
+                        boolean alvo = PosteLuzBlock.estaNoHorarioDeLuz(overworld);
+                        if (estado.getValue(PosteLuzBlock.LIT) != alvo) {
+                            overworld.setBlockAndUpdate(p,
+                                    estado.setValue(PosteLuzBlock.LIT, alvo));
+                        }
+                        PosteLuzBlock.agendaProximaVirada(overworld, p);
+                        // v1.2.27: autocura da coluna — reconstrói corpo/topo
+                        // faltantes no eixo (só a partir da BASE: chamar pra
+                        // cada peça cresceria coluna infinita). Roda 1x/30s,
+                        // custo zero (mesma varredura da virada).
+                        PosteLuzBlock.selfHealAPartirDaBase(overworld, p);
+                    } else if (estado.getBlock() instanceof PosteLuzBlock
+                            && PosteLuzBlock.eDesgarrada(overworld, p)) {
+                        // v1.2.27: peça FORA DO EIXO (o erro do template da
+                        // 1.2.24 deixou um corpo 1 bloco pro lado, o "negócio
+                        // preto flutuando" do print) — recolhida sem drop
+                        overworld.destroyBlock(p, false);
+                    } else if (estado.getBlock() == IntoxicantesMod.PLACA_ESQUINAO
+                            && estado.getValue(PlacaEsquinaoBlock.PARTE) == PlacaEsquinaoBlock.Parte.PAINEL
+                            && overworld.getBlockEntity(p) instanceof PlacaEsquinaoBlockEntity placa
+                            && placa.isLinkMercado()) {
+                        if (placa.isAberto() != abertoAgora) {
+                            placa.abertoChanged(abertoAgora);
+                        }
+                        if (!silencioso) {
+                            placa.tocarAcordeVirada(abertoAgora);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ==================================================== DESCOBERTA DA ESTRUTURA
 
     /**
-     * Procura a estrutura mercado_gago numa espiral de chunks (estilo /locate),
-     * com CURSOR PROGRESSIVO: cada tentativa gasta no maximo SCAN_BUDGET_POR_TENTATIVA
-     * chunks NOVOS (nunca revista o que ja descartou) e o anel/indice ficam guardados
-     * pra continuar de onde parou. Uma rodada completa (raio 24 ~ 2401 chunks, ~4
-     * tentativas) sem achar entra em backoff de 10 min antes de recomecar.
+     * Procura o mercado numa espiral de chunks (estilo /locate), com CURSOR
+     * PROGRESSIVO: cada tentativa gasta no maximo SCAN_BUDGET_POR_TENTATIVA
+     * chunks NOVOS (nunca revista o que ja descartou) e o anel/indice ficam
+     * guardados pra continuar de onde parou. Uma rodada completa (raio 24 ~
+     * 2401 chunks, ~4 tentativas) sem achar entra em backoff de 10 min antes
+     * de recomecar.
+     *
+     * v1.2.25: as TRES peles do mercado (classico/sertao/serra) compartilham
+     * a mesma distribuição de structure_set — cada chunk da espiral é testado
+     * contra as 3 estruturas e a que responde define a região do prédio.
      */
     private static void tryDescobrirEstrutura(ServerLevel level) {
-        ResourceKey<Structure> chave = ResourceKey.create(Registries.STRUCTURE,
-                Identifier.fromNamespaceAndPath(IntoxicantesMod.MOD_ID, "mercado_gago"));
-        Holder<Structure> estrutura = level.registryAccess()
-                .lookupOrThrow(Registries.STRUCTURE)
-                .get(chave)
-                .orElse(null);
-        if (estrutura == null) {
+        var registro = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
+        // caminho da chave -> estrutura (só entram as que têm JSON no datapack)
+        Map<String, Structure> estruturas = new LinkedHashMap<>();
+        for (String caminho : List.of("mercado_gago", "mercado_gago_sertao", "mercado_gago_serra")) {
+            ResourceKey<Structure> chave = ResourceKey.create(Registries.STRUCTURE,
+                    Identifier.fromNamespaceAndPath(IntoxicantesMod.MOD_ID, caminho));
+            registro.get(chave).ifPresent(h -> estruturas.put(caminho, h.value()));
+        }
+        if (estruturas.isEmpty()) {
             // JSON de worldgen ausente: desiste de tentar (log uma vez por boot)
             discovered = true;
             return;
@@ -162,21 +358,29 @@ public final class MarketSystem {
             int[] d = chunkDoAnel(varreduraRaio, varreduraIndice);
             int cx = centro.x() + d[0];
             int cz = centro.z() + d[1];
-            List<StructureStart> starts = manager.startsForStructure(cx, cz, estrutura.value());
-            for (StructureStart start : starts) {
-                if (start != null && start.isValid()) {
-                    var bb = start.getBoundingBox();
-                    // centro no PISO da estrutura (minY), nao no meio do telhado
-                    setMarketPos(new BlockPos(
-                            bb.minX() + bb.getXSpan() / 2,
-                            bb.minY(),
-                            bb.minZ() + bb.getZSpan() / 2));
-                    descobrirOffsets(start);
-                    discovered = true;
-                    IntoxicantesMod.LOGGER.info("[Market] Mercado Esquinao descoberto em {} (varredura: {} chunks)",
-                            marketPos.toShortString(), chunksVarridos(varreduraRaio, varreduraIndice));
-                    anunciarDescoberta(level);
-                    return;
+            for (var entrada : estruturas.entrySet()) {
+                List<StructureStart> starts = manager.startsForStructure(cx, cz, entrada.getValue());
+                for (StructureStart start : starts) {
+                    if (start != null && start.isValid()) {
+                        var bb = start.getBoundingBox();
+                        // centro no PISO da estrutura (minY), nao no meio do telhado
+                        setMarketPos(new BlockPos(
+                                bb.minX() + bb.getXSpan() / 2,
+                                bb.minY(),
+                                bb.minZ() + bb.getZSpan() / 2));
+                        descobrirOffsets(start);
+                        // v1.2.25: a PELE do prédio vem da chave que respondeu
+                        String caminho = entrada.getKey();
+                        regiaoMercado = caminho.startsWith("mercado_gago_")
+                                ? caminho.substring("mercado_gago_".length())
+                                : "classico";
+                        discovered = true;
+                        IntoxicantesMod.LOGGER.info("[Market] Mercado Esquinao descoberto em {} — regiao '{}' (varredura: {} chunks)",
+                                marketPos.toShortString(), regiaoMercado,
+                                chunksVarridos(varreduraRaio, varreduraIndice));
+                        anunciarDescoberta(level);
+                        return;
+                    }
                 }
             }
             checados++;
@@ -243,24 +447,93 @@ public final class MarketSystem {
 
     // ==================================================== GAGERO (gerente do Gago)
 
-    private static void gerenciarGago(ServerLevel level, BlockPos pos) {
+    /** Package-private: o game test do ciclo de vida chama direto (determinístico). */
+    static void gerenciarGago(ServerLevel level, BlockPos pos) {
         boolean naPorta = estaNaPorta(level);
-        // raio 48: cobre a perseguição quando o Gago fica puto e sai correndo
+        // v1.2.46 — A VARREDURA DO FANTASMA: o raio 48 deixava Gagos de saves
+        // antigos FORA da gestão (entalados: a "voz fantasma" que falava no
+        // chat e o "imbatível" que não tinha corpo onde a voz saía — o playtest
+        // não conseguia bater). Varredura LARGA (96): acha o fugitivo; a escolha
+        // abaixo prefere quem está de fato no posto.
         var gagos = level.getEntitiesOfClass(
-                GagoEntity.class, new AABB(pos).inflate(48));
+                GagoEntity.class, new AABB(pos).inflate(96));
 
+        // A GESTÃO é do raio de 48 (perseguição do Gago puto, posto, vizinhança);
+        // a varredura larga de cima existe SÓ pra achar fantasma entalado.
+        double raioGestao = 48L * 48L;
         GagoEntity gago = null;
         for (GagoEntity g : gagos) {
-            if (g.isPuto() || (gagoAtivoId != null && g.getUUID().equals(gagoAtivoId))) {
+            if ((g.isPuto() || (gagoAtivoId != null && g.getUUID().equals(gagoAtivoId)))
+                    && g.blockPosition().distSqr(pos) <= raioGestao) {
                 gago = g;
                 break;
             }
         }
-        if (gago == null && !gagos.isEmpty()) {
-            gago = gagos.get(0);
+        if (gago == null) {
+            // o dono do posto real é o mais PERTO DENTRO do raio de gestão —
+            // um Gago livre a 75 blocos (outro teste/outra vida) nunca é escolhido
+            double melhor = Double.MAX_VALUE;
+            for (GagoEntity g : gagos) {
+                double d = g.blockPosition().distSqr(pos);
+                if (d <= raioGestao && d < melhor) {
+                    melhor = d;
+                    gago = g;
+                }
+            }
+            if (gago == null) {
+                // v1.2.46 — ADOÇÃO DO FANTASMA: sem dono local, um Gago ENTALADO
+                // (a voz fantasma/imbatível de save antigo) na varredura larga é
+                // adotado — o bloco de resgate lá embaixo o teleporta pro posto
+                // real (garantirPostoLivre + snap + setupPostoMercado).
+                double melhorFantasma = Double.MAX_VALUE;
+                for (GagoEntity g : gagos) {
+                    if (g.isPuto() || g.getTradingPlayer() != null
+                            || !g.estaPresoEmBloco()) continue;
+                    double d = g.blockPosition().distSqr(pos);
+                    if (d < melhorFantasma) {
+                        melhorFantasma = d;
+                        gago = g;
+                    }
+                }
+            }
         }
         if (gago == null) {
             spawnarGago(level, naPorta ? getPosPorta(pos) : getPosBalcao(pos));
+            return;
+        }
+        // v1.2.44 — DOU DE BAIXA nos Gagos EXCEDENTES: ovo duplicado, corrida
+        // de spawn, double-spawn de save — o gerenciador só mantém UM. Os
+        // excedentes ficam entalados (invisíveis!) mas continuam soltando
+        // frase no chat: a "fala fantasma" que o print mostrou.
+        // v1.2.46 — O CRITÉRIO: só sai da cena quem está ENTALADO (o fantasma
+        // de save antigo — invisível e "imbatível") ou FORA do raio de gestão
+        // (não é de ninguém). O dono no posto e o freguês em atendimento ficam.
+        for (GagoEntity excedente : gagos) {
+            if (excedente != gago && !excedente.isPuto()
+                    && excedente.getTradingPlayer() == null
+                    && (excedente.blockPosition().distSqr(pos) <= raioGestao
+                        || excedente.estaPresoEmBloco())) {
+                excedente.discard();
+            }
+        }
+        // v1.2.36 — O CADÁVER NO POSTO: se o candidato está morrendo OU com a
+        // cabeça presa em bloco (sufocado no posto), NÃO o "conserta" no
+        // lugar — antes o teleporte de plantão o realojava DENTRO do bloco a
+        // cada passada: loop de morte + loja cheia de cachaça/cerveja/R$.
+        if (!gago.isPuto() && (gago.isDeadOrDying() || gago.estaPresoEmBloco())) {
+            gagoAtivoId = null;
+            BlockPos posto = naPorta ? getPosPorta(pos) : getPosBalcao(pos);
+            garantirPostoLivre(level, posto);
+            if (gago.isDeadOrDying()) return; // morrendo: nada a salvar
+            // v1.2.36 — O RESGATE: presos de saves antigos (o barril que a
+            // limpeza antiga pulava) ficavam ENTALADOS pra sempre — vivos,
+            // falando no chat e INVISÍVEIS dentro do bloco. O posto já está
+            // livre agora: devolve o resgatado a ele em vez de esperar outro
+            // ciclo (que antes só limpava e voltava a ignorá-lo).
+            gago.anunciarMudancaPosicao(level);
+            gago.absSnapTo(posto.getX() + 0.5, posto.getY(), posto.getZ() + 0.5, 180F, 0F);
+            gago.setupPostoMercado(posto);
+            gagoAtivoId = gago.getUUID();
             return;
         }
         gagoAtivoId = gago.getUUID();
@@ -277,15 +550,71 @@ public final class MarketSystem {
         // o tick dele o devolve ao posto e o gerenciador reassume
         if (gago.isPuto()) return;
 
-        // Teleporta (mudanca de plantao) ou organiza o posto
-        if (gago.blockPosition().distSqr(destino) > 4) {
-            gago.anunciarMudancaPosicao(level);
-            gago.absSnapTo(destino.getX() + 0.5, destino.getY(), destino.getZ() + 0.5, gago.getYRot(), gago.getXRot());
+        // v1.2.44 — O GAGO NUNCA MAIS LARGA O POSTO: a "mudança de plantão"
+        // teleportava o dono da esquina a cada ciclo (o posto da madrugada não
+        // existe mais, mas o código antigo continuava mexendo) e é EXATAMENTE
+        // assim que ele "falava no chat sem aparecer": entalado em bloco em
+        // alguma passada de madrugada. Agora o manager CONSERTA ONDE ELE ESTÁ:
+        // desobstrui o corpo (garantia do 1.2.30) e trava o posto aí mesmo.
+        gago.consolidarAqui(level);
+    }
+
+    /**
+     * v1.2.39 — O PARÇA NO PÁTIO: o Juça fica rondando a frente do mercado
+     * (perto da porta, do lado de FORA — o balcão é do Gago). Nasce uma vez,
+     * persiste, e se morrer nasce outro (a balada continua). Package-private:
+     * o game test chama direto.
+     */
+    static void gerenciarJuca(ServerLevel level, BlockPos pos) {
+        BlockPos posteJuca = pos.relative(net.minecraft.core.Direction.SOUTH, 4)
+                .relative(net.minecraft.core.Direction.EAST, 3);
+        var jucas = level.getEntitiesOfClass(JucelinoEntity.class,
+                new AABB(pos).inflate(48));
+        if (!jucas.isEmpty()) return; // o parça já tá na área
+        // nasce no chão da frente do mercado (fora, do lado da rua)
+        BlockPos chao = level.getHeightmapPos(
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                posteJuca);
+        JucelinoEntity juca = IntoxicantesMod.JUCA.create(level, EntitySpawnReason.EVENT);
+        if (juca == null) return;
+        juca.absSnapTo(chao.getX() + 0.5, chao.getY(), chao.getZ() + 0.5, 0F, 0F);
+        juca.finalizeSpawn(level, level.getCurrentDifficultyAt(chao), EntitySpawnReason.EVENT, null);
+        level.addFreshEntity(juca);
+    }
+
+    /**
+     * v1.2.30 — O POSTO TEM QUE ESTAR LIVRE: o bug do "Gago sumindo" era o
+     * teleporte de plantão NUNCA checar o destino — bloco novo no posto
+     * (reforma de pele 1.2.26, plantio velho, offset de estrutura girada)
+     * sufocava o Gago, ele morria dropando cachaça/cerveja/R$/cartucho e o
+     * gerenciador nasce outro no MESMO lugar: loop de morte + loja cheia de
+     * item. Antes de teleportar: espaço livre garantido (limpa SÓ bloco do
+     * próprio mercado/paisagem natural — nunca baú, porta ou bloco raro).
+     */
+    static void garantirPostoLivre(ServerLevel level, BlockPos pos) {
+        // corpo inteiro (2 de altura) + 1 acima de folga
+        for (BlockPos p : new BlockPos[]{pos, pos.above(), pos.above(2)}) {
+            BlockState s = level.getBlockState(p);
+            if (s.isAir()) continue;
+            // v1.2.36 — A PAUTA DA REFORMA: baú/porta/cama continuam INTACTOS
+            // (conteúdo de jogador nunca some), mas TODO o resto cai COMO ITEM
+            // — inclusive barril e contêiner do PRÓPRIO template. O barril
+            // decorativo era o caminho do bug: posto sobre ele = Gago
+            // sufocado = morre dropando estoque; e como barril é EntityBlock,
+            // a limpeza antiga o pulava e o loop nunca acabava.
+            if (s.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+                    || s.is(net.minecraft.tags.BlockTags.DOORS)
+                    || s.is(net.minecraft.tags.BlockTags.BEDS)) {
+                continue;
+            }
+            level.destroyBlock(p, true);
         }
-        gago.setupPostoMercado(destino);
     }
 
     private static void spawnarGago(ServerLevel level, BlockPos pos) {
+        // v1.2.30: o recém-nascido NUNCA nasce dentro de bloco (mesmo bug do
+        // sufocamento — nascia, morria, dropava, e nascia outro em cima)
+        garantirPostoLivre(level, pos);
         GagoEntity gago = IntoxicantesMod.GAGO.create(level, EntitySpawnReason.EVENT);
         if (gago == null) return;
         gago.absSnapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 180F, 0F);
@@ -345,6 +674,73 @@ public final class MarketSystem {
         };
     }
 
+    // ==================================================== EXPULSAO DO MERCADO
+
+    /**
+     * v1.2.20 — UMA CASA PRO EXPULSO: varre anéis de raio 5..9 em volta do
+     * mercado e devolve o melhor ponto com PÉ NO CHÃO (piso sólido), CORPO EM AR
+     * (2 blocos), sem água/lava e longe do Gago — o mais perto do mercado nos
+     * empates. O teleport com offset fixo do mundo (+5,+1,+5) ignorava a
+     * rotação da estrutura e o terreno: o freguês nascia DENTRO da fundação
+     * nova (v1.2.18) ou do prédio e ficava trancado nas pedras.
+     * Retorna null se não achar nada viável (fica onde está: melhor duvidoso
+     * do que soterrado).
+     */
+    @Nullable
+    public static BlockPos procurarCasaProExpulso(ServerLevel level, BlockPos mercado,
+            Player expulso, LivingEntity gago) {
+        BlockPos melhor = null;
+        double melhorNota = -1;
+        for (int raio = 5; raio <= 9; raio++) {
+            for (int dx = -raio; dx <= raio; dx++) {
+                for (int dz = -raio; dz <= raio; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != raio) continue; // só a borda
+                    BlockPos pe = casaViavel(level, mercado.offset(dx, 0, dz), expulso);
+                    if (pe == null) continue;
+                    double doGago = gago == null ? 24.0
+                            : Math.min(24.0, Math.sqrt(pe.distSqr(gago.blockPosition())));
+                    double doMercado = Math.sqrt(pe.distSqr(mercado));
+                    // longe do Gago primeiro (teto 24: não jogar pro horizonte),
+                    // depois o mais perto do mercado (não virar pára-quedista)
+                    double nota = doGago * 10 - doMercado;
+                    if (nota > melhorNota) {
+                        melhorNota = nota;
+                        melhor = pe;
+                    }
+                }
+            }
+        }
+        return melhor;
+    }
+
+    /** Resolve o pé no chão do candidato: procura o ponto habitável mais perto (±4 vertical). */
+    @Nullable
+    private static BlockPos casaViavel(ServerLevel level, BlockPos candidato, Player expulso) {
+        BlockPos melhor = null;
+        double melhorAltura = Double.MAX_VALUE;
+        for (int dy = -4; dy <= 4; dy++) {
+            BlockPos pe = candidato.offset(0, dy, 0);
+            if (chaoHabitavel(level, pe, expulso)) {
+                double altura = Math.abs(dy);
+                if (altura < melhorAltura) {
+                    melhorAltura = altura;
+                    melhor = pe;
+                }
+            }
+        }
+        return melhor;
+    }
+
+    /** Piso sólido embaixo, corpo e cabeça em AR, sem água/lava — e não em cima do próprio freguês. */
+    private static boolean chaoHabitavel(ServerLevel level, BlockPos pe, Player expulso) {
+        BlockPos piso = pe.below();
+        BlockState estadoPiso = level.getBlockState(piso);
+        if (estadoPiso.isAir() || !estadoPiso.isSolidRender()) return false;
+        if (!level.getBlockState(pe).isAir() || !level.getBlockState(pe.above()).isAir()) return false;
+        if (level.getBlockState(pe).is(Blocks.WATER) || level.getBlockState(pe).is(Blocks.LAVA)) return false;
+        return !expulso.getBoundingBox().intersects(new AABB(pe));
+    }
+
     // ==================================================== TEMPO
 
     /** true = 00:00 ~ 07:00 (Gago fica na porta) */
@@ -379,7 +775,151 @@ public final class MarketSystem {
         return marketPos;
     }
 
-    public static void setMarketPos(BlockPos pos) {
+    /** A região do prédio (""/classico/sertao/serra) — UI e log consultam. */
+    public static String getRegiaoMercado() { return regiaoMercado; }
+
+    public static void setRegiaoMercado(String regiao) {
+        regiaoMercado = (regiao == null || regiao.isBlank()) ? "" : regiao;
+    }
+
+    /**
+     * v1.2.25 — REFORMA DO PÁTIO (fase 2 da reforma do zelador): mundos
+     * gerados na 1.2.23/1.2.24 não têm faixa de pedestre nem hidrantes. Na
+     * primeira passada em que o chunk do pátio carrega, o zelador pinta a
+     * faixa e planta os hidrantes NOS MESMOS offsets do template — só onde
+     * o chão é o asfalto/lajota do mercado (nunca em cima de bloco de
+     * jogador).
+     */
+    private static void reformarPatio(ServerLevel level, BlockPos centro) {
+        net.minecraft.core.Vec3i porta = portaOffset;
+        net.minecraft.core.Vec3i balcao = balcaoOffset;
+        // offsets NO TEMPLATE → mundo: a mesma conta do descobrirOffsets, agora
+        // aplicada aos pontos fixos da reforma (faixa x=5..9 z=11; hidrantes)
+        java.util.function.BiFunction<Integer, Integer, BlockPos> noMundo = (lx, lz) -> {
+            net.minecraft.core.Vec3i g = girar(new net.minecraft.core.Vec3i(lx - 7, 0, lz - 5), rotacaoDaPorta(porta));
+            return new BlockPos(centro.getX() + g.getX(), centro.getY() + 1, centro.getZ() + g.getZ());
+        };
+        // FAIXA DE PEDESTRE: 5 blocos na saída da loja — pinta por cima do
+        // asfalto do pátio (nunca ar nem bloco de jogador)
+        for (int lx = 5; lx <= 9; lx++) {
+            BlockPos p = noMundo.apply(lx, 11);
+            if (!level.isLoaded(p)) continue;
+            if (level.getBlockState(p).isAir()
+                    && level.getBlockState(p.below()).getBlock() == IntoxicantesMod.ASFALTO) {
+                level.setBlockAndUpdate(p,
+                        IntoxicantesMod.FAIXA_PEDESTRE.defaultBlockState());
+            }
+        }
+        // HIDRANTE (v1.2.29): UM, na calçada ao pé do meio-fio, ao lado da
+        // faixa (x4,z12 no template) — hidrante em VAGA é o oposto da vida
+        // real (perto de hidrante é onde se PROÍBE estacionar).
+        BlockPos hidranteNovo = noMundo.apply(4, 12);
+        if (level.isLoaded(hidranteNovo)
+                && level.getBlockState(hidranteNovo).isAir()
+                && level.getBlockState(hidranteNovo.below()).getBlock()
+                        == IntoxicantesMod.ASFALTO) {
+            level.setBlockAndUpdate(hidranteNovo,
+                    IntoxicantesMod.HIDRANTE.defaultBlockState());
+        }
+        // RECOLHER os 2 hidrantes velhos das vagas (1.2.24~28 plantava nos
+        // offsets 2,14/12,14 — "hidrante no meio da vaga" do playtest): só
+        // onde o chão é o asfalto do mercado (nunca hidrante de jogador).
+        for (int[] velho : new int[][]{{2, 14}, {12, 14}}) {
+            BlockPos p = noMundo.apply(velho[0], velho[1]);
+            if (!level.isLoaded(p)) continue;
+            if (level.getBlockState(p).getBlock() == IntoxicantesMod.HIDRANTE
+                    && level.getBlockState(p.below()).getBlock()
+                            == IntoxicantesMod.ASFALTO) {
+                level.destroyBlock(p, false);
+            }
+        }
+
+        // ====================================================== v1.2.40 — REFORMA DO DISPLAY
+        // Mundos 1.2.36–39 nasceram com dois defeitos que o zelador ainda
+        // não concertava:
+        //  (1) CROSSWALK DUPLA — tinta da travessia no chão E em cima (o
+        //      Skyu diagnosticou: "em baixo tem que ser concreto"). A de
+        //      BAIXO vira concreto branco;
+        //  (2) PAINEL NA PORTA — a fileira do painel de LED (x4..8, y2)
+        //      atravessava a PORTA (x7) e TODOS os 5 blocos tinham NBT
+        //      próprio (5 textos sobrepostos = o display bugado do print).
+        //      Remonta a linha à ESQUERDA da porta (x2..4), NBT só no
+        //      cabeça, preservando texto/cor/brilho/modo.
+        // Idempotente e seguro: só mexe em bloco do próprio template
+        // (faixa sobre faixa; painel demolido só onde é painel; remonte
+        // só onde é ar — nunca em construção do jogador).
+        for (int lx = 5; lx <= 9; lx++) {
+            BlockPos p = noMundo.apply(lx, 11);
+            if (!level.isLoaded(p)) continue;
+            if (level.getBlockState(p).getBlock() == IntoxicantesMod.FAIXA_PEDESTRE
+                    && level.getBlockState(p.below()).getBlock()
+                            == IntoxicantesMod.FAIXA_PEDESTRE) {
+                level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks
+                        .CONCRETE.white().defaultBlockState());
+            }
+        }
+        java.util.function.BiFunction<Integer, Integer, BlockPos> noMundo2 = (lx, lz) -> {
+            net.minecraft.core.Vec3i g = girar(new net.minecraft.core.Vec3i(lx - 7, 0, lz - 5),
+                    rotacaoDaPorta(porta));
+            return new BlockPos(centro.getX() + g.getX(), centro.getY() + 2,
+                    centro.getZ() + g.getZ());
+        };
+        if (level.isLoaded(noMundo2.apply(6, 10))
+                && level.getBlockState(noMundo2.apply(6, 10)).getBlock()
+                        == IntoxicantesMod.PAINEL_LED) {
+            // herda o texto do cabeça VELHO (x4 — ponta oeste da linha antiga)
+            java.util.List<String> texto = java.util.List.of();
+            int cor = 0x39FF6E, brilho = 15, modo = 0;
+            BlockPos cabecaVelha = noMundo2.apply(4, 10);
+            if (level.isLoaded(cabecaVelha) && level.getBlockEntity(cabecaVelha)
+                    instanceof PainelLedBlockEntity be) {
+                texto = java.util.List.copyOf(be.getLinhas());
+                cor = be.getCor();
+                brilho = be.getBrilho();
+                modo = be.getModo();
+            }
+            if (texto.isEmpty()) texto = java.util.List.of("OFERTAS DO DIA", "PROMOCOES!");
+            // facing dos novos painéis: SUL do template girado pela porta —
+            // a reforma não passa pelo StructureTemplate, gira na mão
+            net.minecraft.core.Direction facingMundo =
+                    rotacaoDaPorta(porta).rotate(net.minecraft.core.Direction.SOUTH);
+            // demolição: a fileira velha INTEIRA (só onde é painel do template)
+            for (int lx = 3; lx <= 9; lx++) {
+                BlockPos p = noMundo2.apply(lx, 10);
+                if (level.isLoaded(p)
+                        && level.getBlockState(p).getBlock() == IntoxicantesMod.PAINEL_LED) {
+                    level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks
+                            .AIR.defaultBlockState());
+                }
+            }
+            // remonte à esquerda da porta (x2..4); o texto entra só no x2
+            for (int lx = 2; lx <= 4; lx++) {
+                BlockPos p = noMundo2.apply(lx, 10);
+                if (!level.isLoaded(p) || !level.getBlockState(p).isAir()) continue;
+                level.setBlockAndUpdate(p, IntoxicantesMod.PAINEL_LED.defaultBlockState()
+                        .setValue(PainelLedBlock.FACING, facingMundo)
+                        .setValue(PainelLedBlock.TELAS, 1)
+                        .setValue(PainelLedBlock.LIT, Boolean.TRUE));
+            }
+            if (level.getBlockEntity(noMundo2.apply(2, 10)) instanceof PainelLedBlockEntity novo) {
+                novo.aplicar(texto, cor, brilho, modo);
+            }
+            PainelLedBlock.reavaliarLinha(level, noMundo2.apply(2, 10));
+        }
+    }
+
+    /** Rotação inferida dos offsets JA girados (mesma tabela do MoneyCommands). */
+    private static net.minecraft.world.level.block.Rotation rotacaoDaPorta(net.minecraft.core.Vec3i porta) {
+        int px = porta.getX();
+        int pz = porta.getZ();
+        return (px == 0 && pz > 0) ? net.minecraft.world.level.block.Rotation.NONE
+                : (px < 0 && pz == 0) ? net.minecraft.world.level.block.Rotation.CLOCKWISE_90
+                : (px == 0 && pz < 0) ? net.minecraft.world.level.block.Rotation.CLOCKWISE_180
+                : net.minecraft.world.level.block.Rotation.COUNTERCLOCKWISE_90;
+    }
+
+    /** Seta a posição do mercado (null limpa — usado pelos game tests pra manter o run hermético). */
+    public static void setMarketPos(@Nullable BlockPos pos) {
         marketPos = pos;
         portaOffset = PORTA_LOCAL;   // default; a descoberta sobrescreve com a rotacao real
         balcaoOffset = BALCAO_LOCAL;
@@ -402,6 +942,7 @@ public final class MarketSystem {
                         tag.getIntOr("balcaox", BALCAO_LOCAL.getX()),
                         tag.getIntOr("balcaoy", BALCAO_LOCAL.getY()),
                         tag.getIntOr("balcaoz", BALCAO_LOCAL.getZ()));
+                regiaoMercado = tag.getStringOr("regiao", "");
                 discovered = true;
                 IntoxicantesMod.LOGGER.info("[Market] Posicao do Mercado carregada: {}",
                         marketPos.toShortString());
@@ -425,6 +966,7 @@ public final class MarketSystem {
         tag.putInt("balcaox", balcaoOffset.getX());
         tag.putInt("balcaoy", balcaoOffset.getY());
         tag.putInt("balcaoz", balcaoOffset.getZ());
+        tag.putString("regiao", regiaoMercado);
         try (FileOutputStream out = new FileOutputStream(file)) {
             NbtIo.writeCompressed(tag, out);
         } catch (IOException e) {

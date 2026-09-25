@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "intoxicantes",
   "version": "${version}",
-  "name": "Bebidas & Drogas (Ficção)",
-  "description": "Bebidas alcoólicas e substâncias 100% fictícias para diversão e roleplay. Nenhum conteúdo real: tudo é fabricado no Minecraft.",
+  "name": "SNC Adventures Mod",
+  "description": "SNC Adventures Mod: mercado do Gago, economia em real, plantacoes, bebidas e substancias 100% ficticias para diversao e roleplay. Nada real aqui: tudo e fabricado no Minecraft.",
   "authors": ["enzop"],
   "license": "MIT",
   "environment": "*",
@@ -12,6 +12,9 @@
     "main": ["com.intoxicantes.IntoxicantesMod"],
     "client": ["com.intoxicantes.IntoxicantesClient"]
   },
+  "mixins": [
+    "intoxicantes.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.19.3",
     "minecraft": "~26.3-",

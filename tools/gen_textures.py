@@ -15,7 +15,21 @@ import zlib
 
 ASSETS = os.path.join("src", "main", "resources", "assets", "intoxicantes")
 
+# v1.2.35 — artes MANUAIS do usuário: nunca sobrescrever (ver gen_farm_textures.py)
+MANUAIS = {
+    "baseado", "cachaca", "cartucho", "cerveja", "cocaina",
+    "cogumelo_xamanico", "cristal_de_euforia", "extrato_cafeina", "heroina",
+    "hidromel", "lsd", "maconha_seda", "nevoa_do_deserto", "po_estelar",
+    "raiz_de_sombra",
+}
+
+
 def write_png(path, rows):
+    nome = os.path.basename(path)
+    dirnome = os.path.basename(os.path.dirname(path))
+    if dirnome == "item" and (nome[:-4] if nome.endswith(".png") else nome) in MANUAIS:
+        print(f"  SKIP (manual do usuário): {nome}")
+        return
     h = len(rows)
     w = len(rows[0])
     def chunk(tag, data):
@@ -95,6 +109,100 @@ def brilho(rows, x, y0, y1, alpha=170):
     return rows
 
 TEXTURES = {
+    # ============================================================ O JUÇA (v1.2.39)
+    # Cigarro Camel amarelo: maço branco/amarelo com o cigarro de fora
+    "cigarro_camel": (
+        [
+            "................",
+            "..OOOOOOOOOOO...",
+            "..O#########O...",
+            "..O#aaaaaaa#O...",
+            "..O#aAAAAAa#O...",
+            "..O#aA0A0Aa#O...",
+            "..O#aAAAAAa#O...",
+            "..O#aaaaaaa#O...",
+            "..O#bbbbbbb#O...",
+            "..O#bBBBBBb#O...",
+            "..O#bBccccb#O...",
+            "..O#bcccccb#O...",
+            "..O#bbbbbbb#O...",
+            "..O#########O...",
+            "..OOOOOOOOOOO...",
+            "................",
+        ],
+        {
+            "O": "C7A24A",   # borda do maço (amarelo do Camel)
+            "#": "F5F1E4",   # papel do maço (creme)
+            "a": "E8B23A",   # faixa amarela-Camel (topo)
+            "A": "D69E2E",   # amarelo sombra
+            "0": "8A6420",   # ornamento da faixa
+            "b": "E8B23A",   # faixa amarela (baixo)
+            "B": "D69E2E",
+            "c": "C9862A",   # emblema central
+        },
+        "3A3128",
+    ),
+    # Camisa do Matanza: preta com caveira branca estampada no peito
+    "camisa_matanza": (
+        [
+            "................",
+            "................",
+            "..OO......OO....",
+            "..OOO....OOO....",
+            "..O#OOOOOO#O....",
+            "..O########O....",
+            "..O##w####w#O...",  # mangas
+            "..O##ww##ww#O...",
+            "..O###wwww##O...",  # ombros
+            "..O####ww###O...",
+            "..O###WwwW##O...",  # colarinho
+            "..O##ww##ww#O...",
+            "..O###w##w##O...",  # caveira no peito
+            "..O##########O..",
+            "..OOOOOOOOOOO...",
+            "................",
+        ],
+        {
+            "O": "2E2E38",   # borda do tecido
+            "#": "1C1C22",   # tecido preto (o preto do rock)
+            "w": "E8E4DC",   # estampa branca (caveira)
+            "W": "B8B4AC",   # sombra da estampa
+        },
+        "0A0A0E",
+    ),
+    # ============================================================ CONTROLE REMOTO (v1.2.38)
+    # A Central de Comando em item: controle preto com telinha verde
+    # (a cor do LED) e teclado de botões com o power vermelho
+    "central_comando": (
+        [
+            "................",
+            "....OOOOOOO.....",
+            "...O#ss###RO....",
+            "...O#SLLS#BO....",
+            "...O#SSSS#BO....",
+            "...O#######O....",
+            "...O#B#B#B#O....",
+            "...O#B#B#B#O....",
+            "...O#######O....",
+            "...O#R#B#B#O....",
+            "...O#B#B#B#O....",
+            "...O#######O....",
+            "...O##ss###O....",
+            "....OOOOOOO.....",
+            "................",
+            "................",
+        ],
+        {
+            "O": "2A3138",  # contorno
+            "#": "3A4650",  # corpo do controle
+            "s": "5A6A78",  # brilho do corpo
+            "S": "0A1410",  # telinha apagada
+            "L": "39FF6E",  # LED verde da telinha (a cor da Central)
+            "B": "8A9AA8",  # botões
+            "R": "FF5A48",  # botão power vermelho
+        },
+        "14181C"),
+
     # ============================================================ CERVEJA
     # Caneca robusta: espuma transbordando em 3 tons, cerveja em rampa,
     # bolhas subindo, brilho de vidro na parede esquerda, alca com furo
@@ -507,10 +615,12 @@ TEXTURES = {
 }
 
 ITEMS = [
+    "central_comando",
     "cerveja", "vinho", "cachaca", "hidromel", "rum",
     "maconha_seda", "baseado", "cocaina", "heroina", "lsd",
     "po_estelar", "cogumelo_xamanico", "nevoa_do_deserto",
     "raiz_de_sombra", "cristal_de_euforia", "extrato_cafeina",
+    "cigarro_camel", "camisa_matanza",
 ]
 
 # Pos-tratamento por item: rampa de volume + brilho de vidro onde ha corpo

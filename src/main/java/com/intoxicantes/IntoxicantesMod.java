@@ -59,6 +59,7 @@ import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.component.DataComponentType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -98,6 +99,208 @@ public class IntoxicantesMod implements ModInitializer {
                     .setId(ResourceKey.create(Registries.BLOCK,
                             Identifier.fromNamespaceAndPath(MOD_ID, "lampada_uv")))));
 
+    // ============================================================ BLOCOS: POSTE DE LUZ (v1.2.19)
+    // O lampeão do estacionamento: acende sozinho às 19h, apaga às 5h.
+    // noOcclusion: corpo fino (coluna 4x16x4) — sem isso o vizinho "some".
+    // v1.2.24: a LUZ (14) mora só no TOPO aceso — a fonte é a luminária,
+    // não a coluna (3 blocos iluminados “de graça” inflava o light engine).
+    public static final Block POSTE_LUZ = registerBlockWithItem("poste_luz", new PosteLuzBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(0.6F)
+                    .sound(SoundType.GLASS)
+                    .noOcclusion()
+                    .lightLevel(state -> state.getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.TOPO
+                            && state.getValue(PosteLuzBlock.LIT) ? 14 : 0)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "poste_luz")))));
+
+    // v1.2.19: ASFALTO do estacionamento (piso denso da esquina — o pátio do
+    // mercado nasce pavimentado; o bloco fica disponível pra construir rua)
+    public static final Block ASFALTO = registerBlockWithItem("asfalto",
+            BlockBehaviour.Properties.of()
+                    .strength(1.2F)
+                    .sound(SoundType.STONE));
+
+    // ============================================================ BLOCOS: DECORACAO DA ESQUINA (v1.2.24)
+    // FAIXA DE PEDESTRE: a tinta branca da travessia — bloco PLANO (1px) sobre
+    // o asfalto (anda por cima sem degrau); some se o chão ceder.
+    public static final Block FAIXA_PEDESTRE = registerBlockWithItem("faixa_pedestre",
+            new FaixaPedestreBlock(BlockBehaviour.Properties.of()
+                    .strength(0.8F)
+                    .sound(SoundType.STONE)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_LIGHT_GRAY)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "faixa_pedestre")))));
+
+    // HIDRANTE: o vermelhão de ferro na calçada — decorativo, com jato de
+    // água cômico ao usar (a esquina inteira é interativa).
+    public static final Block HIDRANTE = registerBlockWithItem("hidrante",
+            new HidranteBlock(BlockBehaviour.Properties.of()
+                    .strength(1.0F, 4.0F)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_RED)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "hidrante")))));
+
+    // ============================================================ BLOCOS: DESTILARIA (v1.2.50)
+    // A cadeia das bebidas: máquinas de prima, fermentação, destilação e
+    // maturação — CADA bebida com o SEU barril (spec 6/8: identidade visual
+    // própria, 1 classe + 4 IDs, como os signs do vanilla). Processos em
+    // ProcessosBebida; o BE de barril é ÚNICO e válido pros 4 blocos.
+    public static final Block BARRIL_CACHACA = registerBarril("barril_cachaca", "cachaca");
+    public static final Block BARRIL_CERVEJA = registerBarril("barril_cerveja", "cerveja");
+    public static final Block BARRIL_RUM = registerBarril("barril_rum", "rum");
+    public static final Block BARRIL_VINHO = registerBarril("barril_vinho", "vinho");
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<BarrilBebidaBlockEntity> BARRIL_BEBIDA_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "barril_bebida")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            BarrilBebidaBlockEntity::new,
+                            java.util.Set.of(BARRIL_CACHACA, BARRIL_CERVEJA, BARRIL_RUM, BARRIL_VINHO)));
+
+    public static final Block DORNA_BEBIDA = registerBlockWithItem("dorna_bebida", new DornaBebidaBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(1.2F)
+                    .sound(SoundType.WOOD)
+                    .noOcclusion()
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "dorna_bebida")))));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<DornaBebidaBlockEntity> DORNA_BEBIDA_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "dorna_bebida")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            DornaBebidaBlockEntity::new, java.util.Set.of(DORNA_BEBIDA)));
+
+    public static final Block ALAMBIQUE = registerBlockWithItem("alambique", new AlambiqueBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.COPPER)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.COLOR_ORANGE)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "alambique")))));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<AlambiqueBlockEntity> ALAMBIQUE_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "alambique")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            AlambiqueBlockEntity::new, java.util.Set.of(ALAMBIQUE)));
+
+    public static final Block MOENDA_CANA = registerBlockWithItem("moenda_cana", new MaquinaPrimaBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F)
+                    .sound(SoundType.WOOD)
+                    .noOcclusion()
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "moenda_cana"))),
+            MaquinaPrimaBlock.Tipo.MOENDA));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<MaquinaPrimaBlockEntity> MOENDA_CANA_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "moenda_cana")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            (pos, state) -> new MaquinaPrimaBlockEntity(pos, state,
+                                    MaquinaPrimaBlock.Tipo.MOENDA),
+                            java.util.Set.of(MOENDA_CANA)));
+
+    public static final Block PRENSA_UVAS = registerBlockWithItem("prensa_uvas", new MaquinaPrimaBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F)
+                    .sound(SoundType.WOOD)
+                    .noOcclusion()
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "prensa_uvas"))),
+            MaquinaPrimaBlock.Tipo.PRENSA));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<MaquinaPrimaBlockEntity> PRENSA_UVAS_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "prensa_uvas")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            (pos, state) -> new MaquinaPrimaBlockEntity(pos, state,
+                                    MaquinaPrimaBlock.Tipo.PRENSA),
+                            java.util.Set.of(PRENSA_UVAS)));
+
+    public static final Block CALDEIRAO_MOSTURA = registerBlockWithItem("caldeirao_mostura", new MaquinaPrimaBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(2.0F)
+                    .sound(net.minecraft.world.level.block.SoundType.METAL)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "caldeirao_mostura"))),
+            MaquinaPrimaBlock.Tipo.CALDEIRAO));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<MaquinaPrimaBlockEntity> CALDEIRAO_MOSTURA_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "caldeirao_mostura")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            (pos, state) -> new MaquinaPrimaBlockEntity(pos, state,
+                                    MaquinaPrimaBlock.Tipo.CALDEIRAO),
+                            java.util.Set.of(CALDEIRAO_MOSTURA)));
+
+    // ============================================================ CROP: CEVADA
+    // v1.2.50: crop vanilla-style (7 estágios) — a matéria-prima da cerveja.
+    public static final Block CEVADA_PLANT = Registry.register(BuiltInRegistries.BLOCK,
+            ResourceKey.create(Registries.BLOCK,
+                    Identifier.fromNamespaceAndPath(MOD_ID, "cevada_plant")),
+            new CevadaCropBlock(BlockBehaviour.Properties.of()
+                    .noCollision()
+                    .randomTicks()
+                    .instabreak()
+                    .sound(SoundType.CROP)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "cevada_plant")))));
+
+    // ============================================================ BLOCOS: LETREIRO DO ESQUINAO
+    // v1.2.18: a placa DO ZERO — painel preto com texto verde de LED, renderizado
+    // por código (PlacaEsquinaoRenderer). Nada de wall_sign vanilla na fachada.
+    public static final Block PLACA_ESQUINAO = registerBlockWithItem("placa_esquinao", new PlacaEsquinaoBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(1.5F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "placa_esquinao")))));
+    // Block entity do letreiro (texto + vínculo com o mercado); valida só contra
+    // o bloco da placa (colunas e painel compartilham o mesmo bloco/BE)
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<PlacaEsquinaoBlockEntity> PLACA_ESQUINAO_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "placa_esquinao")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            PlacaEsquinaoBlockEntity::new, java.util.Set.of(PLACA_ESQUINAO)));
+
+    // ============================================================ BLOCOS: PAINEL DE LED CRAFTÁVEL
+    // v1.2.36 — a TV de tela plana do Esquinão: painel FINO (3px) que o
+    // jogador crafta e programa pela CENTRAL DE COMANDO (texto, cor, brilho,
+    // modo). Suporta linha de até 3 (o painel-cabeça manda o texto).
+    public static final Block PAINEL_LED = registerBlockWithItem("painel_led", new PainelLedBlock(
+            BlockBehaviour.Properties.of()
+                    .strength(1.0F, 4.0F)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "painel_led")))));
+    public static final net.minecraft.world.level.block.entity.BlockEntityType<PainelLedBlockEntity> PAINEL_LED_ENTITY =
+            Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE,
+                    ResourceKey.create(Registries.BLOCK_ENTITY_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "painel_led")),
+                    new net.minecraft.world.level.block.entity.BlockEntityType<>(
+                            PainelLedBlockEntity::new, java.util.Set.of(PAINEL_LED)));
+
+    // ============================================================ ITENS DE COMANDO
+    // v1.2.38: o CONTROLE REMOTO do painel de LED — aponta pro display e
+    // edita (texto, cor, brilho, modo) sem tocar no bloco
+    public static final Item CENTRAL_COMANDO = registerItem("central_comando",
+            new CentralComandoItem(new Item.Properties().stacksTo(1)
+                    .setId(itemKey("central_comando"))));
+
     // ============================================================ ENTIDADES: NPCs
     // O Traficante: vendedor de drogas ficticias que aparece de vez em quando.
     public static final EntityType<TraficanteEntity> TRAFICANTE = registerEntity("traficante",
@@ -108,6 +311,13 @@ public class IntoxicantesMod implements ModInitializer {
     // O Gago: vende bebidas. CHAMA ELE DE GAGO NO CHAT E VOCE VAI VER kkkk
     public static final EntityType<GagoEntity> GAGO = registerEntity("gago",
             EntityType.Builder.of(GagoEntity::new, MobCategory.CREATURE)
+                    .sized(0.6F, 1.95F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2));
+    // v1.2.39: O JUÇA — o parça do Gago. Fuma Camel, veste o Matanza e tem
+    // tema de entrada (o riff toca na aproximação). Cachaça nele = show.
+    public static final EntityType<JucelinoEntity> JUCA = registerEntity("juca",
+            EntityType.Builder.of(JucelinoEntity::new, MobCategory.CREATURE)
                     .sized(0.6F, 1.95F)
                     .clientTrackingRange(10)
                     .updateInterval(2));
@@ -123,6 +333,12 @@ public class IntoxicantesMod implements ModInitializer {
                     .setId(itemKey("ovo_gago"))
                     .component(DataComponents.ENTITY_DATA,
                             TypedEntityData.of(GAGO, new CompoundTag()))));
+    // v1.2.39: o ovo do Juça (base preta, mancha amarela-Camel)
+    public static final Item OVO_JUCA = registerItem("ovo_juca",
+            new SpawnEggItem(new Item.Properties().stacksTo(64)
+                    .setId(itemKey("ovo_juca"))
+                    .component(DataComponents.ENTITY_DATA,
+                            TypedEntityData.of(JUCA, new CompoundTag()))));
 
     // ============================================================ SONS PROPRIOS
     // O estouro da 12 (a voz da escopeta), o blip do Gago e o zumbido da lampada.
@@ -136,6 +352,22 @@ public class IntoxicantesMod implements ModInitializer {
     public static final SoundEvent HIC = registrarSom("hic");
     // v1.2.10: o gole em si tem som proprio (e o refluxo tambem, pitch grave)
     public static final SoundEvent GLUP = registrarSom("glup");
+    // v1.2.19: o arpejo da virada do letreiro (ABERTO verde sobe, FECHADO desce)
+    public static final SoundEvent LETREIRO_VIRADA = registrarSom("letreiro_virada");
+    // v1.2.39: o TEMA do Juça (riff cowpunk original) e a voz dele
+    public static final SoundEvent JUCA_RIFF = registrarSom("juca_riff");
+    public static final SoundEvent JUCA_VOZ = registrarSom("juca_voz");
+
+    // v1.2.32: o MECANISMO da escopeta (tubo/camara/timer/fase) vive num
+    // DataComponent da stack — acompanha o item no bau, no chao e pela rede.
+    public static final DataComponentType<EscopetaEstado> TIPO_ESTADO_ESCOPETA =
+            Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                    ResourceKey.create(Registries.DATA_COMPONENT_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "estado_escopeta")),
+                    DataComponentType.<EscopetaEstado>builder()
+                            .persistent(EscopetaEstado.CODEC)
+                            .networkSynchronized(EscopetaEstado.STREAM_CODEC)
+                            .build());
 
     // Cartucho do calibre 12: polvora + prego + papel (declarado antes: a escopeta usa no reparo)
     public static final Item CARTUCHO = registerItem("cartucho",
@@ -149,9 +381,77 @@ public class IntoxicantesMod implements ModInitializer {
                                     net.minecraft.core.HolderSet.direct(CARTUCHO.builtInRegistryHolder())))
                     .setId(itemKey("escopeta"))));
 
+    // ============================================================ CAMISA DO MATANZA (v1.2.39)
+    /**
+     * A camisa da banda do Juça — PODERES MATANZÍSTICOS DEMONÍACOS (idéia
+     * do Discord): peito de couro com FIRE_RESISTANCE permanente enquanto
+     * vestida (quem veste o Matanza não queima). Repara com couro.
+     */
+    public static final Item CAMISA_MATANZA = registerItem("camisa_matanza",
+            new Item(new Item.Properties()
+                    .humanoidArmor(new net.minecraft.world.item.equipment.ArmorMaterial(
+                            10, // durabilidade (proximo do couro)
+                            java.util.Map.of(net.minecraft.world.item.equipment.ArmorType.CHESTPLATE, 4),
+                            3, // encantabilidade
+                            SoundEvents.ARMOR_EQUIP_LEATHER, // já é Holder<SoundEvent>
+                            0.0F, 0.0F,
+                            net.minecraft.tags.ItemTags.REPAIRS_LEATHER_ARMOR,
+                            net.minecraft.world.item.equipment.EquipmentAssets.LEATHER),
+                            net.minecraft.world.item.equipment.ArmorType.CHESTPLATE)
+                    .component(DataComponents.EQUIPPABLE,
+                            net.minecraft.world.item.equipment.Equippable.builder(
+                                            net.minecraft.world.entity.EquipmentSlot.CHEST)
+                                    .setEquipSound(SoundEvents.ARMOR_EQUIP_LEATHER)
+                                    .setAsset(
+                                            net.minecraft.world.item.equipment.EquipmentAssets.LEATHER)
+                                    .build())
+                    .setId(itemKey("camisa_matanza"))));
+
+    // ============================================================ REVÓLVER .38 (o "três oitão", v1.2.33)
+    // Estado do tambor (6 buracos) — declarado antes dos itens que o usam
+    public static final DataComponentType<RevolverEstado> TIPO_ESTADO_REVOLVER =
+            Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                    ResourceKey.create(Registries.DATA_COMPONENT_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "estado_revolver")),
+                    DataComponentType.<RevolverEstado>builder()
+                            .persistent(RevolverEstado.CODEC)
+                            .networkSynchronized(RevolverEstado.STREAM_CODEC)
+                            .build());
+
+    // Cartucho .38: chumbo + polvora + latao (o tres-oitao tem munição própria)
+    public static final Item CARTUCHO_38 = registerItem("cartucho_38",
+            new Item(new Item.Properties().stacksTo(64).setId(itemKey("cartucho_38"))));
+    // O revólver: tambor de 6, mais preciso e forte por bala que a 12, reparável com 2 cartuchos .38
+    public static final Item REVOLVER = registerItem("revolver",
+            new RevolverItem(new Item.Properties().stacksTo(1)
+                    .durability(256)
+                    .component(DataComponents.REPAIRABLE,
+                            new net.minecraft.world.item.enchantment.Repairable(
+                                    net.minecraft.core.HolderSet.direct(CARTUCHO_38.builtInRegistryHolder())))
+                    .setId(itemKey("revolver"))));
+
     // ============================================================ DINHEIRO R$
     public static final Item REAL = registerItem("real",
             new RealItem(new Item.Properties().stacksTo(64).setId(itemKey("real"))));
+
+    // ============================================================ GUIA DO SNC ADVENTURES (v1.2.51)
+    // O livro-guia oficial: use com o botão direito e a tela abre (client).
+    // Entrega única na 1ª entrada (GuiaPrimeiraVez); recuperação SÓ por craft
+    // (livro + R$) — sem comando, decisão do usuário.
+    public static final Item GUIA_SNC = registerItem("guia_snc",
+            new GuiaItem(new Item.Properties().stacksTo(1).setId(itemKey("guia_snc"))));
+
+    // ============================================================ RÓTULO DO BARRIL (v1.2.50)
+    // DataComponent string no BlockItem: qual bebida o barril carrega
+    // (o craft carimba; o BE lê na hora da colocação). Codec simples.
+    public static final DataComponentType<String> ROTULO_BARRIL =
+            Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                    ResourceKey.create(Registries.DATA_COMPONENT_TYPE,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "rotulo_barril")),
+                    DataComponentType.<String>builder()
+                            .persistent(com.mojang.serialization.Codec.STRING)
+                            .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.STRING_UTF8)
+                            .build());
 
     // ============================================================ SEMENTES (BlockItem das plantas)
     public static final Item SEMENTE_MACONHA = seedItem("semente_maconha", MACONHA_PLANT);
@@ -159,12 +459,35 @@ public class IntoxicantesMod implements ModInitializer {
     public static final Item SEMENTE_UVA = seedItem("semente_uva", UVA_PLANT);
     public static final Item SEMENTE_CAFE = seedItem("semente_cafe", CAFE_PLANT);
     public static final Item SEMENTE_PAPOULA = seedItem("semente_papoula", PAPOULA_PLANT);
+    // v1.2.50: a cevada entra na família (mesmo modelo de pacote de sementes)
+    public static final Item SEMENTE_CEVADA = seedItem("semente_cevada", CEVADA_PLANT);
 
     // ============================================================ PRODUTOS DAS PLANTACOES
     public static final Item LOUPULO_FRESCO = product("lupulo");
     public static final Item UVA = product("uva");
     public static final Item CAFE_VERDE = product("cafe_verde");
     public static final Item CANA_DE_ACUCAR = product("cana_de_acucar");
+
+    // ============================================================ MATÉRIA-PRIMA DAS BEBIDAS (v1.2.50)
+    // Cerveja: cevada (crop novo) → malte (forja) → mosto (caldeirão + lúpulo)
+    public static final Item CEVADA = product("cevada");
+    public static final Item MALTE = product("malte");
+    // Cachaça: cana → caldo (moenda); caldo → mosto fermentado (dorna)
+    public static final Item CALDO_DE_CANA = product("caldo_de_cana");
+    public static final Item MOSTO_CANA_FERMENTADO = product("mosto_cana_fermentado");
+    // Rum: cana → melaço (forna caldo) → mosto (dorna)
+    public static final Item MELACO = product("melaco");
+    public static final Item MOSTO_RUM_FERMENTADO = product("mosto_rum_fermentado");
+    // Vinho: uva → mosto de uva (prensa)
+    public static final Item MOSTO_DE_UVA = product("mosto_de_uva");
+    // Cerveja: malte + agua (caldeirao) + lupulo na fervura -> mosto lupulado
+    public static final Item MOSTO_CERVEJA_LUPULADO = product("mosto_cerveja_lupulado");
+    // Destilados jovens (saem do alambique; o barril completa)
+    public static final Item CACHACA_JOVEM = product("cachaca_jovem");
+    public static final Item RUM_JOVEM = product("rum_jovem");
+    // Subproduto da moenda (combustível de fornalha)
+    public static final Item BAGACO_DE_CANA = registerItem("bagaco_de_cana",
+            new Item(new Item.Properties().stacksTo(64).setId(itemKey("bagaco_de_cana"))));
 
     // ============================================================ BEBIDAS
     public static final Item CERVEJA = drink("cerveja",
@@ -199,6 +522,15 @@ public class IntoxicantesMod implements ModInitializer {
             effect(MobEffects.REGENERATION, 300, 0),
             effect(MobEffects.SLOW_FALLING, 600, 0),
             effect(MobEffects.NAUSEA, 150, 0));
+
+    /**
+     * v1.2.39 — CIGARRO CAMEL (amarelo): o cigarro do Juça. Trago curto
+     * (colunar igual o baseado) com um shot rápido de pressa + tontura —
+     * é nicotina de roleplay, não remédio.
+     */
+    public static final Item CIGARRO_CAMEL = smoke("cigarro_camel",
+            effect(MobEffects.SPEED, 200, 0),
+            effect(MobEffects.NAUSEA, 100, 0));
 
     /** Opio: anestesico de rua — tanque barato que deixa lento (nicho real de uso). */
     public static final Item OPIO = powder("opio",
@@ -281,14 +613,46 @@ public class IntoxicantesMod implements ModInitializer {
                 output.accept(OVO_GAGO);
                 // Lampada (as plantas nao entram: a semente e o proprio BlockItem delas)
                 output.accept(LAMPADA_UV);
+                // v1.2.18: o letreiro da casa (placa custom de LED)
+                output.accept(PLACA_ESQUINAO);
+                // v1.2.36: o painel de LED craftável (a TV de tela plana)
+                output.accept(PAINEL_LED);
+                // v1.2.38: o CONTROLE REMOTO (Central de Comando portátil)
+                output.accept(CENTRAL_COMANDO);
+                // v1.2.19: o poste de luz do estacionamento (acende de noite)
+                output.accept(POSTE_LUZ);
+                output.accept(ASFALTO);
                 // Produtos agricolas
                 output.accept(LOUPULO_FRESCO);
                 output.accept(UVA);
                 output.accept(CAFE_VERDE);
                 output.accept(CANA_DE_ACUCAR);
+                // v1.2.50: a cadeia das bebidas (matéria-prima, máquinas e barris)
+                output.accept(SEMENTE_CEVADA);
+                output.accept(CEVADA);
+                output.accept(MALTE);
+                output.accept(MOENDA_CANA);
+                output.accept(CALDO_DE_CANA);
+                output.accept(BAGACO_DE_CANA);
+                output.accept(DORNA_BEBIDA);
+                output.accept(MOSTO_CANA_FERMENTADO);
+                output.accept(ALAMBIQUE);
+                output.accept(CACHACA_JOVEM);
+                output.accept(MELACO);
+                output.accept(MOSTO_RUM_FERMENTADO);
+                output.accept(RUM_JOVEM);
+                output.accept(PRENSA_UVAS);
+                output.accept(MOSTO_DE_UVA);
+                output.accept(CALDEIRAO_MOSTURA);
+                output.accept(MOSTO_CERVEJA_LUPULADO);
+                output.accept(BARRIL_CACHACA);
+                output.accept(BARRIL_CERVEJA);
+                output.accept(BARRIL_RUM);
+                output.accept(BARRIL_VINHO);
                 // Ervas
                 output.accept(MACONHA_SEDA);
                 output.accept(BASEADO);
+                output.accept(CIGARRO_CAMEL);
                 output.accept(OPIO);
                 // Quimicos
                 output.accept(COCAINA);
@@ -310,8 +674,14 @@ public class IntoxicantesMod implements ModInitializer {
                 // Armas do Gago
                 output.accept(ESCOPETA);
                 output.accept(CARTUCHO);
+                // O três-oitão
+                output.accept(REVOLVER);
+                output.accept(CARTUCHO_38);
                 // Dinheiro
                 output.accept(REAL);
+                // v1.2.51: o livro-guia (topo da aba é a cerveja; o guia fica
+                // no fim, junto do dinheiro — manual de consulta)
+                output.accept(GUIA_SNC);
             })
             .build();
 
@@ -321,6 +691,10 @@ public class IntoxicantesMod implements ModInitializer {
         // das registries. Referenciar Particulas.DINHEIRO do Server thread depois
         // que a registry congelou explode "Registry is already frozen".
         Particulas.init();
+
+        // v1.2.41: a TECLA R das armas — payload C2S de recarga + canal S2C de status
+        RecargaPayload.registrar();
+        RecargaPayload.registrarStatus();
 
         ResourceKey<CreativeModeTab> tabKey = ResourceKey.create(Registries.CREATIVE_MODE_TAB,
                 Identifier.fromNamespaceAndPath(MOD_ID, "main"));
@@ -348,6 +722,11 @@ public class IntoxicantesMod implements ModInitializer {
             output.accept(HEROINA);
             output.accept(LSD);
             output.accept(CANA_DE_ACUCAR);
+            // v1.2.50: intermediários da destilaria também descobríveis
+            output.accept(CEVADA);
+            output.accept(MALTE);
+            output.accept(CALDO_DE_CANA);
+            output.accept(MELACO);
             output.accept(PO_ESTELAR);
             output.accept(COGUMELO_XAMANICO);
             output.accept(NEVOA_DO_DESERTO);
@@ -368,6 +747,8 @@ public class IntoxicantesMod implements ModInitializer {
                     Registries.LOOT_TABLE, Identifier.withDefaultNamespace("blocks/" + id));
             addSeedPool(tableBuilder, key, blockTable.apply("short_grass"), SEMENTE_MACONHA, 0.10F);
             addSeedPool(tableBuilder, key, blockTable.apply("fern"), SEMENTE_MACONHA, 0.10F);
+            // v1.2.50: a cevada brota selvagem na taiga e nas planícies frias
+            addSeedPool(tableBuilder, key, blockTable.apply("short_grass"), SEMENTE_CEVADA, 0.06F);
             addSeedPool(tableBuilder, key, blockTable.apply("vine"), SEMENTE_UVA, 0.20F);
             addSeedPool(tableBuilder, key, blockTable.apply("jungle_leaves"), SEMENTE_UVA, 0.05F);
             addSeedPool(tableBuilder, key, blockTable.apply("large_fern"), SEMENTE_CAFE, 0.10F);
@@ -384,18 +765,27 @@ public class IntoxicantesMod implements ModInitializer {
             // Esqueletos dropam cartucho (20% chance): fonte alternativa de municao
             addSeedPool(tableBuilder, key, ResourceKey.create(Registries.LOOT_TABLE,
                     Identifier.fromNamespaceAndPath("minecraft", "entities/skeleton")), CARTUCHO, 0.20F);
+            // Esqueletos dropam cartucho .38 (12% chance): munição do três-oitão
+            addSeedPool(tableBuilder, key, ResourceKey.create(Registries.LOOT_TABLE,
+                    Identifier.fromNamespaceAndPath("minecraft", "entities/skeleton")), CARTUCHO_38, 0.12F);
         });
 
         // ======================================================== NPCS: atributos + ovos nas abas
         FabricDefaultAttributeRegistry.register(TRAFICANTE, TraficanteEntity.createAttributes());
         FabricDefaultAttributeRegistry.register(GAGO, GagoEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(JUCA, JucelinoEntity.createAttributes());
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.SPAWN_EGGS).register(output -> {
             output.accept(OVO_TRAFICANTE);
             output.accept(OVO_GAGO);
+            output.accept(OVO_JUCA);
         });
 
         // ======================================================== SISTEMA DE DINHEIRO R$
         MoneyCommands.register();
+
+        // ======================================================== GUIA DO SNC ADVENTURES
+        // Entrega única na 1ª entrada (server-side; flag em JSON no mundo).
+        GuiaPrimeiraVez.registrar();
 
         // ======================================================== MERCADO ESQUINÃO
         MarketSystem.register();
@@ -408,6 +798,14 @@ public class IntoxicantesMod implements ModInitializer {
 
         // ======================================================== CARDAPIO DO ESQUINAO (rede)
         EsquinaoNetworking.register();
+
+        // v1.2.36: rede da CENTRAL DE COMANDO (painel de LED + letreiro)
+        CentralComandoNetworking.register();
+
+        // v1.2.32: rede da 12 — o kick de camera (S2C). O registro do codec e'
+        // global na JVM: precisa existir antes do 1o tiro em qualquer lado.
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
+                RecuoPayload.TYPE, RecuoPayload.STREAM_CODEC);
 
         // ======================================================== SPAWN PERIODICO DE TRAFICANTE
         // O Gago agora so aparece no Mercado Esquinão (24h, muda de posicao).
@@ -492,8 +890,57 @@ public class IntoxicantesMod implements ModInitializer {
             }
         });
 
+        // ==================================================== CHAT: O SISTEMA DO "JUÇA"
+        // v1.2.39: escreveu "juca" (com ou sem acento)? O Juça responde com o
+        // "hé hé" e uma puxada no Camel — o Gago fica PUTO, o Juça só zoa.
+        ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
+            String texto = message.signedContent();
+            String normalizada = Normalizer.normalize(texto, Normalizer.Form.NFD)
+                    .replaceAll("\\p{M}+", "")
+                    .toLowerCase(Locale.ROOT);
+            if (!normalizada.contains("juca")) {
+                return;
+            }
+            for (ServerLevel level : sender.level().getServer().getAllLevels()) {
+                for (JucelinoEntity juca : level.getEntitiesOfClass(JucelinoEntity.class,
+                        sender.getBoundingBox().inflate(48.0))) {
+                    JucelinoEntity j = juca;
+                    synchronized (gagoQueue) {
+                        gagoQueue.add(() -> j.ouvirChat(sender, level));
+                    }
+                }
+            }
+        });
+
+        // ==================================================== A CAMISA DO MATANZA
+        // v1.2.39: PODERES MATANZISTICOS DEMONIACOS — quem veste a camisa da
+        // banda não queima (fire resistance permanente enquanto no peito).
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            MobEffectInstance chama = new MobEffectInstance(
+                    MobEffects.FIRE_RESISTANCE, 220, 0, true, false, true);
+            for (ServerPlayer jogador : server.getPlayerList().getPlayers()) {
+                ItemStack peito = jogador.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+                if (peito.is(IntoxicantesMod.CAMISA_MATANZA)) {
+                    jogador.addEffect(chama);
+                }
+                // v1.2.40 — SEM IMUNIDADE FANTASMA: tirou a camisa, o efeito
+                // vai junto. O efeito da camisa é AMBIENT (poção de fogo
+                // nunca é) — o fire res de poção/fogueira do jogador não é
+                // tocado. O print do Skyu: banhou em lava e nem esquentou
+                // 11s depois de guardar a camisa.
+                else if (jogador.hasEffect(MobEffects.FIRE_RESISTANCE)) {
+                    MobEffectInstance atual = jogador.getEffect(MobEffects.FIRE_RESISTANCE);
+                    if (atual != null && atual.isAmbient()) {
+                        jogador.removeEffect(MobEffects.FIRE_RESISTANCE);
+                    }
+                }
+            }
+        });
+
         // ======================================================== LETREIRO + PEDRADAS NO MERCADO
         // Direita no letreiro = fregues lendo o nome da loja: o Gago cumprimenta.
+        // v1.2.18: só pra placa VANILLA (saves antigos); a placa nova cumprimenta
+        // no próprio PlacaEsquinaoBlock.useWithoutItem
         UseBlockCallback.EVENT.register((player, level, mao, hit) -> {
             if (level.isClientSide()) return net.minecraft.world.InteractionResult.PASS;
             if (!(level.getBlockState(hit.getBlockPos()).getBlock()
@@ -543,6 +990,8 @@ public class IntoxicantesMod implements ModInitializer {
             // v1.2.10: embriaguez sobrevive a relog/restart (intoxicantes_embriaguez.json)
             Embriaguez.init(worldDir);
             MarketSystem.load(worldDir);
+            // v1.2.51: flag "recebeu o guia" (intoxicantes_guia.json)
+            GuiaPrimeiraVez.init(worldDir);
             LOGGER.info("[Intoxicantes] Sistema de dinheiro R$ e Mercado Esquinao inicializados.");
         });
         // Blindagem anti-Invulnerable: saves antigos (template com Invulnerable=1)
@@ -561,6 +1010,11 @@ public class IntoxicantesMod implements ModInitializer {
             File worldDir = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile();
             MarketSystem.save(worldDir);
         });
+
+        // ======================================================== BEBIDAS: O LIVRO-DE-RECEITAS
+        // v1.2.50: o registro central dos processos (dorna, alambique, barris,
+        // moenda, prensa, caldeirão). Chamar antes de qualquer máquina rodar.
+        ProcessosBebida.registrar();
 
         // ======================================================== WORLDGEN: MATOS SELVAGENS
         // Plantacoes abandonadas/plantas selvagens espalhadas pelo mundo.
@@ -592,6 +1046,10 @@ public class IntoxicantesMod implements ModInitializer {
         patch("papoula_selvagem",
                 BiomeSelectors.includeByKey(
                         Biomes.SWAMP, Biomes.SAVANNA, Biomes.MEADOW));
+        // v1.2.50: a cevada selvagem (planícies e taiga — o cereal do frio)
+        patch("cevada_selvagem",
+                BiomeSelectors.includeByKey(
+                        Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.TAIGA, Biomes.SNOWY_PLAINS));
     }
 
     /** Injeta a placed_feature (JSON) nos biomas selecionados, na etapa de vegetação. */
@@ -781,6 +1239,31 @@ public class IntoxicantesMod implements ModInitializer {
         Registry.register(BuiltInRegistries.ITEM, itemKey,
                 new BlockItem(block, new Item.Properties().setId(itemKey)));
         return block;
+    }
+
+    /**
+     * Barril de bebida (v1.2.50): 1 classe, 4 IDs — o rótulo nasce no ITEM
+     * (DataComponent string) e o BE lê do bloco colocado. O loot e o craft
+     * são por barril; as receitas de processo consultam o rótulo.
+     */
+    private static Block registerBarril(String name, String rotulo) {
+        ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK,
+                Identifier.fromNamespaceAndPath(MOD_ID, name));
+        Block bloco = new BarrilBebidaBlock(BlockBehaviour.Properties.of()
+                .strength(1.8F)
+                .sound(SoundType.WOOD)
+                .noOcclusion()
+                .mapColor(rotulo.equals("vinho")
+                        ? net.minecraft.world.level.material.MapColor.COLOR_PURPLE
+                        : net.minecraft.world.level.material.MapColor.WOOD)
+                .setId(blockKey));
+        Registry.register(BuiltInRegistries.BLOCK, blockKey, bloco);
+        ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM,
+                Identifier.fromNamespaceAndPath(MOD_ID, name));
+        Registry.register(BuiltInRegistries.ITEM, itemKey, new BlockItem(bloco,
+                new Item.Properties().setId(itemKey)
+                        .component(ROTULO_BARRIL, rotulo)));
+        return bloco;
     }
 
     /** Registra só o bloco da cultura; a semente (BlockItem) vem depois. */

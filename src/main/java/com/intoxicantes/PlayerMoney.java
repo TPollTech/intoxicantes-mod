@@ -21,14 +21,43 @@ import java.util.UUID;
 public final class PlayerMoney {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Map<UUID, Integer> moneyMap = new HashMap<>();
+    /** v1.2.44: divida do fiado com o traficante (persistente junto com o saldo). */
+    private static final Map<UUID, Integer> dividaMap = new HashMap<>();
     private static File saveFile;
+    private static File dividaFile;
 
     private PlayerMoney() {}
 
     /** Inicializa o sistema de dinheiro com o diretorio do mundo. */
     public static void init(File worldDir) {
         saveFile = new File(worldDir, "intoxicantes_money.json");
+        dividaFile = new File(worldDir, "intoxicantes_fiado.json");
         load();
+        loadDividas();
+    }
+
+    // ==================================================== FIADO (v1.2.44)
+
+    /** Quanto o fregues deve pro traficante. */
+    public static int getDivida(ServerPlayer player) {
+        return dividaMap.getOrDefault(player.getUUID(), 0);
+    }
+
+    /** Soma divida (saturada no int). */
+    public static void addDivida(ServerPlayer player, int quantia) {
+        long novo = Math.min((long) getDivida(player) + (long) quantia, (long) Integer.MAX_VALUE);
+        dividaMap.put(player.getUUID(), (int) novo);
+        saveDividas();
+    }
+
+    /** Quita a divida (inteira ou ate o valor pago). Devolve o valor realmente pago. */
+    public static int pagarDivida(ServerPlayer player, int quantia) {
+        int devendo = getDivida(player);
+        int pago = Math.min(Math.max(0, quantia), devendo);
+        if (pago <= 0) return 0;
+        dividaMap.put(player.getUUID(), devendo - pago);
+        saveDividas();
+        return pago;
     }
 
     public static int get(ServerPlayer player) {
@@ -69,6 +98,29 @@ public final class PlayerMoney {
             }
         } catch (Exception e) {
             IntoxicantesMod.LOGGER.warn("[Intoxicantes] Erro ao carregar dinheiro: {}", e.getMessage());
+        }
+    }
+
+    private static void loadDividas() {
+        if (dividaFile == null || !dividaFile.exists()) return;
+        try (Reader reader = Files.newBufferedReader(dividaFile.toPath())) {
+            Type mapType = new TypeToken<HashMap<UUID, Integer>>() {}.getType();
+            HashMap<UUID, Integer> loaded = GSON.fromJson(reader, mapType);
+            if (loaded != null) {
+                dividaMap.clear();
+                dividaMap.putAll(loaded);
+            }
+        } catch (Exception e) {
+            IntoxicantesMod.LOGGER.warn("[Intoxicantes] Erro ao carregar fiado: {}", e.getMessage());
+        }
+    }
+
+    private static void saveDividas() {
+        if (dividaFile == null) return;
+        try (Writer writer = Files.newBufferedWriter(dividaFile.toPath())) {
+            GSON.toJson(dividaMap, writer);
+        } catch (Exception e) {
+            IntoxicantesMod.LOGGER.warn("[Intoxicantes] Erro ao salvar fiado: {}", e.getMessage());
         }
     }
 

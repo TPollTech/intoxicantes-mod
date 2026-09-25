@@ -11,6 +11,10 @@
     "category": "blocks",
     "sounds": ["intoxicantes:lampada_uv"]
   },
+  "letreiro_virada": {
+    "category": "blocks",
+    "sounds": ["intoxicantes:letreiro_virada"]
+  },
   "caixa_registradora": {
     "category": "neutral",
     "sounds": ["intoxicantes:caixa_registradora"]
@@ -26,5 +30,13 @@
   "glup": {
     "category": "players",
     "sounds": ["intoxicantes:glup"]
+  },
+  "juca_riff": {
+    "category": "neutral",
+    "sounds": ["intoxicantes:juca_riff"]
+  },
+  "juca_voz": {
+    "category": "neutral",
+    "sounds": ["intoxicantes:juca_voz"]
   }
 }

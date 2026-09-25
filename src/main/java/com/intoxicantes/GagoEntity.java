@@ -70,6 +70,36 @@ public class GagoEntity extends AbstractVillager {
     private static final EntityDataAccessor<Integer> DATA_ROUPA =
             SynchedEntityData.defineId(GagoEntity.class, EntityDataSerializers.INT);
 
+    /**
+     * v1.2.19: O MERCADO TÁ ABERTO? Synched pro client (a UI de negociação
+     * vive no client e precisa saber se o portão tá fechado). O server decide
+     * pela MESMA regra do letreiro: 07:00 ~ 00:00 aberto.
+     */
+    private static final EntityDataAccessor<Boolean> DATA_ABERTO =
+            SynchedEntityData.defineId(GagoEntity.class, EntityDataSerializers.BOOLEAN);
+
+    static final String[] FRASES_PORTAO = {
+            "entity.intoxicantes.gago.portao.1",
+            "entity.intoxicantes.gago.portao.2",
+            "entity.intoxicantes.gago.portao.3"
+    };
+    /** v1.2.25: o Gago COCHILA fora do expediente — frase embolada de sono. */
+    static final String[] FRASES_COCHILO = {
+            "entity.intoxicantes.gago.cochilo.1",
+            "entity.intoxicantes.gago.cochilo.2",
+            "entity.intoxicantes.gago.cochilo.3"
+    };
+    /** v1.2.25: o DONO DA ESQUINA (fidelidade tier 3) tem saudação própria. */
+    static final String[] FRASES_VIP = {
+            "entity.intoxicantes.gago.vip.1",
+            "entity.intoxicantes.gago.vip.2",
+            "entity.intoxicantes.gago.vip.3"
+    };
+    /** v1.2.25: cochilo fora do expediente — Zzz e frase de sono (não é fila). */
+    private boolean cochilando;
+    private int cooldownCochilo;
+    private long proximoZzz;
+
     /** Primeiro tick depois do spawn: detecta a roupa pelo bioma (uma vez so). */
     private boolean roupaDefinida;
 
@@ -131,6 +161,10 @@ public class GagoEntity extends AbstractVillager {
             "entity.intoxicantes.gago.borracharia.3"
     };
 
+    // v1.2.44 — MERCADO 24H: o dono da esquina não fecha mais. Chegou a hora
+    // que antes era de dormir, ele arruma a cara e levanta a bandeira de novo
+    // (meio dia a madrugada é quando a esquina mais ferve kkkk).
+
     private boolean anunciouChegada;
     private boolean putoDaCara;
     private boolean sociavel;
@@ -164,6 +198,18 @@ public class GagoEntity extends AbstractVillager {
             this.emPostoMercado = true;
             this.setNoAi(true);
         }
+    }
+
+    /**
+     * v1.2.36 — O DETECTOR DE SUFOCAMENTO: true se o corpo do Gago está
+     * INTERSECTANDO blocos sólidos (cabeça dentro de parede/barril). O
+     * gerente do mercado (MarketSystem.gerenciarGago) consulta a cada
+     * passada: Gago preso não é reposto no lugar — o POSTO é limpo antes,
+     * e quebra o loop de morte que enchia a loja de drop.
+     */
+    public boolean estaPresoEmBloco() {
+        if (this.noPhysics) return false;
+        return !this.level().noCollision(this, this.getBoundingBox());
     }
 
     public GagoEntity(EntityType<? extends AbstractVillager> type, Level level) {
@@ -207,6 +253,8 @@ public class GagoEntity extends AbstractVillager {
         if (this.isPuto()) {
             return net.minecraft.world.InteractionResult.FAIL;
         }
+        // v1.2.44 — MERCADO 24H: sem portão, sem recusa. O dono da esquina
+        // não manda fregues embora nem de madrugada (era a fila do 1.2.19).
         // mesmo padrao do WanderingTrader: botao direito abre o cardapio (e nao e' negocinho de ovo)
         ItemStack naMao = player.getItemInHand(mao);
         if (!naMao.is(Items.VILLAGER_SPAWN_EGG) && !naMao.is(IntoxicantesMod.OVO_GAGO)
@@ -249,8 +297,70 @@ public class GagoEntity extends AbstractVillager {
         return distancia > 64.0 && !this.isPersistenceRequired() && !this.hasCustomName();
     }
 
+    /**
+     * v1.2.30 — O GAGO NÃO SUFFOCA NO POSTO: o gerenciador o teleporta para
+     * o posto do plantão; se um bloco nasceu lá (reforma de pele, plantio
+     * velho, offset de estrutura girada), o vanilla o matava sufocado
+     * (IN_WALL) — e o gerenciador nasce outro no MESMO lugar: ciclo
+     * "o Gago some e o mercado fica cheio de cachaça/R$/cartucho no chão".
+     * Em serviço, dano de parede/empilhamento é IGNORADO (isInvulnerableToBase
+     * é final no 26.3 — a imunidade mora no hurtServer). v1.2.46: dano de
+     * JOGADOR acorda ele (ver acima) — só o ambient continua blindado.
+     */
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel level,
+            net.minecraft.world.damagesource.DamageSource source, float quantidade) {
+        // em serviço: parede e empilhamento não machucam (o posto é seguro)
+        if (this.emPostoMercado && this.isAlive()
+                && (source.is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)
+                    || source.is(net.minecraft.world.damagesource.DamageTypes.CRAMMING))) {
+            return false;
+        }
+        // v1.2.46 — O TAPA ACORDA O VENDEDOR: dano direto de JOGADOR em serviço
+        // não pode quicar — com NoAI ele nem reagia via HurtByTargetGoal, e o
+        // playtest leu "não to conseguindo bater no gago" (impossível de saber
+        // se o hit valeu). O tapa tira ele do plantão, solta a IA e ele saca a
+        // 12 pra cobrar a educação. Parede/sufocamento segue ignorado (acima).
+        if (this.isAlive()
+                && source.getEntity() instanceof Player autor
+                && !autor.getAbilities().instabuild // criativo é obra, nao vandalismo
+                && (this.emPostoMercado || this.raivaTicks < 0)) {
+            this.emPostoMercado = false;
+            this.getNavigation().stop();
+            // mesmo canal do vandalismo (advertência -> perseguição com a 12,
+            // SEM expulsar o fregues do mercado — senão ninguém consegue
+            // medir forças com ele nunca)
+            naPedrada(level, autor);
+        }
+        // defesa em profundidade: ferimento FATAL no posto (explosão, etc.) —
+        // solta a IA em vez de morrer parado dentro do bloco: ele escapa andando
+        if (this.emPostoMercado && this.getHealth() - quantidade <= 0.0F) {
+            this.emPostoMercado = false;
+            this.setNoAi(false);
+            this.getNavigation().stop();
+        }
+        return super.hurtServer(level, source, quantidade);
+    }
+
+    /**
+     * v1.2.30 — AUTOCURA DE SAVE VELHO: Gago de mundo 1.2.18~1.2.29 sem a
+     * marca de persistência despawnava a 64+ blocos ("o Gago simplesmente
+     * some"). No primeiro tick de server, vira permanente.
+     */
+    private boolean persistenciaGarantida;
+
     public boolean isPuto() {
         return this.isAggressive();
+    }
+
+    /** v1.2.19: o mercado tá no horário de atendimento (07:00 ~ 00:00)? */
+    public boolean isMercadoAberto() {
+        return this.entityData.get(DATA_ABERTO);
+    }
+
+    /** v1.2.19: server manda o estado do portão (synched — a UI lê no client). */
+    public void setMercadoAberto(boolean aberto) {
+        this.entityData.set(DATA_ABERTO, aberto);
     }
 
     @Override
@@ -312,19 +422,28 @@ public class GagoEntity extends AbstractVillager {
             alvo.sendSystemMessage(Component.translatable(
                     FRASES_BRAVO[this.random.nextInt(FRASES_BRAVO.length)],
                     this.getName(), alvo.getName()));
-            // Expulsa o infeliz do mercado kkkk
+            // Expulsa o infeliz do mercado kkkk (v1.2.20: a casa nova é
+            // PÉ-NO-CHÃO de verdade — o offset fixo (+5,+1,+5) ignorava a
+            // rotação da estrutura e o terreno: freguês nascia dentro da
+            // fundação (v1.2.18) e ficava trancado nas pedras)
             BlockPos mercado = MarketSystem.getMarketPos();
-            if (mercado != null) {
-                double dist = alvo.blockPosition().distSqr(mercado);
-                if (dist < 16 * 16) {
-                    // Teleporta pra fora do mercado
-                    alvo.teleportTo(
-                            mercado.getX() + 5,
-                            mercado.getY() + 1,
-                            mercado.getZ() + 5);
-                    // v1.2.14: texto fixo ia pro lang (era pt cravado no código)
-                    alvo.sendSystemMessage(Component.translatable(
-                            "entity.intoxicantes.gago.expulso"));
+            if (mercado != null && alvo.level().dimension().equals(Level.OVERWORLD)
+                    && level instanceof ServerLevel serverLevel) {
+                if (alvo.blockPosition().distSqr(mercado) < 16 * 16) {
+                    BlockPos casa = MarketSystem.procurarCasaProExpulso(
+                            serverLevel, mercado, alvo, this);
+                    if (casa != null) {
+                        // v26.3: teleportTo(ServerLevel, x, y, z, relativos, olhar,
+                        // keepCamera=false) — tp normal, sem mexer na câmera
+                        alvo.teleportTo(serverLevel, casa.getX() + 0.5, casa.getY(),
+                                casa.getZ() + 0.5,
+                                java.util.Set.of(), alvo.getYRot(), alvo.getXRot(), false);
+                        alvo.setDeltaMovement(Vec3.ZERO);
+                        alvo.fallDistance = 0.0F;
+                        // v1.2.14: texto fixo ia pro lang (era pt cravado no código)
+                        alvo.sendSystemMessage(Component.translatable(
+                                "entity.intoxicantes.gago.expulso"));
+                    }
                 }
             }
         }
@@ -348,6 +467,7 @@ public class GagoEntity extends AbstractVillager {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DATA_ROUPA, ROUPA_PLAINS);
+        builder.define(DATA_ABERTO, Boolean.TRUE);
     }
 
     /** Indice da roupa (0..6) — sincronizado pro renderer trocar a textura. */
@@ -390,6 +510,11 @@ public class GagoEntity extends AbstractVillager {
     public void tick() {
         super.tick();
         if (this.level().isClientSide()) return;
+        // v1.2.30: Gago de save velho nunca mais despawna (marca no 1o tick)
+        if (!this.persistenciaGarantida) {
+            this.persistenciaGarantida = true;
+            this.setPersistenceRequired();
+        }
         if (this.tickCount % 20 == 0) refreshTradeStock();
         // EM ATENDIMENTO: estatueta. IA congelada, navegacao parada, velocidade
         // zero — o fregues nao merece o vendedor passeando no meio da compra
@@ -413,6 +538,11 @@ public class GagoEntity extends AbstractVillager {
         // v1.2.8: fiscalizacao do balcao — alguem fumando baseado perto? 1x/s
         if (this.tickCount % 20 == 0) {
             fiscalizarFumaca();
+            // v1.2.44 — MERCADO 24H: a checagem de horário virou no-op (o
+            // portão não existe mais), mas o cochilo segue pro save antigo.
+            if (this.level() instanceof ServerLevel nivelVirada) {
+                this.atualizarCochilo(nivelVirada);
+            }
         }
         if (this.raivaTicks < 0) {
             this.raivaTicks++; // advertencia expirando: volta a "calmo" (== 0)
@@ -439,6 +569,21 @@ public class GagoEntity extends AbstractVillager {
                     this.emPostoMercado = true;
                     this.setNoAi(true);
                 }
+            }
+        }
+    }
+
+    /**
+     * v1.2.39 — A DUPLA: o Juça gritou "GAGO" no chat (cachaça nele); o dono
+     * do Esquinão responde na altura (o Grito do Balcão). Package-private:
+     * o Juça chama direto.
+     */
+    void responderJuca(ServerLevel level) {
+        this.playSound(IntoxicantesMod.VOZ_GAGO, 2.0F, 0.9F);
+        for (Player perto : level.players()) {
+            if (perto.distanceToSqr(this) < 20.0 * 20.0) {
+                perto.sendSystemMessage(Component.translatable(
+                        "entity.intoxicantes.gago.resposta_juca", this.getName()));
             }
         }
     }
@@ -575,6 +720,16 @@ public class GagoEntity extends AbstractVillager {
             this.roupaDefinida = true;
         }
         // sem "Roupa" no save = NPC de save antigo: o tick 1 define pelo bioma
+        // v1.2.38 — PERSISTE O POSTO: sem isso, reload = Gago sem imunidade e sem
+        // vínculo com o mercado (sufoca, morre dropando, gerente repõe = loop).
+        var posto = input.getIntArray("PostoMercado").orElse(null);
+        if (posto != null && posto.length == 3) {
+            this.posPostoMercado = new net.minecraft.core.BlockPos(posto[0], posto[1], posto[2]);
+            this.emPostoMercado = input.getBooleanOr("EmPosto", true);
+            if (this.emPostoMercado && this.raivaTicks <= 0) {
+                this.setNoAi(true);
+            }
+        }
     }
 
     @Override
@@ -582,6 +737,12 @@ public class GagoEntity extends AbstractVillager {
         super.addAdditionalSaveData(output);
         this.tradeStock.save(output);
         output.putInt("Roupa", this.getRoupa());
+        // v1.2.38: posto persistido — a imunidade e o vínculo sobrevivem ao save/load
+        if (this.posPostoMercado != null) {
+            output.putIntArray("PostoMercado", new int[]{
+                    this.posPostoMercado.getX(), this.posPostoMercado.getY(), this.posPostoMercado.getZ()});
+            output.putBoolean("EmPosto", this.emPostoMercado);
+        }
     }
 
     // ==================================================== BORRACHARIA
@@ -657,11 +818,56 @@ public class GagoEntity extends AbstractVillager {
     public void cumprimentarLeitor(ServerLevel level, Player leitor) {
         if (this.cooldownLetreiro > 0) return;
         this.cooldownLetreiro = 160; // 8s entre cumprimentos
-        leitor.sendSystemMessage(Component.translatable(
-                FRASES_LETREIRO[this.random.nextInt(FRASES_LETREIRO.length)],
-                this.getName(), leitor.getName()));
-        level.sendParticles(ParticleTypes.HAPPY_VILLAGER,
-                this.getX(), this.getY() + 2.2, this.getZ(), 4, 0.3, 0.3, 0.3, 0.0);
+        // v1.2.19: o BLIP DE VOZ do Gago lendo o letreiro (o blip existe, a voz agora)
+        this.playSound(IntoxicantesMod.VOZ_GAGO, 0.85F, 1.25F);
+        // v1.2.25: o DONO DA ESQUINA (tier 3) tem o chamado respeitoso da casa
+        if (leitor instanceof ServerPlayer fregues
+                && FidelidadeData.getTier(fregues) >= FidelidadeData.TIER_DONO) {
+            leitor.sendSystemMessage(Component.translatable(
+                    FRASES_VIP[this.random.nextInt(FRASES_VIP.length)],
+                    this.getName(), leitor.getName()));
+            level.sendParticles(ParticleTypes.HEART,
+                    this.getX(), this.getY() + 2.2, this.getZ(), 6, 0.4, 0.4, 0.4, 0.0);
+        } else {
+            leitor.sendSystemMessage(Component.translatable(
+                    FRASES_LETREIRO[this.random.nextInt(FRASES_LETREIRO.length)],
+                    this.getName(), leitor.getName()));
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER,
+                    this.getX(), this.getY() + 2.2, this.getZ(), 4, 0.3, 0.3, 0.3, 0.0);
+        }
+    }
+
+    /**
+     * v1.2.25 — O COCHILO: fora do expediente (00:00 ~ 07:00) o dono da
+     * esquina não é máquina — fecha, toma a última e dorme na cadeira do
+     * balcão: Zzz em baforadas de nuvem (o SLEEP não existe no 26.3) e frase
+     * embolada se o freguês tocar nele. Acorde e de pé no horário de abrir.
+     */
+    private void atualizarCochilo(ServerLevel level) {
+        if (this.cooldownCochilo > 0) this.cooldownCochilo--;
+        // v1.2.45 — MERCADO 24H, PARTE 2: o cochilo é EXTERMINADO. A condição
+        // antiga era `!isMercadoAberto() && ...` — com a flag false de save
+        // velho (o portão saiu do jogo), o dono da esquina ficava SENTADO
+        // pra sempre com a boca embolada, "preso nos horários". Levanta,
+        // arruma a pose e nunca mais senta.
+        if (this.cochilando) {
+            this.cochilando = false;
+            this.setPose(net.minecraft.world.entity.Pose.STANDING);
+        }
+    }
+
+    /**
+     * v1.2.19: a VIRADA 00:00/07:00 aconteceu (server: MarketSystem) — o Gago
+     * anuncia e o estado synched muda (a UI/client enxerga o portão fechado).
+     */
+    public void viradaDeHorario(ServerLevel level, boolean abriu) {
+        this.setMercadoAberto(abriu);
+        for (ServerPlayer player : level.players()) {
+            if (player.blockPosition().distSqr(this.blockPosition()) < 32 * 32) {
+                player.sendSystemMessage(Component.translatable(
+                        FRASES_PORTAO[this.random.nextInt(FRASES_PORTAO.length)], this.getName()));
+            }
+        }
     }
 
     /**
@@ -717,6 +923,21 @@ public class GagoEntity extends AbstractVillager {
 
     @Override
     protected void dropCustomDeathLoot(ServerLevel level, DamageSource source, boolean recentlyHit) {
+        // v1.2.30: GUARDA DO LOOT — se ele morreu EM SERVIÇO (no posto, que é
+        // exatamente o bug do sufocamento), não vira dispensa de mercado:
+        // morre sem drop (o loot é pra QUEM MATOU o dono do bar de propósito,
+        // não pro sistema encher a loja de item). Defesa contra qualquer
+        // futuro caminho de dano no posto.
+        // v1.2.36 — A GUARDA DO ENTALADO: morreu PRESO num bloco (sufocamento
+        // do sistema — ex. emPostoMercado transiente após restart) também não
+        // dropa: é o loop que enchia o mercado de cachaça/R$/cartucho.
+        if (this.emPostoMercado
+                || this.posPostoMercado != null
+                        && this.blockPosition().distSqr(this.posPostoMercado) < 4.0
+                || this.estaPresoEmBloco()) {
+            super.dropCustomDeathLoot(level, source, recentlyHit);
+            return;
+        }
         this.spawnAtLocation(level, new ItemStack(IntoxicantesMod.CACHACA));
         this.spawnAtLocation(level, new ItemStack(IntoxicantesMod.CERVEJA, 1 + this.random.nextInt(3)));
         this.spawnAtLocation(level, new ItemStack(IntoxicantesMod.REAL, 5 + this.random.nextInt(20)));
@@ -739,5 +960,23 @@ public class GagoEntity extends AbstractVillager {
     @Override
     protected SoundEvent getDeathSound() {
         return SoundEvents.VILLAGER_DEATH;
+    }
+
+    /**
+     * v1.2.44 — O GAGO NUNCA MAIS LARGA O POSTO: o gerenciador conserta o
+     * dono da esquina ONDE ELE ESTÁ (dentro do pátio) em vez de teleportar
+     * a cada ciclo — era assim que ele ficava entalado em bloco, "falando
+     * no chat e invisível". Desobstrui o corpo SÓ se estiver preso, trava
+     * NoAI e marca o posto aí mesmo.
+     */
+    public void consolidarAqui(ServerLevel level) {
+        if (this.estaPresoEmBloco()) {
+            MarketSystem.garantirPostoLivre(level, this.blockPosition());
+        }
+        this.emPostoMercado = true;
+        this.posPostoMercado = this.blockPosition();
+        this.setNoAi(true);
+        this.getNavigation().stop();
+        this.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
     }
 }

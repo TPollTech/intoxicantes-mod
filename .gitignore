@@ -16,3 +16,7 @@ out/
 .DS_Store
 Thumbs.db
 __pycache__/
+
+# Artefatos locais (não são código do projeto)
+backups/
+dist/

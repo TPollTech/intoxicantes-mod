@@ -1,231 +1,167 @@
-"""Gera a escopeta do Gago: textura de tons + MODELO 3D com elementos (pump-action).
+"""Escopeta 12 pump-action longa e realista, usando apenas elements vanilla do Minecraft.
 
-Modelo construido com cano no +Y (vertical, igual ao sprite da besta vanilla):
-o display de 1a/3a pessoa da besta/tridente gira X=-90 derrubando o +Y pra -Z
-(pra onde o player mira) — com o cano no +X a arma ficava DEITADA na mao.
-Uso: python tools/gen_escopeta.py  (a partir da raiz do projeto do mod)
+Visual inspirado em escopetas pump-action clássicas de calibre 12: coronha/fore-end de
+nogueira, receiver e cano em aço oxidado/azulado, cano longo com vent rib, tubo de
+magazine, porta de ejeção, loading port, action bars e guarda-mato vazado.
 """
-import json
-import os
-
+import json, os, random
 from PIL import Image, ImageDraw
 
-ASSETS = os.path.join("src", "main", "resources", "assets", "intoxicantes")
+ASSETS = os.path.join('src','main','resources','assets','intoxicantes')
+TEX_SIZE = 128
+TILE = 16
 
-# ------------------------------------------------------------------ textura (32x32)
-# Cada bloco de 4x4 tem degradê vertical (claro em cima, escuro embaixo)
-# pra dar volume mesmo com UV esticado nas faces.
 BASES = {
-    "metal":       ((168, 174, 182), (108, 114, 122), (120, 128, 136)),
-    "metal_dark":  ((96, 100, 106),  (56, 58, 63),     (70, 73, 79)),
-    "metal_light": ((220, 226, 232), (166, 172, 180), (188, 195, 203)),
-    "steel_blue":  ((150, 165, 185), (88, 102, 126),  (112, 128, 152)),
-    "muzzle":      ((52, 52, 58),    (22, 22, 26),    (32, 32, 38)),
-    "brass":       ((240, 214, 140), (170, 138, 62),  (205, 178, 100)),
-    "leather":     ((120, 84, 52),   (72, 48, 26),    (94, 64, 38)),
-    "ponto_mira":  ((235, 42, 42),   (120, 10, 10),   (200, 30, 30)),
-    "wood":        ((150, 100, 48),  (92, 58, 26),    (120, 78, 36)),
-    "wood_dark":   ((106, 66, 30),   (60, 36, 14),    (82, 50, 22)),
-    "wood_light":  ((196, 140, 76),  (136, 90, 42),   (166, 114, 58)),
+    'blued_steel': ((104,116,126),(22,28,34),(52,62,72)),
+    'steel_dark':  ((70,76,82),(13,16,19),(34,39,44)),
+    'steel_light': ((174,184,192),(82,92,102),(122,134,144)),
+    'receiver':    ((92,98,103),(18,21,24),(48,53,58)),
+    'bore':        ((28,30,32),(3,4,5),(11,13,15)),
+    'brass':       ((222,194,118),(104,74,24),(165,132,62)),
+    'rubber':      ((56,54,50),(13,12,11),(29,28,26)),
+    'red':         ((225,58,46),(88,8,7),(165,28,21)),
+    'walnut':      ((155,96,49),(52,28,13),(101,57,28)),
+    'walnut_dark': ((101,57,29),(29,16,8),(62,34,17)),
+    'walnut_light':((197,133,72),(89,51,25),(145,88,44)),
+    'black':       ((58,60,61),(10,11,12),(27,29,31)),
 }
+POS={}
+for i,name in enumerate(BASES): POS[name]=((i%8)*TILE,(i//8)*TILE)
 
-img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-d = ImageDraw.Draw(img)
-POS = {"metal": (0, 0), "metal_dark": (4, 0), "metal_light": (8, 0),
-       "steel_blue": (12, 0), "muzzle": (16, 0), "brass": (20, 0),
-       "leather": (24, 0), "ponto_mira": (28, 0),
-       "wood": (0, 8), "wood_dark": (4, 8), "wood_light": (8, 8)}
-for nome, (px, py) in POS.items():
-    claro, escuro, meio = BASES[nome]
-    d.rectangle([px, py, px + 3, py], fill=claro)
-    d.rectangle([px, py + 1, px + 3, py + 2], fill=meio)
-    d.rectangle([px, py + 3, px + 3, py + 3], fill=escuro)
-# grão da madeira: pontinhos alternados
-for px, py, cor in [(1, 9, (104, 66, 30)), (2, 10, (168, 118, 62)), (5, 9, (72, 44, 20)),
-                    (6, 10, (136, 90, 40)), (9, 10, (182, 128, 68)), (10, 9, (100, 62, 28))]:
-    d.point((px, py), fill=(*cor, 255))
-# pontinhos de desgaste no metal e no latão
-d.point((1, 1), fill=(130, 136, 144, 255))
-d.point((2, 2), fill=(140, 146, 154, 255))
-d.point((21, 2), fill=(224, 196, 116, 255))
-d.point((22, 1), fill=(150, 120, 52, 255))
-# ponto de mira: anel escuro com centro vermelho (o "dot" na ponta do cano)
-px, py = POS["ponto_mira"]
-d.rectangle([px, py, px + 3, py + 3], fill=(30, 30, 34, 255))
-d.rectangle([px + 1, py + 1, px + 2, py + 2], fill=(235, 42, 42, 255))
+rng=random.Random(870)
+img=Image.new('RGBA',(TEX_SIZE,TEX_SIZE),(0,0,0,0))
+d=ImageDraw.Draw(img)
+for name,(px,py) in POS.items():
+    light,dark,mid=BASES[name]
+    for yy in range(TILE):
+        t=yy/(TILE-1)
+        # slightly nonlinear falloff: soft highlight in upper third
+        t2=t**0.82
+        base=tuple(int(light[c]*(1-t2)+dark[c]*t2) for c in range(3))
+        for xx in range(TILE):
+            noise=rng.randint(-5,5)
+            if name.startswith('walnut'):
+                # vertical/diagonal walnut grain
+                wave=((xx*3+yy*2)%11)
+                noise += 10 if wave in (0,1) else (-4 if wave in (5,6) else 0)
+            elif name in ('blued_steel','steel_dark','steel_light','receiver'):
+                noise += 4 if ((xx*7+yy*3)%19==0) else 0
+                if (xx+yy*2)%29==0: noise-=7
+            elif name=='brass':
+                noise += 5 if (xx+yy)%9==0 else 0
+            col=tuple(max(0,min(255,v+noise)) for v in base)
+            d.point((px+xx,py+yy),fill=(*col,255))
+    d.line((px,py,px+TILE-1,py),fill=(*light,255))
+    d.line((px,py+TILE-1,px+TILE-1,py+TILE-1),fill=(*dark,255))
 
-caminho = os.path.join(ASSETS, "textures", "item", "escopeta.png")
-os.makedirs(os.path.dirname(caminho), exist_ok=True)
-img.save(caminho)
+# black rubber gets very subtle horizontal ribs
+px,py=POS['rubber']
+for yy in (4,8,12): d.line((px,py+yy,px+TILE-1,py+yy),fill=(22,21,20,255))
+# front bead/safety red: dark surround + red highlight
+px,py=POS['red']; d.rectangle([px,py,px+TILE-1,py+TILE-1],fill=(20,20,21,255)); d.ellipse([px+4,py+4,px+11,py+11],fill=(210,42,32,255)); d.point((px+6,py+5),fill=(255,142,102,255))
 
+tex_path=os.path.join(ASSETS,'textures','item','escopeta.png')
+os.makedirs(os.path.dirname(tex_path),exist_ok=True); img.save(tex_path)
 
-# ------------------------------------------------------------------ modelo 3D
-def uv(tonename):
-    px, py = POS[tonename]
-    # UV de model e NORMALIZADO 0-16, independente do tamanho da textura.
-    # Textura 32x32: cada bloco de 4px = 2 unidades de UV (divide pixel por 2).
-    return [px / 2, py / 2, (px + 4) / 2, (py + 4) / 2]
+def uv(name):
+    px,py=POS[name]; scale=TEX_SIZE/16.0
+    return [px/scale,py/scale,(px+TILE)/scale,(py+TILE)/scale]
 
+AXIS_REMAP={'x':'y','y':'z','z':'x'}
 
-def elemento(nome, de, ate, lados, rot=None):
-    """lados: dict com up/down/north/south/east/west -> tonename.
-
-    O modelo e' DESENHADO com a arma deitada (cano no +X, altura em Y) porque fica
-    intuitivo, e REMAPEADO aqui pro eixo final: cano no +Y (igual ao sprite da
-    besta vanilla). Remap: (x, y, z) -> (z, x, y).
-
-    rot: dict opcional com origin/axis/angle (angle em {-45,-22.5,0,22.5,45}).
-    """
+def elemento(nome,de,ate,lados,rot=None):
     def remap(p):
-        x, y, z = p
-        return [z, x, y]
-
-    faces = {}
-    for lado, tonename in lados.items():
-        # as faces EAST/WEST viram as "de perfil" (o comprimento da arma cruza
-        # a face) — a UV do tom e horizontal, entao a textura fica orientada
-        faces[lado] = {"uv": uv(tonename), "texture": "#escopeta"}
-    el = {"name": nome, "from": remap(de), "to": remap(ate), "faces": faces}
+        x,y,z=p; return [z,x,y]
+    faces={lado:{'uv':uv(mat),'texture':'#escopeta'} for lado,mat in lados.items()}
+    el={'name':nome,'from':remap(de),'to':remap(ate),'faces':faces}
     if rot:
-        el["rotation"] = {"origin": remap(rot["origin"]),
-                          "axis": rot["axis"], "angle": rot["angle"]}
+        el['rotation']={'origin':remap(rot['origin']),'axis':AXIS_REMAP.get(rot['axis'],rot['axis']),'angle':rot['angle'],'rescale':True}
     return el
 
+def mats(main='receiver',top=None,bottom=None,side=None,ends=None):
+    top=top or main; bottom=bottom or main; side=side or main; ends=ends or side
+    return {'up':top,'down':bottom,'north':side,'south':side,'east':ends,'west':ends}
 
-# inclinaçao da coronha: eixo z, +22.5 graus -> a ponta de tras (coronha) desce
-ROT_CORONHA = {"origin": [4.2, 7.0, 8.0], "axis": "z", "angle": 22.5}
+E=[]
+# ------------------------------ stock: longer, slimmer, classic field/police pump proportions
+ROT_STOCK={'origin':[6.35,8.15,8.0],'axis':'z','angle':0}
+E.append(elemento('stock_neck',[5.10,6.38,6.82],[7.15,9.62,9.18],mats('walnut','walnut_light','walnut_dark','walnut','walnut_dark')))
+# revised stock: less dropped / less "deitada", with a more natural field-stock line
+E.append(elemento('stock_mid',[0.55,5.55,6.66],[5.65,8.95,9.34],mats('walnut','walnut_light','walnut_dark','walnut','walnut_dark'),ROT_STOCK))
+E.append(elemento('stock_butt',[-3.25,4.75,6.56],[1.00,8.35,9.44],mats('walnut','walnut_light','walnut_dark','walnut','walnut_dark'),ROT_STOCK))
+E.append(elemento('butt_pad',[-3.92,4.60,6.48],[-3.22,8.50,9.52],mats('rubber'),ROT_STOCK))
+E.append(elemento('cheek_piece',[0.25,8.18,6.82],[4.90,8.72,9.18],mats('walnut_light','walnut_light','walnut','walnut_light','walnut_dark'),ROT_STOCK))
+# rounded-looking transition/pistol grip via two stepped boxes
+E.append(elemento('grip_upper',[5.45,5.60,6.92],[7.05,7.42,9.08],mats('walnut','walnut_light','walnut_dark','walnut','walnut_dark'),ROT_STOCK))
+E.append(elemento('grip_lower',[4.72,4.48,7.00],[6.20,6.45,9.00],mats('walnut_dark','walnut','walnut_dark','walnut_dark','walnut_dark'),ROT_STOCK))
+E.append(elemento('grip_cap',[4.58,4.35,7.18],[5.55,4.65,8.82],mats('rubber'),ROT_STOCK))
 
-E = []
-# ---- coronha: núcleo reto junto ao recebedor + corpo inclinado + soleira de couro
-E.append(elemento("coronha_recebedor", [4.2, 6.4, 6.4], [7.0, 10.4, 9.6],
-                  {"up": "wood_light", "down": "wood_dark", "north": "wood",
-                   "south": "wood", "east": "wood_dark", "west": "wood"}))
-E.append(elemento("coronha_inclinada", [1.2, 3.8, 6.6], [4.2, 8.0, 9.4],
-                  {"up": "wood_light", "down": "wood_dark", "north": "wood",
-                   "south": "wood", "east": "wood_dark", "west": "wood"},
-                  rot=ROT_CORONHA))
-E.append(elemento("placa_couro", [0.2, 3.5, 6.8], [1.2, 7.7, 9.2],
-                  {"up": "leather", "down": "leather", "north": "leather",
-                   "south": "leather", "east": "leather", "west": "leather"},
-                  rot=ROT_CORONHA))
-# ---- culatra (recebedor metalico)
-E.append(elemento("culatra", [7.0, 6.6, 6.2], [9.6, 11.0, 9.8],
-                  {"up": "metal_light", "down": "metal_dark", "north": "metal",
-                   "south": "metal", "east": "metal_dark", "west": "metal"}))
-# porta de ejeçao (lado sul = lado direito do atirador)
-E.append(elemento("ejetor", [7.4, 9.4, 9.8], [8.8, 10.2, 10.3],
-                  {"up": "muzzle", "down": "muzzle", "north": "muzzle",
-                   "south": "muzzle", "east": "muzzle", "west": "muzzle"}))
-# martelho visivel atras
-E.append(elemento("martilho", [6.8, 10.6, 7.4], [7.6, 11.6, 8.6],
-                  {"up": "metal_light", "down": "metal", "north": "metal_dark",
-                   "south": "metal", "east": "metal_dark", "west": "metal_dark"}))
-# ---- cano (aço azulado) + aros de latão
-E.append(elemento("cano", [9.6, 8.3, 7.15], [15.4, 9.7, 8.85],
-                  {"up": "metal_light", "down": "metal", "north": "steel_blue",
-                   "south": "steel_blue", "east": "muzzle", "west": "muzzle"}))
-E.append(elemento("aro_boca", [14.9, 8.1, 6.9], [15.4, 9.9, 9.1],
-                  {"up": "brass", "down": "brass", "north": "brass",
-                   "south": "brass", "east": "brass", "west": "brass"}))
-E.append(elemento("boca", [15.4, 8.2, 7.0], [16.0, 9.8, 9.0],
-                  {"up": "muzzle", "down": "muzzle", "north": "muzzle",
-                   "south": "muzzle", "east": "muzzle", "west": "muzzle"}))
-# ponto de mira vermelho (dot) na boca — o centro da mira quando apontada
-E.append(elemento("ponto_de_mira", [16.0, 8.85, 7.85], [16.4, 9.15, 8.15],
-                  {"up": "muzzle", "down": "muzzle", "north": "ponto_mira",
-                   "south": "ponto_mira", "east": "muzzle", "west": "muzzle"}))
-E.append(elemento("banda_cano", [13.9, 8.2, 7.05], [14.3, 9.8, 8.95],
-                  {"up": "brass", "down": "brass", "north": "brass",
-                   "south": "brass", "east": "brass", "west": "brass"}))
-# ---- tubo do magazine + tampa de latão
-E.append(elemento("tubo", [9.6, 7.2, 7.45], [14.9, 8.3, 8.55],
-                  {"up": "metal", "down": "metal_dark", "north": "metal_dark",
-                   "south": "metal_dark", "east": "muzzle", "west": "muzzle"}))
-E.append(elemento("tampa_tubo", [14.5, 7.1, 7.35], [15.0, 8.4, 8.65],
-                  {"up": "brass", "down": "brass", "north": "brass",
-                   "south": "brass", "east": "brass", "west": "brass"}))
-# ---- bomba (forend) de madeira reta, envolvendo o tubo, com estrias laterais
-E.append(elemento("bomba", [11.0, 6.5, 6.4], [13.6, 9.4, 9.6],
-                  {"up": "wood_light", "down": "wood_dark", "north": "wood",
-                   "south": "wood", "east": "wood", "west": "wood"}))
-E.append(elemento("bomba_estria_1", [10.9, 6.9, 6.6], [11.1, 9.0, 9.4],
-                  {"up": "wood_dark", "down": "wood_dark", "north": "wood_dark",
-                   "south": "wood_dark", "east": "wood_dark", "west": "wood_dark"}))
-E.append(elemento("bomba_estria_2", [13.5, 6.9, 6.6], [13.7, 9.0, 9.4],
-                  {"up": "wood_dark", "down": "wood_dark", "north": "wood_dark",
-                   "south": "wood_dark", "east": "wood_dark", "west": "wood_dark"}))
-# ---- gatilho, guarda-mato e miras de latão
-E.append(elemento("guardamato", [5.6, 5.4, 7.5], [8.4, 5.9, 8.5],
-                  {"up": "metal_dark", "down": "metal_dark", "north": "metal_dark",
-                   "south": "metal_dark", "east": "metal_dark", "west": "metal_dark"}))
-E.append(elemento("guardamato_frente", [8.4, 5.4, 7.5], [8.9, 6.7, 8.5],
-                  {"up": "metal_dark", "down": "metal_dark", "north": "metal_dark",
-                   "south": "metal_dark", "east": "metal_dark", "west": "metal_dark"}))
-E.append(elemento("gatilho", [6.8, 5.9, 7.7], [7.6, 7.0, 8.3],
-                  {"up": "metal_light", "down": "metal_light", "north": "metal",
-                   "south": "metal", "east": "metal", "west": "metal"}))
-E.append(elemento("mira", [15.55, 9.8, 7.7], [15.95, 10.5, 8.3],
-                  {"up": "brass", "down": "muzzle", "north": "muzzle",
-                   "south": "muzzle", "east": "brass", "west": "brass"}))
-E.append(elemento("alma_mira", [9.2, 11.0, 7.7], [9.6, 11.5, 8.3],
-                  {"up": "brass", "down": "brass", "north": "brass",
-                   "south": "brass", "east": "brass", "west": "brass"}))
+# ------------------------------ receiver, kept compact like a real pump-action receiver
+E.append(elemento('receiver_main',[6.85,6.52,6.30],[10.30,10.45,9.70],mats('receiver','steel_light','steel_dark','receiver','steel_dark')))
+E.append(elemento('receiver_top',[7.10,10.45,6.58],[10.12,10.83,9.42],mats('steel_light','steel_light','receiver','receiver','receiver')))
+E.append(elemento('receiver_lower',[7.15,6.02,6.58],[9.72,6.55,9.42],mats('steel_dark')))
+E.append(elemento('ejection_port',[7.70,8.74,9.70],[9.72,10.00,10.03],mats('bore')))
+E.append(elemento('ejection_lip',[7.58,9.95,9.73],[9.86,10.17,10.07],mats('steel_light')))
+E.append(elemento('loading_port',[7.48,5.70,7.05],[9.58,6.06,8.95],mats('bore')))
+E.append(elemento('pin_rear',[7.38,7.38,9.72],[7.62,7.66,10.04],mats('steel_light')))
+E.append(elemento('pin_front',[8.92,7.38,9.72],[9.16,7.66,10.04],mats('steel_light')))
+E.append(elemento('safety',[6.94,9.72,9.72],[7.22,10.00,10.06],mats('red')))
 
-modelo = {
-    "gui_light": "side",
-    "textures": {
-        "escopeta": "intoxicantes:item/escopeta",
-        "particle": "intoxicantes:item/escopeta",
-    },
-    "elements": E,
-    "display": {
-        # DISPLAY DA BESTA VANILLA (verbatim): com o cano no +Y, o X=-90 derruba a
-        # arma pra -Z (pra onde o player mira) — a besta faz exatamente isso com
-        # bounds x=[4..12] y=[0..16]; nossa arma e' do mesmo shape girado
-        "thirdperson_righthand": {
-            "rotation": [-90, 0, -60], "translation": [2, 0.1, -3],
-            "scale": [0.9, 0.9, 0.9],
-        },
-        "thirdperson_lefthand": {
-            "rotation": [-90, 0, 30], "translation": [2, 0.1, -3],
-            "scale": [0.9, 0.9, 0.9],
-        },
-        "firstperson_righthand": {
-            "rotation": [-90, 0, -55], "translation": [1.13, 3.2, 1.13],
-            "scale": [0.68, 0.68, 0.68],
-        },
-        "firstperson_lefthand": {
-            "rotation": [-90, 0, 35], "translation": [1.13, 3.2, 1.13],
-            "scale": [0.68, 0.68, 0.68],
-        },
-        # diagonal classica de item: coronha embaixo-esquerda, cano pra cima-direita
-        "gui": {
-            "rotation": [10, 45, 30], "translation": [0, 0, 0],
-            "scale": [0.85, 0.85, 0.85],
-        },
-        "fixed": {
-            "rotation": [0, 0, 0], "translation": [0, 2, 0],
-            "scale": [0.5, 0.5, 0.5],
-        },
-        "ground": {
-            "rotation": [0, 0, 0], "translation": [0, 2, 0],
-            "scale": [0.35, 0.35, 0.35],
-        },
-    },
+# ------------------------------ long 12-ga barrel; much longer and slimmer than previous model
+BARREL_END=25.20
+E.append(elemento('barrel_core',[10.05,8.52,7.34],[BARREL_END,9.45,8.66],mats('blued_steel','steel_light','steel_dark','blued_steel','bore')))
+E.append(elemento('barrel_top',[10.18,9.43,7.52],[25.10,9.70,8.48],mats('steel_light','steel_light','blued_steel','blued_steel','bore')))
+E.append(elemento('barrel_bottom',[10.18,8.27,7.52],[25.10,8.54,8.48],mats('steel_dark','steel_dark','steel_dark','blued_steel','bore')))
+# ventilated rib like a long field shotgun
+E.append(elemento('vent_rib',[10.52,9.70,7.76],[24.93,9.93,8.24],mats('steel_dark')))
+for i,x in enumerate([11.10,13.45,15.80,18.15,20.50,22.85,24.45]):
+    E.append(elemento(f'rib_bridge_{i}',[x,9.88,7.64],[x+0.13,10.10,8.36],mats('steel_dark')))
+# muzzle and actual dark bore, no decorative brass collar
+E.append(elemento('muzzle_collar',[24.93,8.22,7.12],[25.48,9.75,8.88],mats('steel_dark','blued_steel','steel_dark','steel_dark','bore')))
+E.append(elemento('muzzle_bore',[25.46,8.48,7.38],[25.88,9.50,8.62],mats('bore')))
+# tiny brass bead at the front sight, typical classic shotgun detail
+E.append(elemento('front_bead',[24.83,9.94,7.88],[25.02,10.18,8.12],mats('brass','brass','steel_dark','brass','steel_dark')))
+
+# ------------------------------ magazine tube under barrel
+E.append(elemento('mag_tube',[10.00,7.04,7.55],[23.30,8.00,8.45],mats('steel_dark','blued_steel','bore','steel_dark','bore')))
+E.append(elemento('mag_cap',[22.95,6.98,7.43],[23.50,8.07,8.57],mats('steel_dark','steel_light','steel_dark','steel_dark','steel_dark')))
+E.append(elemento('barrel_clamp',[21.55,7.82,7.04],[21.92,9.52,8.96],mats('receiver','steel_light','steel_dark','receiver','steel_dark')))
+
+# ------------------------------ wooden pump/fore-end: moved forward and made longer like a real 12-ga pump
+E.append(elemento('forend_core',[13.70,6.38,6.42],[19.10,9.12,9.58],mats('walnut','walnut_light','walnut_dark','walnut','walnut_dark')))
+for i,x in enumerate([13.92,14.42,14.92,15.42,15.92,16.42,16.92,17.42,17.92,18.42,18.92]):
+    E.append(elemento(f'forend_rib_{i}',[x,6.24,6.30],[x+0.13,9.22,9.70],mats('walnut_dark')))
+# steel action bars back into receiver, reaching the more forward pump
+E.append(elemento('action_bar_right',[9.28,6.68,9.57],[14.15,7.00,9.80],mats('steel_light')))
+E.append(elemento('action_bar_left',[9.28,6.68,6.20],[14.15,7.00,6.43],mats('steel_light')))
+
+# ------------------------------ trigger group
+E.append(elemento('guard_bottom',[6.38,4.98,7.48],[8.62,5.31,8.52],mats('black')))
+E.append(elemento('guard_rear',[6.20,5.18,7.48],[6.55,6.46,8.52],mats('black')))
+E.append(elemento('guard_front',[8.48,5.18,7.48],[8.83,6.46,8.52],mats('black')))
+ROT_TRIGGER={'origin':[7.55,6.14,8.0],'axis':'z','angle':-22.5}
+E.append(elemento('trigger',[7.38,5.53,7.74],[7.70,6.60,8.26],mats('steel_light','receiver','steel_dark','receiver','steel_dark'),ROT_TRIGGER))
+E.append(elemento('rear_sight',[9.34,10.80,7.76],[9.62,11.10,8.24],mats('steel_dark','steel_light','steel_dark','steel_dark','steel_dark')))
+E.append(elemento('sling_stud',[-0.15,3.54,7.76],[0.18,3.94,8.24],mats('steel_dark'),ROT_STOCK))
+
+modelo={
+    'gui_light':'side',
+    'textures':{'escopeta':'intoxicantes:item/escopeta','particle':'intoxicantes:item/escopeta'},
+    'elements':E,
+    'display':{
+        # Larger in third person: roughly a full-length long gun relative to a Minecraft player.
+        'thirdperson_righthand':{'rotation':[-90,0,-60],'translation':[2.1,-0.4,-4.2],'scale':[1.08,1.08,1.08]},
+        'thirdperson_lefthand':{'rotation':[-90,0,30],'translation':[2.1,-0.4,-4.2],'scale':[1.08,1.08,1.08]},
+        'firstperson_righthand':{'rotation':[-90,-2,-8],'translation':[1.20,1.85,0.20],'scale':[0.94,0.94,0.94]},
+        'firstperson_lefthand':{'rotation':[-90,2,8],'translation':[1.20,1.85,0.20],'scale':[0.94,0.94,0.94]},
+        # Smaller GUI/fixed transforms because model bounds are intentionally much longer than 0..16.
+        'gui':{'rotation':[10,45,30],'translation':[0,0,0],'scale':[0.48,0.48,0.48]},
+        'fixed':{'rotation':[0,0,0],'translation':[0,1,0],'scale':[0.34,0.34,0.34]},
+        'ground':{'rotation':[0,0,0],'translation':[0,1,0],'scale':[0.27,0.27,0.27]},
+    }
 }
-
-caminho = os.path.join(ASSETS, "models", "item", "escopeta.json")
-os.makedirs(os.path.dirname(caminho), exist_ok=True)
-with open(caminho, "w", encoding="utf-8") as f:
-    json.dump(modelo, f, indent=2)
-    f.write("\n")
-
-# definition do item
-caminho = os.path.join(ASSETS, "items", "escopeta.json")
-os.makedirs(os.path.dirname(caminho), exist_ok=True)
-with open(caminho, "w", encoding="utf-8") as f:
-    json.dump({"model": {"type": "minecraft:model", "model": "intoxicantes:item/escopeta"}},
-              f, indent=2)
-    f.write("\n")
-
-print(f"Escopeta OK: textura 32x32 com degrades + modelo 3D com {len(E)} elementos.")
+model_path=os.path.join(ASSETS,'models','item','escopeta.json'); os.makedirs(os.path.dirname(model_path),exist_ok=True)
+with open(model_path,'w',encoding='utf-8') as f: json.dump(modelo,f,indent=2,ensure_ascii=False); f.write('\n')
+item_path=os.path.join(ASSETS,'items','escopeta.json'); os.makedirs(os.path.dirname(item_path),exist_ok=True)
+with open(item_path,'w',encoding='utf-8') as f: json.dump({'model':{'type':'minecraft:model','model':'intoxicantes:item/escopeta'}},f,indent=2); f.write('\n')
+print(f'Escopeta 12 REALISTA/LONGA REV2: {len(E)} elements | textura {TEX_SIZE}x{TEX_SIZE} | bounds longitudinais ~29.6 unidades')

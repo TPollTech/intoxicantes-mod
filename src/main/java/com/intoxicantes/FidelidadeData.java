@@ -31,6 +31,8 @@ public final class FidelidadeData {
 
     /** Compras minimas de cada nivel (indice = tier 0..3). */
     public static final int[] META_TIER = {0, 5, 15, 30};
+    /** Indice do tier máximo (Dono da Esquina) — saudação VIP do Gago. */
+    public static final int TIER_DONO = META_TIER.length - 1;
     /** Desconto de cada nivel, em % (aplicado em cima do preco cheio). */
     public static final int[] DESCONTO_TIER = {0, 5, 10, 15};
     /** A partir daqui as entradas do cardapio sao exclusivas de fidelidade. */

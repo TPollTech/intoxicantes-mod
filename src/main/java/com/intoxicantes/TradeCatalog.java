@@ -41,10 +41,31 @@ final class TradeCatalog {
         // growshop (era R$ 24 com 4/dia: dava pra montar fazenda no dia 1)
         menu.add(new Entry("lampada_uv", IntoxicantesMod.LAMPADA_UV.asItem(), 1, 36, 2, 0, false));
         if (tier >= 1) menu.add(new Entry("cartuchos_fidelidade", IntoxicantesMod.CARTUCHO, 8, 60, 4, 1, false));
+        if (tier >= 1) menu.add(new Entry("cartucho38_fidelidade", IntoxicantesMod.CARTUCHO_38, 8, 60, 4, 1, false));
         if (tier >= 2) menu.add(new Entry("hidromel_fidelidade", IntoxicantesMod.HIDROMEL, 4, 120, 2, 2, false));
         if (tier >= 3) menu.add(new Entry("escopeta_fidelidade", IntoxicantesMod.ESCOPETA, 1, 300, 1, 3, false));
+        if (tier >= 3) menu.add(new Entry("revolver_fidelidade", IntoxicantesMod.REVOLVER, 1, 340, 1, 3, false));
         return List.copyOf(menu);
     }
+
+    /**
+     * v1.2.44 — PAUTA FIXA DO PONTO: o catalogo COMPLETO do traficante (7
+     * produtos, preco de referencia do dia, estoque diario). A ordem E o
+     * indice da tela (0..6) e do array EXCLUSIVOS abaixo.
+     */
+    static List<Entry> traficanteFixo() {
+        return List.of(
+                new Entry("maconha_seda", IntoxicantesMod.MACONHA_SEDA, 1, 12, 6, 0, false),
+                new Entry("cocaina", IntoxicantesMod.COCAINA, 1, 42, 4, 0, false),
+                new Entry("heroina", IntoxicantesMod.HEROINA, 1, 44, 4, 0, false),
+                new Entry("lsd", IntoxicantesMod.LSD, 1, 48, 4, 0, false),
+                new Entry("baseado", IntoxicantesMod.BASEADO, 1, 34, 6, 0, false),
+                new Entry("opio", IntoxicantesMod.OPIO, 1, 14, 6, 0, false),
+                new Entry("extrato_cafeina", IntoxicantesMod.EXTRATO_CAFEINA, 1, 20, 6, 0, false));
+    }
+
+    /** Indices (do traficanteFixo) que podem virar o LANCAMENTO DO DIA. */
+    static final int[] EXCLUSIVOS = {0, 1, 2, 3, 4, 5};
 
     static List<Entry> harvests() {
         return List.of(

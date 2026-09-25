@@ -13,7 +13,26 @@ import zlib
 
 ASSETS = os.path.join("src", "main", "resources", "assets", "intoxicantes")
 
+# v1.2.35 — TEXTURAS MANUAIS (artes do usuário): o gerador NÃO sobrescreve.
+# Esses arquivos em textures/item foram desenhados à mão em alta resolução
+# (256×256) e substituem os procedurais. Quem quiser regenerar um deles:
+# mover o PNG manual pra backups/, rodar este script e recolocar.
+MANUAIS = {
+    "baseado", "cachaca", "cafe_verde", "cana_de_acucar", "cartucho",
+    "cartucho_38", "cerveja", "cocaina", "cogumelo_xamanico",
+    "cristal_de_euforia", "extrato_cafeina", "faixa_pedestre", "heroina",
+    "hidrante", "hidromel", "lampada_uv", "lsd", "lupulo", "maconha_seda",
+    "nevoa_do_deserto", "opio", "ovo_gago", "ovo_traficante", "po_estelar",
+    "raiz_de_sombra", "real", "revolver",
+}
+
+
 def write_png(path, rows):
+    nome = os.path.basename(path)
+    dirnome = os.path.basename(os.path.dirname(path))
+    if dirnome == "item" and (nome[:-4] if nome.endswith(".png") else nome) in MANUAIS:
+        print(f"  SKIP (manual do usuário): {nome}")
+        return
     h = len(rows)
     w = len(rows[0])
     def chunk(tag, data):
@@ -472,6 +491,292 @@ PRODUTOS = {
     ),
 }
 
+# ---------------------------------------------------------------- letreiro esquinão (v1.2.18)
+# A PLACA custom: painel preto, moldura verde, texto "LED" em linhas verdes.
+# O TEXTO DE VERDADE é o block entity renderer (PlacaEsquinaoRenderer) — estas
+# texturas vestem a CAIXA do letreiro (frente/verso/colunas) e o ícone do item.
+
+def placa_front():
+    """Frente do painel (v1.2.25): fundo preto profundo + MOLDURA VERDE VIVA
+    (o contorno que o tester vê de longe — a antiga era quase preta e a placa
+    virava um monólito) + matriz de LED apagada (juntas a cada 2px, cara de
+    painel de posto). SEM barras falsas de texto: o texto real brilha por
+    cima via renderer (BER), centralizado — barras fixas conflitavam."""
+    g = []
+    for y in range(16):
+        linha = []
+        for x in range(16):
+            if y == 0 or y == 15 or x == 0 or x == 15:
+                linha.append("K")          # moldura verde VIVA
+            elif y == 1 or y == 14 or x == 1 or x == 14:
+                linha.append("k")          # bisel interno (volume)
+            elif x % 2 == 0 and y % 2 == 0:
+                linha.append("d")          # junta da matriz de LED (apagada)
+            elif (x * 5 + y * 3) % 17 == 0:
+                linha.append("m")          # pixel morto (sujeira de rua)
+            else:
+                linha.append("P")          # preto do painel
+        g.append("".join(linha))
+    return g, {"K": "27D96A", "k": "0F5A30", "P": "0B0F0C",
+               "d": "060907", "m": "10150F"}
+
+
+def placa_tela():
+    """TELA do display de fachada (v1.2.31): a faixa larga MONTADA NA FACHADA
+    é UM screen contínuo (estilo Satisfactory) — SEM moldura por bloco (a
+    moldura verde da placa avulsa viraria 15 quadradinhos na fachada). Fundo
+    preto profundo + matriz de LED apagada + pixels mortos espalhados."""
+    g = []
+    for y in range(16):
+        linha = []
+        for x in range(16):
+            if x % 2 == 0 and y % 2 == 0:
+                linha.append("d")          # junta da matriz de LED (apagada)
+            elif (x * 5 + y * 3) % 17 == 0:
+                linha.append("m")          # pixel morto (sujeira de rua)
+            else:
+                linha.append("P")          # preto do painel
+        g.append("".join(linha))
+    return g, {"P": "0B0F0C", "d": "060907", "m": "10150F"}
+
+
+def placa_back():
+    """Verso da caixa (v1.2.25): chapa metálica mais CLARA (a antiga era
+    quase preta — de longe a placa inteira parecia um bloco de carvão) com
+    respiros horizontais e rebites. 100% OPACA (sem camada cutout no 26.3)."""
+    g = []
+    for y in range(16):
+        linha = []
+        for x in range(16):
+            if y == 0 or y == 15 or x == 0 or x == 15:
+                linha.append("K")
+            elif y in (4, 5, 10, 11) and 3 <= x <= 12:
+                linha.append("v")          # respiro
+            elif (y, x) in ((2, 3), (2, 12), (13, 3), (13, 12)):
+                linha.append("r")          # rebite
+            elif (x * 7 + y * 13) % 13 == 0:
+                linha.append("l")          # brilho da chapa
+            else:
+                linha.append("M")
+        g.append("".join(linha))
+    return g, {"K": "1A1E24", "M": "333A44", "v": "14171C",
+               "r": "4A525E", "l": "3E4650"}
+
+
+def placa_coluna():
+    """Coluna de sustentação (v1.2.25): ferro com anel verde — 100% OPACA
+    (a antiga tinha margens transparentes; bloco sólido SEM camada cutout no
+    26.3 as renderiza PRETO — as torres viravam caixas escuras)."""
+    g = []
+    for y in range(16):
+        linha = []
+        for x in range(16):
+            if 6 <= x <= 9:
+                if y <= 1:
+                    linha.append("K")      # cap verde
+                elif x == 6 or x == 9:
+                    linha.append("F")      # lateral sombreada
+                elif y in (4, 11):
+                    linha.append("K")      # anéis
+                else:
+                    linha.append("C")      # ferro claro
+            else:
+                linha.append("f")          # fundo de chapa metálica (opaco)
+        g.append("".join(linha))
+    return g, {"K": "0E5A2E", "F": "2A2E34", "C": "4A5058", "f": "24282E"}
+
+
+def placa_rodape():
+    """Pedestal de concreto das torres do letreiro (v1.2.23): gris claro,
+    juntas de forma (a "tábua" do concreto), manchas e um rebite de ferro
+    no meio — o pedestal de sinalização de rua de verdade."""
+    rows = []
+    for y in range(16):
+        linha = []
+        for x in range(16):
+            if y == 0 or y == 15 or x == 0 or x == 15:
+                linha.append("e")        # canto quebrado (escuro)
+            elif y in (3, 12):
+                linha.append("j")        # junta de forma horizontal
+            elif x in (5, 10) and 3 < y < 12:
+                linha.append("j")        # junta vertical
+            elif y in (7, 8) and 7 <= x <= 8:
+                linha.append("r")        # rebite de ferro
+            elif (x * 7 + y * 13) % 11 == 0:
+                linha.append("m")        # mancha
+            else:
+                linha.append("c")        # concreto
+        rows.append(linha)
+    return [[{"c": (168, 170, 166, 255), "e": (96, 98, 94, 255),
+              "j": (128, 130, 126, 255), "m": (150, 152, 148, 255),
+              "r": (58, 62, 68, 255)}[k] for k in linha] for linha in rows]
+
+
+PLACA_ITEM = (
+    # 16 de largura em TODAS as linhas (uma linha de 17px gerava PNG inválido
+    # — o jogador via o xadrez rosa/preto na mão)
+    [
+        "................",
+        "..KKKKKKKKKKKK..",
+        "..KPPPPPPPPPPK..",
+        "..KPP.TTTT.PPK..",
+        "..KPPPPPPPPPPK..",
+        "..KP.TTTTTT.PK..",
+        "..KPPPPPPPPPPK..",
+        "..KPP.TTTTT.PK..",
+        "..KPPPPPPPPPPK..",
+        "..KPP.TTTT.PPK..",
+        "..KPPPPPPPPPPK..",
+        "..KKKKKKKKKKKK..",
+        "....FF....FF....",
+        "....FF....FF....",
+        "....FF....FF....",
+        "................",
+    ],
+    {"K": "0E5A2E", "P": "070A08", "T": "39FF6E", "F": "3A4048"},
+)
+
+
+# ------------------------------------------------- poste de luz + asfalto (v1.2.19)
+def poste_luz_bloco():
+    """AÇO GALVANIZADO do poste (v1.2.27): tubo CINZA MÉDIO-CLARO (legível
+    contra céu e folhagem — a v1.2.24 usava chapa quase preta e o poste
+    virava "caixa preta" no pátio), brilho vertical no centro, costura de
+    emenda a cada 5px e salpico de galvanização."""
+    g = _grid()
+    for y in range(16):
+        for x in range(16):
+            if x <= 1 or x >= 14:
+                g[y][x] = "m"          # sombra da borda do tubo
+            elif y % 5 == 0:
+                g[y][x] = "K"          # costura do tubo (emendas)
+            elif x in (5, 6):
+                g[y][x] = "M"          # brilho central do tubo
+            elif (x * 7 + y * 13) % 17 == 0:
+                g[y][x] = "s"          # salpico do galvanizado
+            else:
+                g[y][x] = "c"          # aço base
+    ascii_grid = _para_ascii(g)
+    paleta = {
+        "M": "C9CDC9",   # brilho central
+        "m": "5A605C",   # sombra da borda
+        "K": "4A504C",   # costura do tubo
+        "c": "8E948E",   # aço galvanizado (médio-claro)
+        "s": "7A807A",   # salpico
+        "a": (0, 0, 0, 0),
+    }
+    return ascii_grid, paleta
+
+
+def poste_luz_on():
+    """LENTE ACESA (v1.2.27): o bulbo de sódio visto de dentro da carcaça —
+    hotspot central quente, anel âmbar e aro de vidro. A lente é a face DE
+    BAIXO da luminária (a "lâmpada do poste" que o jogador vê de baixo)."""
+    g = _grid()
+    for y in range(16):
+        for x in range(16):
+            if x <= 1 or x >= 14:
+                g[y][x] = "F"          # aro do vidro (flange)
+            elif 6 <= y <= 9:
+                g[y][x] = "H"          # hotspot do filamento
+            elif 4 <= y <= 11:
+                g[y][x] = "B"          # bulbo quente
+            elif y in (3, 12):
+                g[y][x] = "V"          # borda do vidro
+            else:
+                g[y][x] = "D"          # vidro frio (polar)
+    ascii_grid = _para_ascii(g)
+    paleta = {
+        "F": "6E726E",   # aro do vidro
+        "V": "8A7A48",   # borda do vidro (reflexo)
+        "B": "FFC963",   # bulbo de sódio
+        "H": "FFF3C4",   # hotspot
+        "D": "D8A040",   # vidro frio (polar)
+        "a": (0, 0, 0, 0),
+    }
+    return ascii_grid, paleta
+
+
+def poste_luz_off():
+    """LENTE APAGADA (v1.2.27): mesma lente com o filamento morto — vidro
+    frio e cinza, sem brilho (antes era a textura da COLUNA escurecida, o
+    "bulbo" apagado nem parecia lâmpada)."""
+    g = _grid()
+    for y in range(16):
+        for x in range(16):
+            if x <= 1 or x >= 14:
+                g[y][x] = "F"
+            elif 6 <= y <= 9:
+                g[y][x] = "H"
+            elif 4 <= y <= 11:
+                g[y][x] = "B"
+            elif y in (3, 12):
+                g[y][x] = "V"
+            else:
+                g[y][x] = "D"
+    ascii_grid = _para_ascii(g)
+    paleta = {
+        "F": "565A56",
+        "V": "5C5442",
+        "B": "4E4A44",
+        "H": "6E6A60",
+        "D": "46423C",
+        "a": (0, 0, 0, 0),
+    }
+    return ascii_grid, paleta
+
+
+def poste_ped():
+    """PEDESTAL do poste (v1.2.24): concreto cinza-escuro com juntas de forma
+    e mancha — primo do rodapé da placa, mas mais robusto (é poste de rua)."""
+    g = _grid()
+    for y in range(16):
+        for x in range(16):
+            if y == 0 or y == 15 or x == 0 or x == 15:
+                g[y][x] = "e"
+            elif y in (5, 11):
+                g[y][x] = "j"
+            elif x in (5, 10):
+                g[y][x] = "j"
+            elif (x * 7 + y * 13) % 11 == 0:
+                g[y][x] = "m"
+            else:
+                g[y][x] = "c"
+    ascii_grid = _para_ascii(g)
+    paleta = {
+        "c": (120, 122, 118, 255),
+        "e": (64, 66, 62, 255),
+        "j": (88, 90, 86, 255),
+        "m": (104, 106, 102, 255),
+    }
+    return ascii_grid, paleta
+
+
+def asfalto():
+    """Asfalto do estacionamento (cube do bloco intoxicantes:asfalto): cinza
+    muito escuro com grão heterogêneo e alguma mancha — o "tapete" denso da
+    esquina, meio quebrado (não é piso de shopping)."""
+    g = _grid()
+    for y in range(16):
+        for x in range(16):
+            n = (x * 7 + y * 13 + (x * y) % 5) % 10
+            g[y][x] = "a" if n < 5 else ("b" if n < 8 else "c")
+    # manchas de óleo/borracha (par de retângulos aleatórios mas fixos)
+    for x in range(4, 8):
+        g[9][x] = "c"
+        g[10][x] = "c"
+    for y in range(3, 6):
+        g[y][11] = "b"
+        g[y][12] = "c"
+    ascii_grid = _para_ascii(g)
+    paleta = {
+        "a": "26262B",   # asfalto base
+        "b": "303036",   # grão claro
+        "c": "1B1B1F",   # grão escuro/mancha
+    }
+    return ascii_grid, paleta
+
+
 def main():
     tex_dir = os.path.join(ASSETS, "textures", "item")
     block_tex_dir = os.path.join(ASSETS, "textures", "block")
@@ -489,6 +794,28 @@ def main():
     write_png(os.path.join(tex_dir, "lampada_uv.png"), rows)
     count += 1
 
+    # v1.2.18: LETREIRO DO ESQUINÃO — ícone do item + as 3 texturas da caixa
+    rows = outline(render(*PLACA_ITEM), "060906")
+    write_png(os.path.join(tex_dir, "placa_esquinao.png"), rows)
+    mp, pal = placa_front()
+    write_png(os.path.join(block_tex_dir, "placa_esquinao_front.png"), render(mp, pal))
+    # v1.2.31: a TELA contínua do display de fachada (sem moldura por bloco)
+    mp, pal = placa_tela()
+    write_png(os.path.join(block_tex_dir, "placa_esquinao_tela.png"), render(mp, pal))
+    mp, pal = placa_back()
+    write_png(os.path.join(block_tex_dir, "placa_esquinao_back.png"), render(mp, pal))
+    mp, pal = placa_coluna()
+    write_png(os.path.join(block_tex_dir, "placa_esquinao_coluna.png"), render(mp, pal))
+    # v1.2.23: pedestal de concreto das TORRES da placa (rodapé/capitel)
+    write_png(os.path.join(block_tex_dir, "placa_esquinao_rodape.png"), placa_rodape())
+    # v1.2.23: ATLAS LED — 32×32 branco puro; a COR vem do vertex color do
+    # renderer (verde/vermelho/dim). Branco liso = zero bleed de mipmap.
+    misc_dir = os.path.join(ASSETS, "textures", "misc")
+    os.makedirs(misc_dir, exist_ok=True)
+    write_png(os.path.join(misc_dir, "led_atlas.png"),
+              [[(255, 255, 255, 255)] * 32 for _ in range(32)])
+    count += 7
+
     # lampada UV (BLOCO): painel cheio (cube_all) — ver comentario historico:
     # textura de item com cantos transparentes virava "cubo de vidro" no bloco
     mp, pal = lampada_bloco()
@@ -500,6 +827,87 @@ def main():
                     for linha in rows_ligada]
     write_png(os.path.join(block_tex_dir, "lampada_uv_off.png"), rows_apagada)
     count += 2
+
+    # v1.2.27: POSTE DE LUZ — aço galvanizado (base/corpo/topo) + lente
+    # ACESA + lente APAGADA (própria, não mais a coluna escurecida) +
+    # pedestal de concreto + ícone do item
+    mp, pal = poste_luz_bloco()
+    rows_poste = render(mp, pal)
+    write_png(os.path.join(block_tex_dir, "poste_luz.png"), rows_poste)
+    mp, pal = poste_luz_on()
+    write_png(os.path.join(block_tex_dir, "poste_luz_on.png"), render(mp, pal))
+    mp, pal = poste_luz_off()
+    write_png(os.path.join(block_tex_dir, "poste_luz_off.png"), render(mp, pal))
+    mp, pal = poste_ped()
+    write_png(os.path.join(block_tex_dir, "poste_ped.png"), render(mp, pal))
+    write_png(os.path.join(tex_dir, "poste_luz.png"), outline(rows_poste, "3A403C"))
+    count += 5
+
+    # v1.2.19: ASFALTO do estacionamento (cube do bloco)
+    mp, pal = asfalto()
+    write_png(os.path.join(block_tex_dir, "asfalto.png"), render(mp, pal))
+    count += 1
+
+    # v1.2.24: FAIXA DE PEDESTRE — a zebra branca da travessia. Listras de
+    # tinta gasta (as pontas da listra ganham falha de rolo: pixel de tinta
+    # mais ralo), fundo transparente (o asfalto do modelo aparece embaixo).
+    fx = _grid()
+    for y in range(16):
+        for x in range(16):
+            faixa = (x // 4) % 2 == 0          # listra a cada 4px
+            borda = x % 4 == 3                  # borda direita da listra
+            sujo = (x * 3 + y * 7) % 11 == 0    # falha de rolo espalhada
+            fx[y][x] = "w" if (faixa and not (borda and sujo)) else "."
+    ascii_grid = _para_ascii(fx)
+    paleta_fx = {"w": "F2F2EC"}   # tinta branca de faixa (levemente suja)
+    write_png(os.path.join(block_tex_dir, "faixa_pedestre.png"),
+              render(ascii_grid, paleta_fx))
+    count += 1
+
+    # v1.2.24: HIDRANTE — corpo, tampa e base (o modelo usa 3 texturas).
+    # Corpo: vermelho de ferro fundido com barras de sombra e brilho de tinta.
+    hx = _grid()
+    for y in range(16):
+        for x in range(16):
+            n = (x * 5 + y * 11) % 9
+            hx[y][x] = "r" if n < 6 else ("d" if n < 8 else "h")
+    # brilho da tinta (lateral esquerda) e ferrugem na base
+    for y in range(2, 14):
+        hx[y][4] = "h"
+    for x in range(16):
+        hx[15][x] = "d"
+    ascii_h = _para_ascii(hx)
+    paleta_h = {
+        "r": "C42B1C",   # vermelho do corpo
+        "d": "8E1D12",   # sombra/ferrugem
+        "h": "E8543F",   # brilho da tinta
+    }
+    write_png(os.path.join(block_tex_dir, "hidrante.png"),
+              render(ascii_h, paleta_h))
+    # Tampa: mesma família, mais escura (parafuso hexagonal no centro)
+    tx = _grid()
+    for y in range(16):
+        for x in range(16):
+            n = (x * 7 + y * 3) % 7
+            tx[y][x] = "r" if n < 5 else "d"
+    for x in range(6, 10):
+        tx[7][x] = "h"
+        tx[8][x] = "h"
+    write_png(os.path.join(block_tex_dir, "hidrante_topo.png"),
+              render(_para_ascii(tx), paleta_h))
+    # Base: flange escura com parafusos nos cantos
+    bx = _grid()
+    for y in range(16):
+        for x in range(16):
+            bx[y][x] = "d" if (x + y) % 5 == 0 else "r"
+    write_png(os.path.join(block_tex_dir, "hidrante_base.png"),
+              render(_para_ascii(bx), paleta_h))
+    # Ícones de item (com contorno)
+    rows_h = render(ascii_h, paleta_h)
+    write_png(os.path.join(tex_dir, "hidrante.png"), outline(rows_h, "2A0A06"))
+    rows_f = render(_para_ascii(fx), paleta_fx)
+    write_png(os.path.join(tex_dir, "faixa_pedestre.png"), outline(rows_f, "3A3A38"))
+    count += 3
 
     # produtos agricolas (itens, com contorno)
     for nome, (mp, pal) in PRODUTOS.items():

@@ -16,13 +16,17 @@ def escrever(caminho, obj):
         f.write("\n")
 
 
-def feature_bloco(bloco, idade):
-    """Feature simple_block que coloca o bloco da cultura ja crescida."""
+def feature_bloco(bloco, idade, uv=True):
+    """Feature simple_block que coloca o bloco da cultura ja crescida.
+    uv=False para crops vanilla-style (cevada): sem a propriedade uv_age."""
+    props = {"age": str(idade)}
+    if uv:
+        props["uv_age"] = "0"
     return {
         "type": "minecraft:simple_block",
         "to_place": {
             "id": f"intoxicantes:{bloco}",
-            "properties": {"age": str(idade), "uv_age": "0"},
+            "properties": props,
         },
     }
 
@@ -62,18 +66,21 @@ def placed(nome, chance):
 
 
 # nome -> (bloco da cultura, idade maxima, raridade 1/em N chunks)
+# v1.2.50: a cevada é crop vanilla (uv=False, sem uv_age no feature)
 CULTURAS = {
-    "maconha_selvagem": ("maconha_plant", 4, 10),
-    "lupulo_selvagem": ("lupulo_plant", 4, 14),
-    "uva_selvagem": ("uva_plant", 4, 10),
-    "cafe_selvagem": ("cafe_plant", 4, 12),
-    "papoula_selvagem": ("papoula_plant", 4, 14),
+    "maconha_selvagem": ("maconha_plant", 4, 10, True),
+    "lupulo_selvagem": ("lupulo_plant", 4, 14, True),
+    "uva_selvagem": ("uva_plant", 4, 10, True),
+    "cafe_selvagem": ("cafe_plant", 4, 12, True),
+    "papoula_selvagem": ("papoula_plant", 4, 14, True),
+    # a cevada selvagem nasce age=6 (quase madura — recompensa sem free loot)
+    "cevada_selvagem": ("cevada_plant", 6, 10, False),
 }
 
-for nome, (bloco, idade, chance) in CULTURAS.items():
+for nome, (bloco, idade, chance, uv) in CULTURAS.items():
     escrever(
         os.path.join(DATA, "worldgen", "feature", f"{nome}.json"),
-        feature_bloco(bloco, idade),
+        feature_bloco(bloco, idade, uv),
     )
     escrever(
         os.path.join(DATA, "worldgen", "placed_feature", f"{nome}.json"),

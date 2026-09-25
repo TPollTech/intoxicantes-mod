@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shapeless",
   "category": "misc",
   "ingredients": [
-    "minecraft:cocoa_beans",
+    "intoxicantes:cafe_verde",
     "minecraft:sugar",
     "minecraft:glass_bottle"
   ],

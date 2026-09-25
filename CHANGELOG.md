@@ -2,6 +2,1042 @@
 
 ---
 
+## v1.2.50 — SISTEMA DE BEBIDAS COMPLETO: CADEIAS, MÁQUINAS HD E BARRIS 3D (24/09/2026)
+
+### O sistema (spec: bebida deixa de ser `ingrediente + garrafa`)
+- **Cadeia real por bebida** (`ProcessosBebida` = fonte central): cana → moenda →
+  caldo → dorna → alambique → barril → 4 cachaças | uva → prensa → mosto → barril
+  → vinho | cevada → malte → caldeirão → mostura (+lúpulo, fervura) → barril →
+  cerveja | melaço → dorna → alambique → barril → rum. Engarrafamento 1 lote = 4
+  garrafas. Cevada como crop (8 estágios, sementes, worldgen).
+- **Pipeline fiel** (regra gravada no AGENTS.md): destiladas passam pela DORNA
+  (fermentar) e ALAMBIQUE (destilar) — o barril só MATURA; fermentadas (cerveja,
+  vinho) fermentam e condicionam DIRETO no barril. 
+- Receitas shapeless antigas removidas; lang pt/en; advancements de descoberta.
+
+### Máquinas 3D com texturas em alta resolução (128×128, células de 64px)
+- Dorna, Alambique de Cobre, Moenda de Cana, Prensa de Uvas e Caldeirão de
+  Mostura — tábuas com fresta/nó/grão, chapas rebitadas, líquido borbulhando,
+  cobre com pátina de envelhecimento (serpentina mais oxidada que a caldeira).
+- Modelos consertados na revisão: dorna aberta com fundo interno (era oca),
+  caldeirão com mosto visível pela boca (estava enterrado no sólido) e circuito
+  do alambique conectado de ponta a ponta (serpentina atravessava a tampa e
+  terminava no ar; agora mergulha no balde).
+
+### Barris v2.3 (aprovados em prévia)
+- 7 bandas bojudas, 5 aros geométricos, cabeças recessadas com anéis, tábuas
+  com fresta, torneira na cerveja, carbonização no rum, rolha de cortiça.
+
+### Cevada refeita (8 estágios 1:1 com os ages)
+- Colmos com nós e lâminas em arco, broto em V, espigas com barbas, estágio 7
+  amarelecendo; blockstate↔modelo↔textura sem órfãos.
+
+### Correções debugs que o playtest pegaria
+- **12 itens intermediários invisíveis**: `_png16` tratava pixels RGBA como
+  ASCII-art → tudo transparente. Corrigido na raiz + guarda de regressão no
+  gerador (textura 100% transparente agora aborta o build do asset).
+- 38 chaves de lang (fiado/ponto) sem tradução EN + validação de placeholders.
+- Loot da cevada no formato vanilla; `mosto_rum_fermentado` nasce da fonte.
+
+### GUIA OFICIAL DO SNC ADVENTURES (item `guia_snc`)
+- **O livro existe de verdade**: item craftável que abre a tela do guia (nada de
+  comando — decisão do dono: só o livro dá acesso, clássico dos mods).
+- **Primeira entrada**: jogador novo nasce com o guia no inventário (1× por
+  jogador, flag persistente `intoxicantes_guia.json` no mundo; inventário
+  cheio → dropa nos pés; servidor pode desligar via config).
+- **Perdeu? Crafta outro**: livro vanilla + Real (R$) → `guia_snc`.
+- **Conteúdo = espelho do mod** (14 categorias, 48 entradas): bebidas com cadeia
+  completa lida do `ProcessosBebida`, máquinas, barris, cultivos, ingredientes,
+  armas, munições, itens especiais, blocos, economia e sistemas — com receitas
+  3×3 e tempos ao vivo do config.
+- **Visual próprio** (regra de identidade do AGENTS.md): capa de couro com
+  costura e rebite, papel envelhecido, sumário pontilhado, carimbos, fichas
+  pautadas — sem ecoar a fachada do Esquinão. Design aprovado em prévia HTML
+  (`preview/guia/previa-guia.html`, gerador `tools/gen_preview_guia.py`).
+- Validado por `GuiaGameTest`: grades declaradas == JSONs de recipe reais,
+  tempos espelhados == `ModConfig`, todo texto do guia tem chave de lang.
+
+### Validação
+- 55/55 game tests (48 de comércio/cadeias + 7 do guia: grades declaradas ==
+  JSONs reais, tempos == config, todo ícone tem tradução); varredura do pacote:
+  0 assets ausentes, 0 UVs fora do range, 0 texturas transparentes.
+
+---
+
+## v1.2.47 — HOTFIX: RELÓGIO LIMPO NO HUD (24/09/2026)
+
+- O relógio do HUD (v1.2.45) agora mostra SÓ o relógio: `⏰ HH:MM` — o
+  sufixo `| Mercado Esquinão — 24h` saiu (pedido do dono: "um relógio mesmo,
+  apenas"). pt_br + en_us.
+
+---
+
+## v1.2.46 — CONSERTOS DO PLAYTEST: O GAGO DE PERTO, O FANTASMA E A CAFEÍNA (24/09/2026)
+
+### FIX: "não to conseguindo bater no gago"
+- **Causa raiz (dupla):** o Gago de plantão fica com `NoAI` — e o soco nele não
+  gerava NENHUMA reação (sem dano visível, sem som, sem raiva): batia e nada.
+  E Gagos fantasma de saves antigos, entalados fora do raio de gestão do
+  gerenciador, nem tinham corpo onde a voz saía.
+- **O soco acorda o vendedor**: `hurtServer` no Gago em serviço agora aplica o
+  dano de verdade e entra no MESMO canal do vandalismo — 1º tapa = advertência
+  (cara feia + aviso), repetiu = saca a 12 e vai atrás. SEM expulsão do
+  mercado (a `enraivecer` teleporta o jogador pra longe — não era o caso;
+  aqui quem decidiu bater fica e assume). Guard: em criativo não provoca.
+
+### FIX: a voz fantasma (fala no chat, não aparece no mercado)
+- **Causa raiz:** a varredura do gerenciador só olhava 48 blocos; Gago de save
+  antigo ficava FORA dela: invisível, imbatível e respondendo no chat (o
+  ouvinte de chat procura Gago num raio de 48 de QUEM FALA).
+- **Varredura larga (96) que ADOTA o fantasma**: achou Gago entalado/preso
+  fora da gestão → libera o posto dele, teleporte de volta, vende normal.
+  Excedente sem dono é dispensado — só 1 dono da esquina.
+
+### FIX: extrato de cafeína não curava (e o tempo "não curava também")
+- **Causa raiz (a hilária):** a ressaca era gravada em **TICKS**
+  (`segundos × 20`) e decrementada **1 por segundo** — a ressaca de 90s
+  durava **30 minutos**. Por isso o "não sei se ta curando com o tempo também".
+- Dentro da ressaca a cafeína não fazia NADA: `curar()` saía cedo com o nível
+  já em 0. E sair da bebedeira PELO CAFÉ ainda **provocava** ressaca nova
+  (bebeu remédio, pagou a manhã do mesmo jeito).
+- Agora: ressaca em **segundos reais** (com migração do save antigo no
+  `load()`), o **café mata a ressaca na hora** (mensagem própria) e nunca
+  mais provoca a manhã seguinte. A bebedeira natural continua cobrando.
+
+### Técnico
+- **43/43 game tests** (2 novos: cura da ressaca pelo extrato + soco acorda
+  o Gago de plantão; o player-mock dos testes nasce com `instabuild=false`
+  explícito e a seleção do posto ficou limitada ao raio de gestão).
+
+---
+
+## v1.2.45 — O PONTO DO TRAFICANTE, MERCADO 24H E O RELÓGIO NO HUD (24/09/2026)
+
+### NOVO: o PONTO do traficante (overhaul completo)
+- **Tela própria dele** (estilo rua: asfalto, madeira, neon — adeus UI de
+  vilarejo), com **3 abas**: Estoque (7 produtos, preço do dia), **Fiado**
+  ("me empresta aí" — R$ 50, juros 10% no nível 0, quitar 2× = confiança 30%,
+  4× = palavra 0%; a dívida persiste no save) e **Vender colheita** (ele
+  compra na porta).
+- **Fila = desconto**: cada freguês junto na fila dá 5% off (saiu da fila,
+  perdeu). **Fidelidade da rua**: a cada 5 compras, +5% de desconto
+  permanente. **Lançamento do dia**: um produto sai pela metade, 1 por freguês.
+- O traficante equipa o .38 na mão (pose de mira quando fica agressivo).
+
+### NOVO: mercado 24 HORAS
+- Portão, recusa, cochilo do Gago e ABERTO/FECHADO no letreiro: exterminados
+  do código. Gago de save velho com flag "fechado" acorda no primeiro tick.
+
+### NOVO: o relógio no HUD (o pedido lá do início, de verdade)
+- `⏰ HH:MM | Mercado Esquinão — 24h` persistente no action bar, pra QUALQUER
+  player no overworld (o raio de 32 blocos antigo era o motivo de nunca ter
+  aparecido), reenviado a cada 5s — o client mantém a última na tela, sem
+  piscar. Formato morto "na porta/no balcão" removido.
+
+### Skins: os buracos sumiram (ANTES×DEPOIS aprovado na prévia)
+- O Gago tinha uma **coluna de 24px furada na frente do tronco** e o
+  traficante **306px de buracos** nos membros (a conversão antiga lia o
+  layout errado). O `converte_skins_player.py` agora é **autocurável**:
+  preenche qualquer pixel transparente que o modelo amostra com o vizinho de
+  tecido — e **falha o build se sobrar 1 buraco** (auditoria nas 9 skins).
+
+### Cardápio do Gago
+- O "negrito" era a **sombra de 1px** do texto: removida de toda a tela.
+- **★ Exclusivos** virou aba própria (Compra / Venda / Exclusivos).
+
+### FIX: o Gago fantasma (fala no chat, não aparece) — 3 elos
+- O gerenciador **teleportava o Gago a cada ciclo** (nascia entalado = fala
+  no chat, invisível, soltando item). Agora ele conserta ONDE o Gago está.
+- **Gagos excedentes** (ovo duplicado/spawn dobrado) são dispensados: só 1
+  dono da esquina.
+- Homecoming só quando ele realmente está longe do posto.
+
+---
+
+## v1.2.44 — FIX: BRAÇO ESQUERDO INVISÍVEL NOS NPCs (23/09/2026)
+
+### FIX: layer de bake errado (`SKELETON` → `PLAYER`)
+- **Causa raiz** (confirmada no bytecode da 26.3): o `ModelLayers.SKELETON`
+  declara textura **64×32** com braços de esqueleto **2×12×2** e membro
+  esquerdo por **espelhamento** (`texOffs(40,16)+mirror()`) — o UV caía nas
+  regiões transparentes da skin steve 64×64 e o braço esquerdo ficava
+  invisível (vale pra perna esquerda). Escolha errada minha na v1.2.40.
+- **Fix**: os três renderers bakam **`ModelLayers.PLAYER`** —
+  `PlayerModel.createMesh(NONE, false)`: 64×64, braços 4px, `left_arm` em
+  `texOffs(32,48)` e `left_leg` em `(16,48)` SEM mirror — exatamente o layout
+  que as skins pintam (e que o `converte_skins_player.py` escreve).
+- Regra nova no AGENTS.md: NUNCA `SKELETON` pra skin steve 64×64.
+
+---
+
+## v1.2.43 — SOMBRA NAS SKINS, .38 NA MÃO DO TRAFICANTE E CARTUCHO DA 12 (23/09/2026)
+
+### ADD: sombreamento suave nos membros das skins (aproveitando o formato steve)
+- `tools/converte_skins_player.py` agora pinta **luz direcional por face** nos
+  braços e pernas (frente integral, lado 0.95/0.90, costas 0.93, baixo 0.82) e
+  um **gradiente vertical** ombro→mão / quadril→pé (−1%/linha, máx −11%) — as
+  12 linhas de membro do formato steve que o barrigão 4×8 do layout velho não
+  tinha. Validado pixel a pixel contra o jar 1.2.41: membros −6,6% a −10,5% de
+  luminância, **cabeça e tronco 0,0% (intactos)**. Reaplica nas 9 skins.
+
+### ADD: traficante com o .38 na mão ANIMADA (braços de player de verdade)
+- **`TraficanteEntity.finalizeSpawn`**: equipa o `REVOLVER` na MAINHAND com
+  `setDropChance(MAINHAND, 0)` (a arma é dele — não entra no loot).
+- **`TraficanteRenderer.getArmPose`** (override do hook do `HumanoidMobRenderer`,
+  que na 26.3 só detecta lança): braço direito em `ArmPose.ITEM` andando com a
+  arma na cintura da mão; **agressivo = `BOW_AND_ARROW`**, a mira em que os
+  DOIS braços apontam junto com a cabeça. Item desenhado pelo `ItemInHandLayer`
+  que o renderer humanoide já adiciona.
+
+### TEXTURE: cartucho da 12 com a arte real (foto com fundo transparente)
+- `cartucho.png` refeito a partir da foto (recorte do conteúdo, 256×256
+  LANCZOS, centralizado) — espelhado no mod e no pack, antigas em backup.
+  `cartucho_38` do revólver não foi tocado.
+
+---
+
+## v1.2.42 — REVÓLVER .38 REFEITO NO PADRÃO DE ARMAS 3D (23/09/2026)
+### REWORK: revólver .38 com geometria realista (regra do padrão de armas)
+- **Modelo JSON nativo reescrito** (`tools/gen_revolver.py`): tambor de latão
+  com câmaras e flutes, top strap, martelo armado (22,5°), ejector rod,
+  guarda-mato com gatilho, cabo com rake natural — 31 elements, perfil de
+  revólver de verdade (cano fino, tambor saliente).
+- **Regra 16 corrigida de verdade**: o gerador velho remapeava
+  `from/to/origin` mas esquecia o EIXO das rotações (a coronha girava no
+  eixo errado). Agora remapeamento `(x,y,z)->(z,x,y)` converte rotações junto.
+- **Primeira pessoa (regra 10)**: roll de −50° removido — o .38 agora aponta
+  pra frente como FPS, não deitado. GUI/ground usam só o transform display
+  (regra 12), modelo continua grande.
+- **Atlas de materiais 128×128** novo (aço azulado, latão, madeira, borracha)
+  no estilo da escopeta aprovada. A arte manual 256×256 do revólver
+  (ícone de inventário) preservada em `backups/20260923-armas-padrao/`.
+- `tools/preview_revolver.py` novo: perfil/isométrica/GUI/primeira pessoa,
+  ANTES×DEPOIS aprovado antes do build (regra do fluxo do AGENTS.md).
+- Escopeta e revólver auditados contra as 20 regras — padrão salvo no AGENTS.md.
+---
+
+## v1.2.41 — NPCs COM CORPO DE PLAYER (23/09/2026)
+### CHANGE: traficante, Gago e Juça agora são humanoides de verdade
+- **Fim do corpo de villager/barrigão**: os 3 NPCs usam o `HumanoidModel`
+  padrão do player (o mesmo caminho do zumbi vanilla —
+  `HumanoidMobRenderer` + `ModelLayers.SKELETON`). Braços que balançam ao
+  andar, item na mão DIREITA pelo `ItemInHandLayer` (a escopeta/.38
+  continuam na mão, agora apontando pra frente). As entidades já tinham
+  hitbox de player (0.6×1.95) — nada de física/IA mudou.
+- **Skins convertidas pro layout steve 64×64** (`tools/converte_skins_player.py`):
+  a arte pintada foi remapeada 1:1 — rosto, fantasias por bioma (as 7 do
+  Gago), colete/camisa, calça+meia, óculos, corrente do traficante
+  (repintada no peito) e o Camel na boca do Juça. Nariz do Gago virou
+  2×2 pintado no rosto; o avental R$ virou pixels no torso + faixa no
+  quadril; chinelos viraram o pé da textura.
+- **GagoModel aposentado** (deletado): o tremer de cabeça do modo PUTO
+  (e do doidão do Juça) vive agora no `GagoHumanoidModel`, um
+  `HumanoidModel` com o zRot da cabeça. A fantasia por bioma continua
+  intacta (`roupa` → nome do PNG).
+- **`juca.png` agora existe no pack também** (antes só no jar do mod).
+- Skins antigas preservadas em `backups/20260923-skins-player/` (mod + pack).
+- **Regra nova de skin**: pintar SEMPRE no layout steve 64×64 (base =
+  qualquer skin de player). O layout 128×128 do GagoModel não existe mais.
+### DEBUG: ferramentas novas em `tools/`
+- `converte_skins_player.py` — remapeia skins (gago 128×128, villager 64×64
+  ou upscale blocky) pro layout steve, lendo SEMPRE dos backups.
+- `debug_atlas.py` — valida as 20+ regiões do layout (magenta = vazio,
+  vermelho = região que devia ter arte e não tem).
+- `gen_preview_skins.py` — a prévia antes×depois com visão frontal montada.
+---
+
+## v1.2.40 — CONSERTOS DO PLAYTEST (23/09/2026)
+### FIX: display de fachada bugado (o "ABE PTTO" com blocos pretos)
+- **Causa raiz:** o template plantava a fileira do painel de LED em x5..x9 —
+  atravessando a PORTA (x7) — e gravava NBT de texto nos 5 blocos: 5 block
+  entities = 5 renderers sobrepostos, letras em cima de letra.
+- Painel remontado À ESQUERDA da porta (x2..x4, 3 telas), NBT só no cabeça.
+- **Extensão é muda no código** (PainelLedBlockEntity.isExtensao): tem irmão
+  no lado do cabeça → não desenha. Imune a save/load e a remontagem.
+- O texto estica pela LINHA INTEIRA (PainelLedRenderer usa TELAS×16px).
+- **Zelador v1.2.40:** mundos 1.2.36–39 tem a fileira velha demolida e
+  remontada fora da porta, preservando texto/cor/brilho/modo.
+### FIX: "ABERTO" entrando no meio do letreiro
+- O ciclo NOME↔STATUS de 4s (1.2.25) saiu: o letreiro mostra SÓ o nome,
+  esticado, 100% do tempo. O display dedicado ABERTO/FECHADO é o próximo
+  passo ( pedido do dono, separado).
+### FIX: crosswalk dupla (tinta sobre tinta)
+- O template pintava a faixa de pedestre em DUAS camadas (y0 E y1).
+  Agora: tinta só na de cima, CONCRETO BRANCO embaixo (diagnóstico do Skyu).
+- Zelador converte mundos velhos (a camada de baixo vira concreto).
+### FIX: hidrante sem gráfico / fora do JEI
+- O items/hidrante.json (definição de item da 26.3) estava VAZIO (arquivo
+  corrompido numa queda de sessão). Recriado — item visível de novo.
+### FIX: riff do Juça tocando "aleatório" (vai dar acidente aqui)
+- O riff disparava a cada 45s ENQUANTO alguém estivesse a 10 blocos — não
+  era na chegada. Agora é tema de ENTRADA (edge-trigger): toca 1× quando
+  alguém ACABA de chegar; gente parada perto = silêncio. Cooldown 45s manda
+  no re-trigger (afastou-e-voltou).
+### FIX: "imune a lava" (camisa do Matanza)
+- A camisa aplicava fire resistance a cada tick mas NUNCA removia ao tirar
+  (11s de imunidade fantasma — o banho de lava do Skyu sem esquentar).
+- Tirou a camisa → efeito vai junto no mesmo tick. Efeito da camisa é
+  AMBIENT; fire resistance de POÇÃO de outra fonte não é tocado.
+### CHANGE: café verde agora tem uso (report do dono)
+- **Extrato de Cafeína** = café verde + açúcar + garrafa (era cacau —
+  herança de antes do cafezal existir). Cadeia completa: planta → colhe →
+  extrai.
+### NOTA: receita alternativa da maconha é INTENCIONAL
+- 2 samambaias → 2 maconha_seda = bootstrap pré-farm (primeiras sedas →
+  sementes → plantação + UV). Confirmado com o dono.
+
+---
+
+## v1.2.39 — JUCELINO "JUÇA" (23/09/2026)
+### NOVO: o NPC Jucelino, o parça do Gago
+- **Juça nasce rondando a frente do mercado** (lado da rua) junto do ciclo do
+  Gago — e tem ovo de spawn preto/amarelo próprio.
+- **Skin própria** (mesmo corpo barrigão do Gago, modelo reusado): franja preta
+  desigual, olho cerrado, barba de 3 dias e o **Camel amarelo pendurado na boca
+  com brasa acesa**. Fumaça na boca a cada ~3s, eternamente.
+- **Tema de entrada cowpunk ORIGINAL** (síntese própria, power chord em Mi com
+  gallop — vibe southern rock): toca quando alguém chega a 10 blocos dele,
+  cooldown de 45s. Música DO Matanza não é reproduzida (copyright).
+- **Fala "juça" no chat** → ele responde com o "hé hé" grave e puxa o Camel.
+- **Doidão com cachaça**: jogue uma cachaça no chão perto dele → engole a
+  garrafa, fica doidão 30s em zigue-zague e grita no chat `G-GAGO!!! VEM AQUI
+  MANO!!!` — e o Gago responde (a dupla).
+- **A Troca do Camel (estilo piglin)**: jogue um Cigarro Camel pra ele → bolsa,
+  admira e devolve a troca arremessada de volta (cerveja gelada, 4 R$ ou 2
+  baseados). **2 Camels de uma vez** = ele devolve a CAMISA DO MATANZA.
+- Drop ao morrer: 2–5 Camels (e 1/5 de chance de dropar a camisa).
+### NOVO: itens
+- **Cigarro Camel** (fumável estilo baseado): papel + cenoura dourada → 3;
+  pressa + tontura. Textura amarela característica.
+- **Camisa do Matanza** (peito): lã preta ×7; **resistência ao fogo permanente**
+  vestindo (poderes matanzísticos); repara com couro; asset de equipamento
+  próprio (não usa a textura do couro vanilla).
+- Sons: `juca_riff` (o tema) e `juca_hehe` (a risada). Lang pt_br/en_us completa.
+---
+
+## v1.2.38 — CONTROLE REMOTO (22/09/2026)
+
+### Gago: o fim do ciclo de morte (causa-raiz da raiz)
+- **O posto agora PERSISTE no save** (`PostoMercado` + `EmPosto` no NBT):
+  antes, recarregar o mundo apagava o vínculo e a imunidade do Gago em
+  serviço — ele morria sufocado, dropava cachaça/cerveja/R$/cartucho e o
+  gerente repunha no mesmo lugar, eternamente. Reload não quebra mais.
+- Teste do Gago corrigido: a limpeza do posto derruba os blocos plantados
+  pelo teste (reforma, não loot) — a asserção agora mede só o loot de morte.
+
+### A Central de Comando virou ITEM (v1.2.37 do painel preservado)
+- **Novo item: `Central de Comando (Controle)`** — controle remoto de 1 slot
+  (raro/épico). Segure, APONTE pro Painel de LED (ou pro letreiro do
+  mercado) e clique: abre a tela de edição (2 linhas, 10 cores, brilho,
+  FIXO/ANDANDO) sem tocar no bloco. Raytrace de 8 blocos: edita de longe.
+  No ar sem alvo → avisa "Aponte o controle pra um Painel de LED ou pro
+  letreiro!".
+- **Tranca do letreiro respeitada**: letreiro trancado + controle → só abre
+  com a CHAVE (comparador) na MÃO SECUNDÁRIA (a principal segura o
+  controle).
+- **Craft do controle**: vidro branco (tela) + ferro (corpo) + vidro,
+  bloco de redstone e botão de pedra (teclas) — padrão `WIW/GRG/ S `.
+- O painel de LED continua abrindo a Central por clique direito também
+  (os dois caminhos coexistem); o payload/servidor não mudou.
+
+### Recursos & infra
+- Textura procedural do controle (telinha verde de LED + teclado com power
+  vermelho) no `gen_textures.py`; modelo `minecraft:item/generated`.
+- Item + receita gerados no `gen_farm_resources.py`; aba criativa atualizada;
+- lang pt_br/en_us (nome + mensagem de sem alvo).
+
+### Da v1.2.37 (já no jar anterior, presente nesta build)
+- TV de tela plana (painel fino de 3px), texto esticado de ponta a ponta,
+  ABERTO/FECHADO removido do letreiro (display dedicado vem depois),
+  Central completa (texto/cor/brilho/modo), painel craftável em linha até
+  3 telas e **fix definitivo do Gago** (barril intocável = loop de morte;
+  agora o posto é liberado, o Gago é resgatado e o loot preso é bloqueado).
+
+---
+
+## v1.2.37 — TEXTURAS PADRAO DO MOD (22/09/2026)
+
+### As 89 texturas do pack do usuario viram o padrao embutido no mod
+- **Catalogo inteiro renovado**: 46 texturas de bloco (incluindo os 30 estagios
+  das 5 plantacoes, refeitos em 1254×1254), 8 skins de NPC (Gago e variantes de
+  bioma 128×128 + Traficante 64×64) e 35 itens — todas as artes manuais do
+  usuario agora vem DENTRO do jar. O pack `minhas-texturas` deixa de ser
+  necessario pra ver o art novo (e o F3+T tambem).
+- **Corrigido: plantas nascendo VOANDO** — a causa era margem transparente
+  embaixo das texturas de estagio (o modelo `cross` mapeia o PNG inteiro no
+  bloco; margem = planta suspensa). O art novo ja sai ancorado no chao
+  (margem 0px verificada nas 30 texturas) e agora vale sem pack.
+- **Cadeia das plantacoes auditada** (maconha, uva, cafe, lupulo, papoula):
+  blockstates completos (age 0–4 × uv_age 0–3, todos com modelo), loot por
+  estagio (semente sempre; produto so no age=4; produto dobrado + semente
+  extra no uv_age=3), sementes como BlockItem das plantas. Tudo conferido.
+- **AGENTS.md ganhou a secao "Padrao para plantacoes"**: checklist obrigatoria
+  pra planta nova ou alterada — estagios, ancoragem no chao (com o historico
+  do bug), progressao visual de altura, loot por estagio e arquivos da semente.
+- Texturas antigas preservadas em `backups/20260922-texturas-do-pack/`;
+  as 6 exclusivas do mod (escopeta, placa, poste e 3 particulas) intocadas.
+- Obs. de arte: `cafe_stage4` ficou ~2% mais baixo que o `stage3` — se nao for
+  intencional, realinhar na proxima revisao do art.
+- Previa antes×depois aprovada pelo usuario: `preview/previa-texturas-padrao.html`
+
+---
+
+## v1.2.35 — O CATÁLOGO DO ARTISTA (22/09/2026)
+
+### As 27 texturas de item redesenhadas à mão (artes do usuário)
+- **Catálogo inteiro em alta resolução**: as 27 texturas de item do
+  consumível/arma/utilitário agora são artes manuais do usuário em 256×256
+  (bebidas, pó, ovos, cartuchos, revólver, real, lâmpada, hidrante,
+  faixa de pedestre, cultivos...). Ícones nítidos no inventário.
+- **Blinda completa nos geradores**: os 6 scripts que geravam essas
+  texturas (`gen_farm_textures`, `gen_textures`, `gen_opio`, `gen_real`,
+  `gen_revolver`, `gen_npc_textures`) agora pulam as artes manuais
+  ("SKIP (manual do usuário)") — rodar gerador NÃO sobrescreve mais o
+  trabalho de mão. Regenerar uma exige mover o PNG pra backups/ antes.
+- Originais 16×16 preservados em `backups/20260922-letreiro-fachada/`
+- Downscale das artes originais (1254px) pra 256×256 com Lanczos —
+  qualidade de inventário sem inflar o jar (~2,1 MB no total)
+- ATENÇÃO revólver: a textura veste o modelo 3D (atlas); se o visual na
+  mão ficar esquisito, separar ícone de inventário do atlas UV
+
+## v1.2.34 — O DISPLAY DA FACHADA (22/09/2026)
+
+### O letreiro vira display de fachada (pedido do usuário: "placa de verdade,
+### na fachada, sem os dois pólos, estilo Satisfactory")
+- **Sem torres/pólos**: a estrutura esquisita com 2 postes nas pontas
+  (1.2.24–1.2.30) saiu da calçada — o vão em frente à porta ficou livre
+- **Faixa montada NA FACHADA**: o letreiro atravessa os 15 blocos do prédio
+  (largura `LARGURA_FACHADA`), colado na parede sob o beiral, ACIMA da porta;
+  bloco CHEIO (a faixa É a parede, nada flutua na frente da entrada)
+- **Nome esticado pelo tamanho da construção**: "MERCADO ESQUINÃO" numa linha
+  só (`LINHAS_PADRAO` = 1 linha), o renderer escala até PREENCHER a largura
+  (sem teto de 1.0; limitado pela altura do bloco ≈ 90% da fachada)
+- **Uma tela só**: textura nova `placa_esquinao_tela` (sem moldura por bloco);
+  a moldura verde fica só na placa avulsa; frente do modelo = tela contínua
+- **Migração automática**: `VERSAO_ANATOMIA` (1/ausente = 4 linhas velhas,
+  2 = torres, 3 = fachada) no NBT; o zelador da autocura derruba as torres
+  velhas SEM drop e remonta a faixa na fachada (1 acima, 1 pra dentro) em
+  ~30s, preservando texto, vínculo com o mercado e estado ABERTO/FECHADO
+- **Nova parte `extensao`**: só o painel central tem block entity (o texto
+  cruza a faixa toda); quebrar um bloco derruba a faixa inteira
+- Template dos 3 mercados regionais regenerado com a faixa na fachada;
+  faixa de pedestre do pátio volta a ficar LIVRE (a placa não mora mais ali)
+- Testes atualizados: display de fachada (sem torres, extensões sem BE,
+  queda em cadeia) + teste novo da migração; caixa de LED agora 240×16px
+
+## v1.2.33 — O TRÊS-OITÃO (22/09/2026)
+
+### Revólver .38 no mesmo padrão gun mod da 12
+- **Tambor de 6 de verdade**: cada buraco é um bit no componente da stack;
+  o tiro consome a CÂMARA alinhada com o cano e o tambor GIRA
+- **Reload shell-by-shell**: segurar o botão direito carrega 1 cartucho por
+  vez nos buracos vagos, começando pela câmara; encheu o tambor (ou acabou a
+  reserva), o ferrolho fecha sozinho; soltar fecha com o que entrou
+- **Giro no seco**: câmara vazia com bala em outro buraco = o tambor gira no
+  click (o .38 de filme) em vez de exigir recarga; não consome a bala
+- **Recoil com kick de câmera**: payload S2C compartilhado com a 12
+  (RecuoPayload extraído pra classe própria); 5° pra cima, retorno suave
+- **ADS ao segurar SHIFT**: zoom próprio (15% vs 20% da 12), dispersão 40%,
+  +30% de alcance, kick reduzido; retícula tática verde unificada
+- **Cartucho itemizado**: `cartucho_38` (chumbo + pólvora + 2 latão), sprite
+  de latão com ponta de chumbo exposta; receita: 4 por craft; esqueleto dropa
+  (12%); fidelidade do Gago vende (8 por R$ 60); arma reparável na bigorna
+- **Modelo 3D próprio**: coronha de madeira inclinada, armação de aço, TAMBOR
+  de latão com furos visíveis, cano curto e grosso com ponto vermelho na boca;
+  poses de 1ª/3ª pessoa estilo besta, encolhidas pro tamanho de revólver
+- **HUD do tambor**: 6 células sob o crosshair — câmara alinhada em latão,
+  carregadas em vermelho, fases CARREGANDO/FECHANDO O TAMBOR
+- **ArmasClient unificado**: kick/ADS/HUD das duas armas num lugar só
+  (EscopetaClient aposentado); cooldown de cascavel 14 ticks; 7 de dano por
+  bala (até 42 no tambor cheio), alcance 30, tudo em config/intoxicantes.json
+
+### Verificação
+- **38/38 game tests** (novo: `revolverMechanismReloadSpinAndCascavelFire` —
+  recarga 1-a-1, fecho do ferrolho, 3 tiros em cascavel consumindo exatamente
+  1 câmara cada, giro no seco sem consumir bala, prova aritmética de que
+  nenhum cartucho some)
+- Worldgen validado; `intoxicantes-1.2.33.jar` instalado em `../mods`
+---
+
+## v1.2.32 — A 12 EM NÍVEL GUN MOD (21/09/2026)
+
+### Escopeta refeita como arma de mecânica de verdade
+- **Tubo interno + câmara**: a stack da escopeta agora carrega um componente de
+  estado (`tubo/câmara/timer/fase`) — cada arma é UM mecanismo; o tiro consome a
+  CÂMARA (o cartucho engatilhado), não "qualquer cartucho do inventário"
+- **Reload shell-by-shell**: segure o botão direito — a cada intervalo entra 1
+  cartucho no tubo com "clac" próprio; solte quando quiser e o que entrou ficou
+  (watchdog de 2.1s fecha sozinho se segurar até o fim)
+- **Pump-action**: depois de cada tiro o pump cicla sozinho (clack-clack em 2
+  tempos) e só então a câmara recarrega do tubo; tubo vazio avisa na action bar
+- **Recoil com kick de câmera**: o servidor manda payload S2C e o client chuta
+  pitch+yaw na hora, com 55% do chute voltando suavemente (~12 ticks) —
+  constituição de atirador; kick reduzido no ADS
+- **ADS ao segurar SHIFT**: zoom de FOV suave via mixin no `Camera.calculateFov`
+  (o hook antigo morreu no 26.3), retícula tática própria, dispersão pela metade
+  e +25% de alcance
+- **HUD do mecanismo**: medidor sob o crosshair — câmara + cartuchos do tubo +
+  fase (RECARREGANDO/PUMP)
+- **Tooltip mostra o mecanismo**: câmara (✓/—) e cartuchos no tubo
+- Config novos: `escopetaCapacidadeTubo` (5), `escopetaTicksPorShell` (5),
+  `escopetaTicksPump` (8), `escopetaKickPitch` (7°), `escopetaKickYaw` (1.5°),
+  `escopetaAdsFov` (0.8)
+- **37 game tests** (novo: ciclo completo click seco → recarga 1-a-1 → câmara
+  automática → tiro → pump → re-câmara, com prova de que nenhum cartucho some)
+
+---
+
+## v1.2.31 — O GAGO DE ÓCULOS (21/09/2026)
+
+Playtest: "o Gago tá parecendo o Lula Molusco com aquele narigão; na vida
+real ele é um cara simples, meio velho, que usa óculos — não faz sentido
+aquele chapelão de palha".
+
+### REFORMADO (modelo + textura, os 7 skins por bioma)
+- **Nariz de gente simples**: o narigão de 2 patamares com a ponta
+  pendurada (o "lula molusco") virou um nariz 2×2 discreto — sobra só
+  2px pra fora da face
+- **CHAPÉU DE PALHA REMOVIDO** do modelo (aba 16×16 + coroa 12×12) —
+  no lugar: **cabelo grisalho pintado na textura** (topo da cabeça +
+  têmporas ralas)
+- **ÓCULOS de armação fina de tartaruga**: lentes com vidro (brilho +
+  pupila mansa por trás), ponte e hastes nas orelhas
+- **Cara de velhinho simples**: sobrancelhas calmas horizontais (não mais
+  as "brabas"), bigode ralo grisalho sobre o sorriso de vendedor
+- Mantidos: barrigão, avental verde com R$, braços cruzados (âncora do
+  item na mão), chinelos, brinco de ouro e as 7 fantasias por bioma
+
+## v1.2.30 — O GAGO NÃO SUFFOCA, NÃO SOME E NÃO VIRA LOOT (21/09/2026)
+
+Playtest: "às vezes o Gago simplesmente some, e fica dropando um monte de
+item do mod dentro do mercado".
+
+### CAUSA RAIZ (ciclo de 3 elos, todos provados no código)
+1. O gerenciador de plantão TELEPORTAVA o Gago pro posto (balcão/porta)
+   SEM checar o destino: bloco novo no posto (reforma de pele da 1.2.26,
+   plantio velho, offset de estrutura girada) = nasce DENTRO do bloco.
+2. O vanilla mata sufocado (IN_WALL): o Gago morre e dropa cachaça +
+   cervejas + R$ + cartuchos (o "monte de item do mod")
+3. O gerenciador não vê mais Gago → nasce OUTRO no MESMO posto → morre de
+   novo. Loop: "sumiu" + chão cheio de item.
+   E o 2º caminho de sumiço: Gago de save velho sem persistência despawna
+   a 64+ blocos (removeWhenFarAway permitia).
+
+### CORRIGIDO (os 3 elos + defesa em profundidade)
+- **Posto sempre livre antes do teleporte/spawn** (garantirPostoLivre):
+  limpa o corpo inteiro do posto — intocáveis contêiner/porta/cama (nunca
+  baú de jogador)
+- **Imunidade a IN_WALL/CRAMMING em serviço** (emPostoMercado): mesmo se
+  um bloco aparecer em cima depois, o sufocamento não passa
+- **Feriamento fatal no posto solta a IA** em vez de morrer parado: ele
+  escapa andando (sem mais estatua morta)
+- **Morte em serviço não dropa loot** (guarda pela posição do posto): o
+  loot de morte é pra quem MATOU o dono do bar de propósito — não pra
+  encher a loja de item sozinho
+- **Autocura de save velho**: Gago sem persistenceRequired vira
+  permanente no 1º tick de server (nunca mais despawna)
+- **Game test novo** (36º): posto ocupado → limpo → Gago vivo; IN_WALL
+  ignorado em serviço; morte no posto sem loot. 36/36 verdes.
+
+## v1.2.29 — O HIDRANTE NO LUGAR CERTO (21/09/2026)
+
+Playtest: hidrantes "estão onde os carros deviam estacionar… não faz
+sentido, e tem 2". Correto — hidrante em vaga é o OPOSTO da vida real
+(perto de hidrante é onde se PROÍBE estacionar).
+
+### CORRIGIDO
+- **UM hidrante, na CALÇADA ao pé do meio-fio, ao lado da faixa de
+  pedestre** (x4,z12 do template) — como na rua de verdade: no caminho do
+  pedestre, nunca na vaga.
+- **As vagas ficam 100% livres** — demarcação limpa, nada plantado nelas.
+- **Zelador RECOLHE os 2 hidrantes velhos** das vagas (1.2.24~28): na
+  primeira passada, hidrante sobre o asfalto do mercado nos offsets
+  antigos (2,14/12,14) some sem drop — o mundo do tester se conserta
+  sozinho, sem comando.
+- Reforma de pátio velho planta o hidrante no offset novo; game test
+  atualizado (novo nasce na calçada, velhos recolhidos, idempotente).
+
+## v1.2.28 — A PLACA DE FRENTE PRA RUA (21/09/2026)
+
+Playtest: a placa "piorou MUITO" — da rua só se via a CAIXA metálica cinza
+com o texto verde flutuando colado nela; a cara de letreiro (matriz de LED
+verde + moldura) tinha sumido.
+
+### CAUSA RAIZ (regressão de convenção, prova matemática nos 4 facings)
+- Na 1.2.24 a face `front` do modelo era a SOUTH local + blockstate
+  wall-sign (south=0) — texto errado, textura certa.
+- Nas 1.2.25~27 o texto foi consertado (`-toYRot`, convenção da fornalha)
+  e o modelo movido pra FRONT na NORTH local (convenção da fornalha) — mas
+  o blockstate **continou wall-sign**. Resultado: texto correto na direção
+  certa, e a TEXTURA da matriz de LED no lado OPOSTO da caixa, para TODOS
+  os facings. Quem olhava de frente via o verso metálico com texto pelado.
+
+### CORRIGIDO
+- Blockstate da placa regenerado na convenção da FORNALHA (north=0,
+  east=90, south=180, west=270) — texto e textura agora caem na MESMA face
+  física (= FACING) para os 4 facings; textura de LED de frente pra rua,
+  texto na frente dela, dos dois lados da caixa.
+- Auditoria ponta a ponta: renderer (ciclo NOME↔STATUS, rotação
+  `-toYRot`, dupla-face), modelo (16×16, z5..11), blockstate (72 estados),
+  anatomia (torres a ±2 com autocura 1×/30s), atlas LED no jar,
+  LINHAS_PADRAO = MERCADO/ESQUINÃO.
+
+## v1.2.27 — O POSTE DE VERDADE E A PLACA QUE SE CONSERTA (21/09/2026)
+
+Novo playtest flagrou o poste "muito bugado" (caixas pretas desconexas no
+pátio) — e a investigação com scanner de save provou a causa raiz de TUDO:
+o mundo real nunca tinha visto a montagem que os testes viam.
+### DIAGNÓSTICO COM PROVA DO MUNDO (não foi chute)
+- Scanner próprio de .mca decodificou o save do tester: a placa era **UM
+  bloco só** (`parte=painel` em (11,69,153)) — a "torre de 9" NUNCA nasceu;
+  o poste A estava inteiro mas o poste B tinha o **CORPO desgarrado 1 bloco
+  pro lado** (base x17, corpo x18, topo x17) — as caixas pretas flutuando
+- Causa raiz compartilhada: o template só semeava PAINEL/BASE soltos e
+  contava com `onPlace` — que a geração de estrutura **NUNCA chama** (flag
+  16 do vanilla). Game tests passavam porque `setBlock` programático
+  dispara; mundo real não. Falso-negativo desde a 1.2.23
+- A anatomia de torre da 1.2.25 tinha defeito matemático: descia dy=-4..+1
+  → **2 blocos ENTERRADOS** onde `montarTorre` recusa sólido → torre nunca
+  nascia nem no jogo
+### CORRIGIDO: o poste (luminária EM CIMA + aço visível + autocura)
+- **Luminária agora EM CIMA da coluna**, como poste de rua de verdade:
+  coluna 0..10 → capitel → lente 11..13 → tampa 13..14 (o braço lateral
+  saiu — era ele que virava "negócio esquisito")
+- **Texturas de aço galvanizado CLARO** (a coluna era RGB(35,32,28) e a
+  luminária apagada RGB(21,21,23) — quase pretas: coluna fina + mata
+  escura = caixas pretas desconexas do print)
+- **AUTOCURA por tick agendado**: BASE reconstrói corpo+topo em cima (em
+  ar/substituível, nunca em bloco alheio); TOPO reconstrói corpo+base por
+  baixo; parte errada do próprio poste é reclassificada no lugar
+- **Peça desgarrada é RECOLHIDA**: bloco de poste fora do eixo de qualquer
+  coluna (sem base na própria x/z, COM base num vizinho ±1) some na
+  passada do zelador — o poste B volta pro eixo sozinho
+### CORRIGIDO: a placa (torre acima do solo + autocura + template completo)
+- Torre agora é **4 blocos ACIMA do solo**: rodapé 1 abaixo do painel,
+  2 colunas, capitel 2 acima — nada enterrado, nada flutuando; o rodapé
+  pode tomar a faixa de pedestre (tinta nossa, 1px)
+- **O template semeia a placa COMPLETA** (rodapés no y1, painel no y2,
+  colunas y2/y3, capitéis no y4) + postes completos — nada mais depende
+  de `onPlace` na geração
+- **Autocura do painel por ticker** (1×/30s): placa de mundo velho adota o
+  texto novo e ganha as torres que nunca nasceram — o letreiro solitário
+  do save do tester vira a placa de 9 blocos ao carregar o chunk
+- NBT do template: "MERCADO"/"ESQUINÃO" + marca `nova=1`
+### MELHORADO: o zelador acelera
+- Varredura **adaptativa**: nos primeiros 5 min após descobrir o mercado
+  roda a cada 10s (a autocura apressa), depois 30s como sempre
+### TÉCNICO
+- **35/35 game tests** (anatomia nova da placa coberta: torre de 4 acima
+  do solo, montagem/desmontagem nos dois sentidos, guarda anti-enterrado)
+- Build completo verde; worldgen validado (62 JSONs + 3 NBTs)
+---
+
+## v1.2.26 — O MERCADO DO LUGAR (21/09/2026)
+
+Refinamento de fundo: o mod agora nasce **do lugar** que ele ocupa, e o dono
+da esquina também descansa. Itens 2 e 3 do TODO fechados.
+### ADICIONADO: mercados regionais — o prédio nasce do bioma
+- **Clássico** (plains/forest/selva/brejo/savanna): o branco/verde do SUL
+  DISTRIBUIDORA que você já conhece
+- **Sertão** (desert/badlands): adobe laranja, arenito lapidado, colunas de
+  acácia — a bodega de encruzilhada
+- **Serra** (taiga/neve/montanha): pedra fria, pinho escuro, smooth stone —
+  mercadinho de serra com chão de freezer
+- Padrão das vilas vanilla: 1 structure_set espalha, tags de bioma disjuntas
+  decidem a pele — nenhum bioma fica sem mercado, nenhum bioma tem dois
+- A descoberta (espiral) testa as 3 estruturas por chunk e grava a região no
+  `intoxicantes_market.dat`; o `/gagomarket rebuild` ergue a pele do save
+  (com fallback pro clássico)
+### ADICIONADO: o cochilo do Gago
+- 00:00 ~ 07:00 (fora do expediente) o Gago DORME na cadeira do balcão:
+  sentado (pose SITTING), Zzz em baforadas de nuvem a cada 4s
+- Tocar nele acorda com blip grave e frase embolada de sono (máx 1 a cada
+  10s) — em vez da fila normal de portão fechado
+### ADICIONADO: saudação VIP ao Dono da Esquina
+- Quem alcança o tier máximo de fidelidade (30 compras) lê o letreiro e recebe
+  o chamado respeitoso da casa — com corações e frase exclusiva (pt + en)
+### MELHORADO: o zelador agora REFORMA
+- Pátios de mundos 1.2.23/1.2.24 (sem faixa/hidrantes) ganham a travessia e
+  os hidrantes na primeira passada do zelador (~30s após o chunk carregar)
+- A reforma só nasce sobre o asfalto do mercado: nada em cima de bloco de
+  jogador, terreno estranho ou ar
+### TÉCNICO
+- 35/35 game tests (2 novos: reforma idempotente do pátio; round-trip da
+  região no NBT do mercado)
+- `validate_worldgen` OK — 62 JSONs + 3 NBTs (mercado/clássico/sertão/serra)
+  validados contra o jar mapeado do 26.3
+---
+## v1.2.25 — O LETREIRO DE VERDADE (21/09/2026)
+
+O playtest da 1.2.24 mostrou o letreiro **pior ainda**: uns tracinhos verdes
+miúdos no meio de um monólito preto. A investigação fechou 4 causas raiz —
+todas com prova no código — e a placa foi refeita como letreiro de posto de
+verdade.
+
+### CORRIGIDO: os "tracinhos miúdos" (dupla contagem de largura)
+- O renderer multiplicava `largura(linha) × GLIFO_ESPACO`, mas `largura()`
+  **já conta** o espaço entre letras (5px de glifo + 1px de gap): a linha
+  "media" 6× mais largo que a faixa e a autodefesa de escala espremia o
+  texto pra ~0.17 → os tracinhos
+- `LedFont.escalaPara` também misturava unidades (dividia a ALTURA pelo
+  passo HORIZONTAL 6) → escala ~0.06. As duas medidas agora são px do grid,
+  com teto 1.0 (nada de gigantismo)
+- Guarda no game test: escala do conteúdo ≥ 0.9 — letra miúda no letreiro
+  quebra o build
+
+### CORRIGIDO: o texto nascia ATRÁS da caixa (convenção de rotação)
+- `-toYRot() + 180` — mas `toYRot()` é convenção de ENTIDADE (sul=0), e a
+  fornalha vanilla prova o blockstate (north=0°, frente no −Z local). O
+  +180 jogava o texto pro lado de trás; só o verso dupla-face escapava
+  (exatamente o print do tester)
+- Agora: `-toYRot` puro, com o modelo na convenção da fornalha (frente na
+  face local north), texto desenhado nos DOIS lados da caixa
+
+### NOVO: anatomia de 5 blocos + CICLO NOME↔STATUS (letreiro de posto)
+- A placa de 3 blocos não comportava faixa de 48px — o texto vazava 3× pra
+  fora (os "negócios esquisitos no chão" da 1.2.23). Agora são 9 blocos:
+  TORRE (6: rodapé, 4 colunas, capitel) + PAINEL × 3 + TORRE; vão de 3
+  blocos de LED puro entre as torres
+- O NOME ("MERCADO / ESQUINÃO") ocupa a faixa em escala 1:1 ("ESQUINÃO" =
+  47px em 48px — letra grande de posto de gasolina); o status ABERTO/FECHADO
+  entra SOZINHO a cada 4s, TAMBÉM gigante
+- Quebrar qualquer parte derruba a placa inteira (coluna de 6); montagem
+  robusta: nunca apaga bloco alheio, vão entre torre e painel fica livre
+
+### CORRIGIDO: o monólito preto (moldura invisível + margens transparentes)
+- A moldura era quase preta (`0E5A2E`) sobre painel preto — de longe tudo
+  virava um bloco de carvão. Moldura verde VIVA (`27D96A`) + bisel + matriz
+  de LED apagada desenhada na textura (cara de painel de verdade)
+- As texturas da coluna/verso tinham pixels TRANSPARENTES — e o mod não
+  registra camada cutout (a API do Fabric morreu no 26.3 e não há substituto
+  client-side) → transparência renderiza PRETO. Texturas agora 100% opacas
+
+### HIGIENE
+- NBT velho de placa de 4 linhas: linhas vazias ("linha2"/"linha3" = "")
+  não ressuscitam mais — nada de fantasmas espremendo o grid
+- Template do mercado grava o MESMO LINHAS_PADRAO do código + marca `nova`
+- game tests: anatomia 5 blocos, vão livre, ciclo LED com guarda anti-tracinhos
+
+---
+
+## v1.2.24 — O CONCERTO DA ESQUINA: LETREIRO, POSTE E HIDRANTE (21/09/2026)
+
+A rodada do playtest flagrou a esquina inteira: **o letreiro bugado** (nada de
+frente, letras gigantes de trás, "negócios esquisitos" no chão), **o poste
+desconexo** (luminária flutuando sem coluna) e **o hidrante nanico**. E o
+crash do render frame no mercado. Tudo morreu de uma vez.
+
+### CORRIGIDO: CRASH ao chegar no mercado (LedFont)
+- O mapa de glifos antigo era um array indexado por posição — um glifo com
+  uma linha a mais atrasava TODOS os seguintes; qualquer letreiro com
+  **espaço** (ou acento) pedia índice além do fim e estourava o render
+  frame inteiro (o "crash ao chegar no mercado" do tester)
+- LedFont reescrita: mapa por caractere (`Map<Character, glifo>`), cada
+  glifo validado no registro (7 linhas, sempre), fallback = espaço em
+  branco — **impossível** estourar índice de novo
+- Acentos normalizados (Ã→A, Ç→C...) — o LED de esquina lê português
+
+### CORRIGIDO: o letreiro (nada de frente / letras gigantes de trás / sujeira no chão)
+- **Nada de frente**: o renderer desenhava com `scale Y negativo` — a face
+  frontal nascia com winding invertido e o backface culling DESCARTAVA ela;
+  de trás aparecia espelhada. Agora a pose nunca espelha e cada pixel é um
+  **quad DUPLA-FACE** (frente + verso, como o texto vanilla): lê dos dois
+  lados da rua, em qualquer rotação
+- **Letras gigantes**: o pixel tinha 2px num painel de 16px —
+  "DISTRIBUIDORA" (77px de fonte) desenhava ~9 blocos FORA da placa (era
+  isso os "negócios esquisitos no chão"). O texto agora mora na FAIXA DE
+  LED entre as torres (48px × 10px úteis) com escala uniforme calculada
+  por `LedFont.escalaPara(...)` — nunca vaza da caixa, por mais texto que
+  tenha
+- **Texto de fábrica curto e grande**: `MERCADO / ESQUINÃO` (2 linhas) enche
+  a faixa em escala 1:1 — letra de posto de gasolina de verdade (as 4
+  linhas antigas encolhiam pra metade)
+- Rotação alinhada com o blockstate (tabela da placa vanilla);
+  ABERTO/FECHADO piscante, flicker de neon, pulso e zumbido mantidos
+
+### CORRIGIDO: o poste de luz desconexo (luminária flutuando)
+- O template do mercado semeava só o TOPO esperando "a base sobe pelo
+  onPlace" — mas o onPlace só construía PRA CIMA: luminárias flutuando sem
+  coluna no pátio, e o que o jogador colocava virava toco + caixa solta
+- **Poste de 3 BLOCOS de verdade**: BASE (pedestal de concreto + arranque
+  da coluna) + CORPO (coluna comprida) + TOPO (braço com a luminária de
+  sódio pendurada) — colocou 1, ergueu 3; quebrou 1, caiu 3
+- A montagem funciona nos DOIS SENTIDOS (base→sobe, topo→desce) e NUNCA
+  apaga bloco alheio no caminho (o `setBlockAndUpdate` cego sumia com o
+  que estivesse em cima)
+- A luz (14) mora SÓ no TOPO aceso; template semeia o poste completo;
+  texturas novas: chapa de metal com costuras, bulbo de sódio aceso e
+  pedestal de concreto
+
+### BALANCEADO: o hidrante deixou de ser nanico
+- De 10px para **15px de altura** (quase um bloco): pedestal largão, corpo
+  gordo, 4 braços laterais, boné e domo — hidrante de esquina de verdade
+- O jato d'água cômico continua (usar a mão = splash + partículas)
+
+### CORRIGIDO: o config nascia na pasta errada
+- `config/intoxicantes.json` nascia em `saves/config/` (a conta antiga
+  subia 2 diretórios e escorregava) — editar o config não fazia NADA
+- Agora o mod acha a raiz da instância de verdade (a pasta que contém
+  `mods/` e `saves/`) e sobe quantos níveis precisar
+
+### NOVO: FAIXA DE PEDESTRE
+- A tinta branca da travessia: bloco PLANO de 1px (anda por cima sem
+  degrau), nasce em fileiras na saída da loja
+- Textura procedural com falha de rolo; o asfalto debaixo cedeu? a tinta
+  vai junto (nada de faixa flutuante)
+
+### NOVO: HIDRANTE DA ESQUINA
+- O vermelhão de ferro fundido: corpo com barras de sombra, tampa com
+  parafuso, flange na base — 2 hidrantes nascem no pátio entre as vagas
+- Usar a mão nele dispara o **jato d'água cômico** (splash + partículas)
+
+### VERIFICAÇÃO
+- 4 game tests novos: a fonte LED varre TODO caractere acentuado (7 linhas
+  sempre, sem OOB) + conteúdo cabe na faixa; poste de 3 blocos montado dos
+  dois lados sem apagar bloco alheio; hidrante alto + faixa plana; zelador
+  seletivo — **33/33**
+- Mundo velho: sem migração (a anatomia da placa não mudou; o template
+  novo semeia postes completos em mundos NOVOS)
+
+---
+
+## v1.2.23 — A PLACA DE RUA DE VERDADE (21/09/2026)
+
+O tester flagrou os 3 pecados capitais da esquina: **asfalto com xadrez rosa**,
+**postes-toco de um bloco** e **o letreiro com 3 dizeres repetidos na fonte do
+Minecraft**. Os 3 morreram de uma vez.
+
+### CORRIGIDO: asfalto com xadrez rosa
+- O `blockstates/asfalto.json` **nunca tinha sido gerado** (o modelo existia
+  órfão — sem blockstate o jogo nunca liga o bloco ao modelo)
+- Agora o gerador de recursos cria o blockstate; estacionamento negro liso
+  de verdade, com as linhas cinza das vagas por cima
+
+### NOVO: POSTE DE LUZ DE 2 BLOCOS
+- Anatomia real de poste de rua: **base** (coluna de metal com braços curvos
+  pros dois lados + travessa) + **topo** (caixa da luminária de sódio pendurada)
+- Colocar 1 bloco ergue o poste inteiro (`onPlace` monta o topo); quebrar
+  qualquer metade derruba as duas; o estado LIT é espelhado entre elas
+- Modelos JSON com geometria própria (nada de `cube_all`); luminária tem
+  textura acesa/apagada e continua ligando sozinha às 19h e apagando às 5h
+- O template do mercado semeia o topo (a base sobe pelo onPlace)
+
+### NOVO: LETREIRO DO ESQUINÃO 9-BLOCOS COM FONTE LED PRÓPRIA
+- **Placa livre de rua na calçada** (saiu da fachada): 2 torres de 4 blocos
+  (pedestal de concreto → coluna → capitel) segurando o painel suspenso na
+  altura do olho — colocar 1 bloco ergue os 9; quebrar 1 derruba os 9
+- **FONTE DE LED 5×7 codada em Java** (`LedFont`): bitmap A–Z, 0–9 e
+  símbolos — a fonte do Minecraft saiu do letreiro pra NUNCA mais voltar
+- O renderer desenha cada pixel como quad com atlas próprio
+  (`submitCustomGeometry` + `RenderTypes.textPolygonOffset`), full-bright,
+  com pulso de alimentação, flicker de neon e status ABERTO/FECHADO piscante
+- **FIM do texto triplicado**: só o PAINEL tem block entity — as colunas
+  deixaram de renderizar o letreiro 3× (a causa raiz do bug)
+- Painel apaga o LED de dia (`LIT` do bloco) e o texto se ajusta sozinho a
+  qualquer conteúdo (4 linhas + status cabem sempre)
+
+### CONCERTO DE MUNDOS VELHOS
+- A primeira passada do zelador (30s após descobrir o mercado) desmonta a
+  placa velha de 3 blocos colada na fachada; a placa nova NÃO remonta sozinha
+  (sem gerar em cima de quem tá olhando) — mande o tester colocar uma nova na
+  calçada, ela nasce com as torres inteiras
+
+### Verificação
+- 29/29 game tests (placa cobrindo montagem 9-blocos, BE único, desmontagem
+  total e persistência); build limpo; worldgen validado (DataVersion 5023)
+
+---
+
+## v1.2.22 — O GAGO DE VERDADE (21/09/2026)
+
+Adeus, villager remendado. O dono do Esquinão agora tem **modelo codado do 0**
+com a anatomia que ele sempre mereceu, e skin 128×128 desenhada pixel a pixel
+no pipeline procedural do mod.
+
+### NOVO: GagoModel — anatomia própria
+- **Barrigão de 10 de largura** (o corpo do villager é 8 — o Gago come bem)
+- **Narigão de 2 patamares**: o nariz de família com ponta que pende
+- **Chapéu de palha** com aba 16×16, coroa e fita vermelha (palha tecida em
+  trama xadrez, borda escura na aba)
+- **Avental verde-dinheiro** com **R$ pintado no bolso do peito** — a farda
+  do comércio
+- Camisa branca com colete de couro aberto, calça de brim com barra dobrada,
+  meia branca e **chinelos de dedo azuis** que são FILHOS das pernas (balançam
+  com a passada)
+- Rosto novo: sobrancelha braba, olho pequeno e esperto, sorriso de quem sabe
+  o preço de tudo, brincos de ouro nas orelhas
+- **Modo PUTO** ganhou expressão própria: a cabeça treme de raiva (o canal do
+  `isUnhappy` do villager, no nosso modelo)
+
+### NOVO: skin 128×128 por pipeline
+- 7 fantasias temáticas por bioma mantidas e refeitas na skin nova (clássica,
+  Sertão com cartucheira, Mata com flor, Cerrado com trançado, Sede Sul com
+  cachecol de lã, Serra com faixa de tricô, Brejo com salpicos de lama)
+- Todas validadas (largura de dados íntegra — nada de xadrez rosa)
+
+### Técnico
+- `ModelLayerRegistry` (Fabric 26.3) registra a layer `intoxicantes:gago`;
+  renderer próprio com `GagoRenderState` (roupa + puto synched)
+- Braços cruzados com a geometria EXATA do villager (pivot 0,3,−1, xRot −0.75)
+  — a escopeta/bebida continua ancorada no colo pela `CrossedArmsItemLayer`
+- Escala de sombra 0.6 (mais gordo, mais sombra)
+
+---
+
+## v1.2.21 — O ZELADOR DO ESQUINÃO (21/09/2026)
+
+O tester flagrou: **folha de árvore DENTRO da loja**. Causa: a decoração do
+bioma roda DEPOIS da estrutura na geração — árvore nascida no chunk vizinho
+enfia copa e tronco pra dentro do prédio (o ar limpo do template só cobre o
+próprio box da estrutura).
+
+### NOVO: zelador da propriedade
+- A cada 30s, uma varredura da propriedade do mercado (caixa 21×8×21 do
+  centro) **expulsa material de árvore invasora**: folhas, troncos, mudas
+  e bambu — sem drop, sem fumaça de serra, some quieto
+- Só age em chunk carregado; custo desprezível (uma passada por 30s)
+- A loja em si (lâmpada UV, plantação, estruturas do mod) fica ilesa
+- Game test novo (29 total): planta folha+tronco+muda na propriedade e
+  prova a expulsão com a lâmpada intacta
+
+---
+
+## v1.2.20 — A PLACA NASCIDA CERTA (21/09/2026)
+
+O letreiro da 1.2.19 nasceu bugado na tela do tester: texto atravessado na
+parede (espelhado, flutuando 1 bloco na frente do painel) e o item com
+xadrez rosa/preto na mão. Três bugs de raiz, todos corrigidos:
+
+### Corrigido: item com textura corrompida (xadrez rosa)
+- 3 linhas do mapa de pixels do ícone tinham **17px** (sobrou um pixel de
+  texto) — o PNG nasce com linhas de largura errada e o Minecraft recusa
+- Ícone regenerado com as linhas nos 16px, e **validador novo** confere o
+  tamanho dos dados descomprimidos de TODAS as texturas do mod
+
+### Corrigido: texto do LED voando na parede / espelhado
+- Rotação adotava a fórmula errada (180° extra) — o texto nascia de frente
+  pra parede, espelhado; agora é o molde exato do vanilla
+  (`−toYRot`, decodificado do bytecode de `PlainSignRenderer`)
+- O texto era lançado no CENTRO do bloco (1 bloco na frente do painel);
+  agora sai encostado na face do painel, 1px flutuando (sem z-fighting)
+- Bloco de linhas descentrado: agora centrado de verdade no painel
+- Linha de status encolheu pra caber: 5 linhas de 10.5px = 52.5px ≤ 64px
+  úteis (antes o texto estourava o painel de 9px de altura)
+
+### Corrigido: blockstate de east/west invertidos (placa "de lado")
+- Tabela de rotação do blockstate não batia com a do wall sign vanilla
+  (oficial: south=0, west=90, north=180, east=270) — o modelo nascia 90°
+  fora da fachada; corrigido no JSON **e no gerador de recursos**
+
+### Corrigido: multi-bloco desalinhado com a fachada
+- As colunas nasciam SEMPRE no eixo X; com a fachada virada pra leste/oeste
+  a placa desmontava no ar. Agora o eixo das colunas segue o FACING
+
+### CORRIGIDO: a expulsão jogava o freguês lá pra baixo, trancado nas pedras (wtf mesmo)
+- Report do playtest: o teleporte era `mercado+5/+1/+5` com `teleportTo(x,y,z)`
+  SEM dimensão — na API do 26.3 essa assinatura manda o jogador PRO FUNDO DO
+  MUNDO: caía na bedrock, preso dentro das pedras
+- Além disso o offset fixo ignorava a rotação da estrutura e o terreno: com
+  a fundação da v1.2.18 podia dar de cara em mureta/prédio em qualquer lado
+- Agora o Gago dá uma CASA de verdade pro expulso: anel de raio 5..9 em
+  volta do mercado, girando com a estrutura, só vale lugar com piso sólido,
+  corpo e cabeça em ar e sem água/lava — priorizando LONGE do Gago (teto de
+  24 blocos) e, no empate, o mais perto do mercado; sem candidato válido,
+  ninguém teleporta (fica onde está)
+- Zerado momento e dano de queda no teleporte: sem “aparecer já caindo”
+- Game test novo (28 no total): chão sólido, corpo livre, longe do Gago,
+  permanência no overworld e teleporte sem velocidade herdada
+
+### CORRIGIDO: falas do Gago sem sentido
+- "meu amor!" virou "m-meu chegado!" — o Gago é o simpático da esquina, não
+  pretendente (em inglês já era "my friend")
+- "VAI VER O CÉU!" virou "VAI TOMAR CHUMBO!" — ameaça que combina com a 12
+
+### Técnico
+- `teleportTo` ganhou o boolean final (26.3) e `isSolidRender` perdeu os
+  argumentos — alinhado com a API oficial (conflito com sessão paralela)
+
+---
+
+## v1.2.19 — O LETREIRO VIVO (21/09/2026)
+
+O letreiro agora respira com o horário da loja, o estacionamento ganhou
+asfalto e postes que acendem sozinhos — e o Esquinão fecha às 00:00.
+
+### NOVO: ABERTO/FECHADO no letreiro
+- Linha de status no LED: **ABERTO (verde)** de 07:00 às 00:00,
+  **FECHADO (vermelho)** na madrugada — mesma régua do plantão do Gago
+- Estado **persistente** (sobrevive a save/load) e sincronizado ao client
+- Na virada: **arpejo de campainha** sobe ao abrir (C maior, bom-dia pra
+  comprar) e desce ao fechar, + poeira colorida sobre o painel
+- Loja fechada de verdade: o Gago recusa o cliente com voz educada fora do
+  horário (e anuncia "porta fechada" na virada, com a voz dele)
+- LED esmaece com a loja fechada; o status **pisca** entre 23h e 00h
+  ("fechando!") e dobra o zumbido de LED no fim do expediente
+
+### NOVO: zumbido de LED + blips de leitura
+- Perto do letreiro, um **zumbido sutil de lâmpada** (loop de proximidade,
+  só quando o painel está visível); no fim do expediente ele acelera
+- Terminou de ler? **Um blip por linha** (4 boops subindo de tom, som de
+  note block de hat) — som server-side, todo mundo perto escuta
+
+### NOVO: estacionamento com postes de luz
+- Bloco novo **Poste de Luz** (coluna + tulipa): acende sozinho às 19h e
+  apaga às 5h, sem redstone — e o MarketSystem reforça o horário
+  (anti-fuso, mesmo com chunk longe)
+- Bloco novo **Asfalto**: pátio do estacionamento pavimentado, vagas
+  demarcadas com faixa clara, linhas de rolamento e mureta + canteiro
+- Postes espalhados pelo pátio no template do mercado
+
+### Técnico
+- O `tell()`/`TickTask` do server saiu no 26.3: fila própria de notas
+  (`MarketSystem.agendarNota`) drenada no fim de cada tick toca os jingles
+- Dust particles do 26.3 (`DustParticleOptions(int, float)`) na virada
+- Game test novo (27 total): estado ABERTO/FECHADO persistindo, portão do
+  Gago recusando/aceitando cliente e poste seguindo o relógio
+  (meio-dia apaga, madrugada acende) via `clockManager`
+
+---
+
+## v1.2.18 — O LETREIRO CODADO DO ZERO (21/09/2026)
+
+Adeus, placa de carvalho do vanilla. O Esquinão agora tem LETREIRO DE VERDADE.
+
+### NOVO: placa 100% custom (bloco + block entity + renderizador)
+- **Multi-bloco 3×2×1**: duas colunas de sustentação + painel de LED central;
+  quebrou uma parte, cai tudo (a placa é UM objeto na rua)
+- **Visual codado do zero**: fundo preto profundo, moldura dupla verde e 4
+  linhas de texto na fonte de LED (verde-esmeralda #39FF6E) com brilho
+  full-bright — lê no escuro total — e **flicker de neon** ocasional que dá
+  vida ao letreiro
+- O texto gira com a FACING do bloco e fica legível dos dois lados da rua
+- Clique direito na placa: som de blip + o Gago cumprimenta o leitor (a
+  mecânica da placa vanilla, agora com a placa da casa)
+- O texto sobrevive a save/load (block entity persistente)
+- Colocação robusta: jogador, /setblock e o template do worldgen montam o
+  multi-bloco igual (onPlace); desmontagem cobre jogador, explosão e máquina
+  (affectNeighborsAfterRemoval do 26.3)
+- Texturas geradas no pipeline procedural (painel, coluna, item)
+
+### NOVO: o mercado ganhou terreno próprio (anti-“loja engolida por vila”)
+- Template ampliado de 9×5×13 para **15×8×19**: o prédio agora vem com
+  **pátio/estacionamento** em volta e praça própria
+- **Fundação sólida** (beard_box): acabou o mercado flutuando na encosta ou
+  afundado no terreno
+- **Limpeza total de ar** sobre a estrutura: nada de água de rio invadindo o
+  balcão ou árvore nascendo no meio da loja
+- Todas as bordas do pátio ganham **mureta + canteiro** (a praça do Esquinão
+  fica visível de longe)
+- O letreiro novo entra no template no lugar da placa de carvalho (saves
+  antigos mantêm a placa vanilla, que continua funcional)
+
+### Verificação
+- Game test novo (26 no total): multi-bloco monta/desmonta de uma vez, texto
+  de fábrica gravado, leitura interativa e persistência em save/load
+- 26/26 game tests verdes
+
+---
+
 ## v1.2.17 — O DISJUNTOR DA LÂMPADA UV (20/09/2026)
 
 Plantação indoor agora tem RISCO: alguém pode cortar a energia da sua lâmpada.

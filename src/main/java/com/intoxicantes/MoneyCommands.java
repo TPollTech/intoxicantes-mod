@@ -126,9 +126,21 @@ public final class MoneyCommands {
                                     return 0;
                                 }
                                 ServerLevel level = ctx.getSource().getServer().overworld();
+                                // v1.2.25: ergue a PELE persistida do save (classico/
+                                // sertao/serra) — mundos velhos (sem regiao gravada)
+                                // recebem o prédio branco original
+                                String regiao = MarketSystem.getRegiaoMercado();
+                                String sufixo = (regiao.isEmpty() || regiao.equals("classico"))
+                                        ? "" : "_" + regiao;
                                 var tpl = level.getStructureTemplateManager().get(
                                         net.minecraft.resources.Identifier.fromNamespaceAndPath(
-                                                IntoxicantesMod.MOD_ID, "mercado_gago"));
+                                                IntoxicantesMod.MOD_ID, "mercado_gago" + sufixo));
+                                if (tpl.isEmpty() && !sufixo.isEmpty()) {
+                                    // pele gravada sem template (rollback?): cai pro clássico
+                                    tpl = level.getStructureTemplateManager().get(
+                                            net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                                                    IntoxicantesMod.MOD_ID, "mercado_gago"));
+                                }
                                 if (tpl.isEmpty()) {
                                     player.sendSystemMessage(Component.translatable(
                                             "money.intoxicantes.market_template_ausente"));

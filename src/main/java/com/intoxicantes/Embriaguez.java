@@ -93,9 +93,11 @@ public final class Embriaguez {
     /** Nivel da action bar na última exibição: só re-envia quando muda. */
     private static final Map<UUID, Integer> BARRA_ENVIADA = new HashMap<>();
     /**
-     * v1.2.13: ticks restantes de RESSACA (duração configurável; 0 = limpo).
-     * Entra quando o nivel chega a ZERO vindo de um estado bêbado (>= limiar da
-     * fala). O "cabelo do cachorro" (qualquer dose durante a ressaca) remove.
+     * v1.2.13: SEGUNDOS restantes de RESSACA (duração configurável; 0 = limpo).
+     * v1.2.46: era TICKS com decremento por segundo — ressaca de 90s durava 30
+     * minutos kkkk. Entrada quando o nivel chega a ZERO vindo de um estado
+     * bêbado (>= limiar da fala). O "cabelo do cachorro" (qualquer dose durante
+     * a ressaca) remove; a CAFEINA agora também (cura da ressaca).
      */
     private static final Map<UUID, Integer> RESSACA = new HashMap<>();
     /**
@@ -136,7 +138,14 @@ public final class Embriaguez {
                 SOBRIEDADE.clear();
                 SOBRIEDADE.putAll(lido.sobriedade);
                 RESSACA.clear();
-                if (lido.ressaca != null) RESSACA.putAll(lido.ressaca);
+                if (lido.ressaca != null) {
+                    // v1.2.46 — MIGRAÇÃO: saves 1.2.13~1.2.45 gravavam TICKS.
+                    // Valor acima do teto do config (600s) = legado em ticks.
+                    for (Map.Entry<UUID, Integer> entrada : lido.ressaca.entrySet()) {
+                        RESSACA.put(entrada.getKey(), entrada.getValue() > 600
+                                ? entrada.getValue() / 20 : entrada.getValue());
+                    }
+                }
             }
         } catch (Exception e) {
             IntoxicantesMod.LOGGER.warn("[Intoxicantes] Erro ao carregar embriaguez: {}", e.getMessage());
@@ -263,8 +272,8 @@ public final class Embriaguez {
                 // v1.2.14: mensagens de estado vão pro CHAT (action bar de 2s
                 // não dá pra ler — report do beta tester)
                 player.sendSystemMessage(Component.translatable("effect.intoxicantes.ressaca.fim"));
-                BARRA_ENVIADA.remove(id); // proxima passada reenvia a barra "limpo"
             } else {
+                BARRA_ENVIADA.remove(id); // proxima passada reenvia a barra "limpo"
                 RESSACA.put(id, ressaca);
                 // o combo da ressaca: nausea + lentidao + fraqueza (sem particulas)
                 player.addEffect(new MobEffectInstance(MobEffects.NAUSEA, 200, 0, true, false));
@@ -398,13 +407,26 @@ public final class Embriaguez {
      * v1.2.12: A CURA DA BEBEDEIRA — o Extrato de Cafeína derruba 2 níveis na
      * hora (piso 0). O café não é mágico: nada de reset total de uma vez, e o
      * fregues continua bêbado o suficiente pra lembrar da vergonha.
+     * v1.2.46: na RESSACA o extrato encerra ela na hora (antes não fazia NADA
+     * — o nível já estava em 0 e o método saía cedo); e a cura em si NUNCA
+     * PROVOCA ressaca (antes, sair da bebedeira pelo café cobrava a dose de
+     * manhã kkkk — só a BEBIDA que zera marca o estado bêbado).
      */
     static void curar(ServerPlayer player, int niveis) {
         UUID id = player.getUUID();
         int atual = NIVEL.getOrDefault(id, 0);
         int novo = Math.max(0, atual - niveis);
+
+        // v1.2.46 — A CURA MATA A RESSACA: o café líquido do dia seguinte.
+        if (RESSACA.remove(id) != null) {
+            player.sendSystemMessage(Component.translatable(
+                    "effect.intoxicantes.ressaca.cura"));
+            BARRA_ENVIADA.remove(id);
+            save();
+        }
+
         if (novo == atual) {
-            return; // já estava limpo: sem spam
+            return; // já estava limpo: sem spam (a cura da ressaca já agiu acima)
         }
         NIVEL.put(id, novo);
         SOBRIEDADE.put(id, 0);
@@ -412,11 +434,11 @@ public final class Embriaguez {
         if (novo < ModConfig.get().embriaguezLimiarHic) {
             PROXIMO_HIC.remove(id); // saiu da zona do soluço
         }
-        // v1.2.13: a CURA TAMBEM deixa a conta — cafeina derrubou o fregues
-        // de um estado bêbado direto pro ZERO: a conta chegou. Sem "cabelo do
-        // cachorro" da propria cura, obviamente kkkk
-        if (novo == 0 && ESTEVE_BEBADO.remove(id)) {
-            iniciarRessaca(player);
+        // v1.2.46: saiu da bebedeira PELO CAFÉ — a memória de travessia vai
+        // embora junto, senão o decay até zero ainda cobrava a ressaca depois
+        // do cafezinho (só a BEBIDA que rebaixa a zero deixa a conta).
+        if (novo < ModConfig.get().embriaguezLimiarFonar) {
+            ESTEVE_BEBADO.remove(id);
         }
         player.sendSystemMessage(Component.translatable(
                 "effect.intoxicantes.cura", player.getName()));
@@ -534,7 +556,9 @@ public final class Embriaguez {
         int segundos = ModConfig.get().embriaguezRessacaSegundos;
         RESSACA.remove(player.getUUID()); // reinicia do zero
         if (segundos <= 0) return;
-        RESSACA.put(player.getUUID(), segundos * 20);
+        // v1.2.46: em SEGUNDOS (era *20 em ticks, decrementado 1 por segundo:
+        // a ressaca de 90s durava 30 minutos — o "não cura com o tempo" do playtest)
+        RESSACA.put(player.getUUID(), segundos);
         player.sendSystemMessage(Component.translatable("effect.intoxicantes.ressaca.inicio"));
         save();
     }
@@ -556,10 +580,10 @@ public final class Embriaguez {
         return RESSACA.getOrDefault(player.getUUID(), 0) > 0;
     }
 
-    /** Testes: injeção do timer de ressaca. */
-    static void setRessacaTeste(ServerPlayer player, int ticks) {
-        if (ticks <= 0) RESSACA.remove(player.getUUID());
-        else RESSACA.put(player.getUUID(), ticks);
+    /** Testes: injeção do timer de ressaca (v1.2.46: em SEGUNDOS). */
+    static void setRessacaTeste(ServerPlayer player, int segundos) {
+        if (segundos <= 0) RESSACA.remove(player.getUUID());
+        else RESSACA.put(player.getUUID(), segundos);
     }
 
     // ==================================================== CONSULTAS (testes/UI)

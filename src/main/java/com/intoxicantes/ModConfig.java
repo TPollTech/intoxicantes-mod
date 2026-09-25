@@ -27,6 +27,24 @@ public final class ModConfig {
     // contra alvos de vida maxima alta (withers, dragoes, golem...)
     public float escopetaCapDanoBoss = 6.0F;
 
+    // v1.2.32: nivel gun mod — mecanismo pump-action calibravel
+    public int escopetaCapacidadeTubo = 5;      // cartuchos no tubo interno
+    public int escopetaTicksPorShell = 5;       // ticks entre cada shell na recarga
+    public int escopetaTicksPump = 8;           // duracao do ciclo da bomba apos o tiro
+    public float escopetaKickPitch = 7.0F;      // graus de chute PRA CIMA na camera
+    public float escopetaKickYaw = 1.5F;        // graus de chute lateral (maximo)
+    public float escopetaAdsFov = 0.8F;         // multiplicador de FOV no ADS (0.8 = zoom de 20%)
+
+    // v1.2.33: o revólver .38 (três oitão) — mesmo padrão gun mod da 12
+    public int revolverCooldownTicks = 14;      // tempo entre tiros (cascavel rápido)
+    public float revolverDano = 7.0F;           // por bala (6 no tambor = até 42)
+    public int revolverAlcanceMaximo = 30;      // blocos de efetivo (mais preciso que a 12)
+    public int revolverTicksPorShell = 6;       // ticks entre cada shell na recarga
+    public int revolverTicksFecho = 5;          // duração do fecho do ferrolho (pós-tiro/recarga/giro)
+    public float revolverKickPitch = 5.0F;      // graus de chute PRA CIMA na camera
+    public float revolverKickYaw = 1.2F;        // graus de chute lateral (maximo)
+    public float revolverAdsFov = 0.85F;        // multiplicador de FOV no ADS (0.85 = zoom de 15%)
+
     // ==================================================== cotacao da rua
     public boolean cotacaoFlutuante = true;     // false = Traficante fixo
     public float cotacaoMinima = 0.7F;          // -30%
@@ -48,7 +66,31 @@ public final class ModConfig {
     public boolean embriaguezCambaleio = true;  // no nivel do soluco: empurrao aleatorio
     public int embriaguezMarkup = 10;           // % a mais por nivel acima do limiar de fala (teto 30)
 
+    // ==================================================== destilaria (v1.2.50)
+    // Escala de tempo de TODAS as etapas da cadeia (spec 4: tempos divertidos,
+    // não reais). 1.0 = padrão; 0.1 = teste rápido; 2.0 = paciencia de monge.
+    public float bebidaVelocidade = 1.0F;
+    // Garrafas por lote pronto do barril (spec 14: 1 lote → várias garrafas)
+    public int bebidaGarrafasPorLote = 4;
+
+    // ==================================================== guia (v1.2.51)
+    // Entrega automática do Guia do SNC Adventures na 1ª entrada do jogador.
+    // Servidor pode desligar; o livro continua obtível pelo CRAFT (livro + R$).
+    public boolean guiaNaPrimeiraEntrada = true;
+
     private static ModConfig instancia;
+    /** Escala extraimposta (game tests); null = usa o valor configurado. */
+    private Float velocidadeTeste;
+
+    /** Game tests: acelera TODOS os processos de bebida (x20 = 0.05). */
+    public static void setVelocidadeTeste(Float escala) {
+        get().velocidadeTeste = escala;
+    }
+
+    /** A velocidade efetiva: o gancho de teste vence o config. */
+    public float velocidadeEfetiva() {
+        return velocidadeTeste != null ? velocidadeTeste : bebidaVelocidade;
+    }
 
     public static ModConfig get() {
         if (instancia == null) {
@@ -62,10 +104,11 @@ public final class ModConfig {
     /** Chamado no boot do servidor: carrega ou cria config/intoxicantes.json. */
     public static void init(MinecraftServer server) {
         File mundo = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile();
-        // .../saves/<mundo> -> .../saves -> raiz da instancia (irma de mods/)
-        File raiz = mundo.getParentFile() != null && mundo.getParentFile().getParentFile() != null
-                ? mundo.getParentFile().getParentFile()
-                : mundo.getParentFile();
+        // v1.2.24: achar a RAIZ DA INSTANCIA de verdade (a pasta que contem
+        // mods/ e saves/). A conta antiga (subir 2 diretorios) quebrava quando
+        // o mundo tinha espaco no nome + a raiz ficava em outro nivel: o
+        // config nascia em saves/config/ e ninguem achava pra editar.
+        File raiz = raizDaInstancia(mundo);
         File arquivo = new File(raiz, "config" + File.separator + "intoxicantes.json");
         if (arquivo.exists()) {
             try {
@@ -89,6 +132,27 @@ public final class ModConfig {
         }
     }
 
+    /**
+     * Sobe de .../saves/<mundo> ate achar a pasta que contem mods/ E saves/
+     * (a raiz da instancia — irma de mods/). Fallback: a regra antiga de
+     * subir 2 niveis (dev/runner em que o layout e diferente).
+     */
+    private static File raizDaInstancia(File mundo) {
+        File atual = mundo.getParentFile(); // .../saves
+        while (atual != null) {
+            File pai = atual.getParentFile();
+            if (pai != null && new File(pai, "mods").isDirectory()
+                    && new File(pai, "saves").isDirectory()) {
+                return pai;
+            }
+            atual = pai;
+        }
+        // fallback (o comportamento antigo): sobe 2 diretorios do mundo
+        return mundo.getParentFile() != null && mundo.getParentFile().getParentFile() != null
+                ? mundo.getParentFile().getParentFile()
+                : mundo.getParentFile();
+    }
+
     /** Valores fora de faixa voltam pro padrao. */
     private void sanear() {
         escopetaCooldownTicks = (int) clamp(escopetaCooldownTicks, 5, 100);
@@ -96,6 +160,20 @@ public final class ModConfig {
         escopetaAlcanceMaximo = (int) clamp(escopetaAlcanceMaximo, 4, 64);
         escopetaBalins = (int) clamp(escopetaBalins, 1, 16);
         escopetaCapDanoBoss = (float) clamp(escopetaCapDanoBoss, 1.0, 50.0);
+        escopetaCapacidadeTubo = (int) clamp(escopetaCapacidadeTubo, 1, 8);
+        escopetaTicksPorShell = (int) clamp(escopetaTicksPorShell, 1, 20);
+        escopetaTicksPump = (int) clamp(escopetaTicksPump, 1, 40);
+        escopetaKickPitch = (float) clamp(escopetaKickPitch, 0.0, 30.0);
+        escopetaKickYaw = (float) clamp(escopetaKickYaw, 0.0, 15.0);
+        escopetaAdsFov = (float) clamp(escopetaAdsFov, 0.3, 1.0);
+        revolverCooldownTicks = (int) clamp(revolverCooldownTicks, 4, 60);
+        revolverDano = (float) clamp(revolverDano, 1.0, 30.0);
+        revolverAlcanceMaximo = (int) clamp(revolverAlcanceMaximo, 4, 64);
+        revolverTicksPorShell = (int) clamp(revolverTicksPorShell, 1, 20);
+        revolverTicksFecho = (int) clamp(revolverTicksFecho, 1, 20);
+        revolverKickPitch = (float) clamp(revolverKickPitch, 0.0, 30.0);
+        revolverKickYaw = (float) clamp(revolverKickYaw, 0.0, 15.0);
+        revolverAdsFov = (float) clamp(revolverAdsFov, 0.3, 1.0);
         cotacaoMinima = (float) clamp(cotacaoMinima, 0.3, 1.0);
         cotacaoMaxima = (float) clamp(cotacaoMaxima, 1.0, 3.0);
         uvChanceMaturacao = (float) clamp(uvChanceMaturacao, 0.05, 1.0);
@@ -110,6 +188,7 @@ public final class ModConfig {
         embriaguezLimiarHic = Math.max(embriaguezLimiarHic, embriaguezLimiarFonar + 1);
         embriaguezLimiarFonar = Math.min(embriaguezLimiarFonar, embriaguezCap);
         embriaguezLimiarHic = Math.min(embriaguezLimiarHic, embriaguezCap + 1);
+        guiaNaPrimeiraEntrada = Boolean.TRUE.equals(guiaNaPrimeiraEntrada);
     }
 
     private static double clamp(double v, double min, double max) {

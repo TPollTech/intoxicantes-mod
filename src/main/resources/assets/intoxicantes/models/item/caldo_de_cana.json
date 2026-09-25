@@ -1,0 +1,6 @@
+{
+ "parent": "minecraft:item/generated",
+ "textures": {
+  "layer0": "intoxicantes:item/caldo_de_cana"
+ }
+}

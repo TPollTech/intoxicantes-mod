@@ -43,6 +43,8 @@ public class EsquinaoCardapioScreen extends Screen {
     private static final int LINHA_ALT = 32;
 
     private EsquinaoNetworking.AbrirCardapioPayload p;
+    /** v1.2.44: 0=compra 1=venda 2=exclusivos (a lista de compra fica limpa). */
+    private int aba;
     private boolean vendendo;
     private boolean aguardando;
     private int x0;
@@ -74,6 +76,10 @@ public class EsquinaoCardapioScreen extends Screen {
     }
 
     private int totalLinhas() {
+        if (aba == 2) {
+            int n = p.produtos().size() - p.primeiroExclusivo();
+            return Math.max(0, n);
+        }
         return vendendo ? p.colheitas().size() : p.produtos().size();
     }
 
@@ -105,14 +111,17 @@ public class EsquinaoCardapioScreen extends Screen {
         this.scrollLinha = Mth.clamp(scrollLinha, 0, maxScroll());
     }
 
-    private int[] aba(boolean venda) {
-        return new int[]{x0 + (venda ? 158 : 6), y0 + 76, 146, 16};
+    private int[] aba(int indice) {
+        int larguraAba = 100;
+        return new int[]{x0 + 6 + indice * (larguraAba + 3), y0 + 76, larguraAba, 16};
     }
 
     private boolean disponivel(int index) {
         if (aguardando) return false;
-        return vendendo ? p.cotas().get(index) > 0 && p.disponiveis().get(index) >= p.colheitas().get(index).getCount()
-                : p.estoques().get(index) > 0 && p.saldo() >= p.precos().get(index);
+        int indice = aba == 2 ? p.primeiroExclusivo() + index : index;
+        boolean venda = aba == 1;
+        return venda ? p.cotas().get(indice) > 0 && p.disponiveis().get(indice) >= p.colheitas().get(indice).getCount()
+                : p.estoques().get(indice) > 0 && p.saldo() >= p.precos().get(indice);
     }
 
     // ==================================================== ENTRADA
@@ -122,12 +131,13 @@ public class EsquinaoCardapioScreen extends Screen {
         if (ev.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(ev, duplo);
         double mx = ev.x();
         double my = ev.y();
-        for (boolean venda : new boolean[]{false, true}) {
-            if (dentro((int) mx, (int) my, aba(venda))) {
-                if (vendendo != venda) {
-                    scrollAbas[vendendo ? 1 : 0] = scrollLinha;
-                    vendendo = venda;
-                    scrollLinha = Mth.clamp(scrollAbas[vendendo ? 1 : 0], 0, maxScroll());
+        for (int i = 0; i < 3; i++) {
+            if (dentro((int) mx, (int) my, aba(i))) {
+                if (aba != i) {
+                    scrollAbas[aba] = scrollLinha;
+                    aba = i;
+                    vendendo = (aba == 1);
+                    scrollLinha = Mth.clamp(scrollAbas[aba], 0, maxScroll());
                     arrastandoBarra = false;
                 }
                 return true;
@@ -147,8 +157,10 @@ public class EsquinaoCardapioScreen extends Screen {
             if (dentro((int) mx, (int) my, botaoDaLinha(v))) {
                 if (!disponivel(indice)) return true;
                 aguardando = true;
-                if (vendendo) ClientPlayNetworking.send(new EsquinaoNetworking.VenderPayload(indice));
-                else ClientPlayNetworking.send(new EsquinaoNetworking.ComprarPayload(indice));
+                // v1.2.44: na aba EXCLUSIVOS o clique volta pro indice LOCAL
+                int clique = aba == 2 ? indice - p.primeiroExclusivo() : indice;
+                if (vendendo) ClientPlayNetworking.send(new EsquinaoNetworking.VenderPayload(clique));
+                else ClientPlayNetworking.send(new EsquinaoNetworking.ComprarPayload(clique));
                 return true;
             }
         }
@@ -230,16 +242,22 @@ public class EsquinaoCardapioScreen extends Screen {
         desenharPainel(g, mx, my);
         desenharCabecalho(g);
         desenharFidelidade(g);
-        for (boolean venda : new boolean[]{false, true}) {
-            int[] tab = aba(venda);
-            g.fill(tab[0], tab[1], tab[0] + tab[2], tab[1] + tab[3], vendendo == venda ? VERDE_LETREIRO : PAPEL_SOMBRA);
-            g.centeredText(this.font, Component.translatable(venda ? "commerce.intoxicantes.sell" : "commerce.intoxicantes.buy"),
-                    tab[0] + tab[2] / 2, tab[1] + 4, vendendo == venda ? 0xFFFFFFFF : TINTA);
+        // v1.2.44: abas COMPRA / VENDA / EXCLUSIVOS (a seção ouro saiu da lista)
+        for (int i = 0; i < 3; i++) {
+            int[] tab = aba(i);
+            boolean ativa = this.aba == i;
+            g.fill(tab[0], tab[1], tab[0] + tab[2], tab[1] + tab[3], ativa ? VERDE_LETREIRO : PAPEL_SOMBRA);
+            textoCentrado(g, Component.translatable(NOME_ABA[i]),
+                    tab[0] + tab[2] / 2, tab[1] + 4, ativa ? 0xFFFFFFFF : TINTA);
         }
         desenharLista(g, mx, my);
         desenharRodape(g, mx, my);
         // SEM super: nenhum widget vanilla nesta tela; tudo aqui e desenho proprio
     }
+
+    private static final String[] NOME_ABA = {
+            "commerce.intoxicantes.buy", "commerce.intoxicantes.sell", "gui.intoxicantes.cardapio.exclusivos"
+    };
 
     /** Escurece o mundo atras do cardapio (como as telas do vanilla). */
     private void desenharDim(GuiGraphicsExtractor g) {
@@ -332,8 +350,10 @@ public class EsquinaoCardapioScreen extends Screen {
             if (indice >= totalLinhas()) {
                 break;
             }
+            // v1.2.44: na aba EXCLUSIVOS o índice VISÍVEL vira global (+ offset)
+            if (aba == 2) indice += p.primeiroExclusivo();
             int ry = listaY + v * LINHA_ALT;
-            boolean exclusivo = !vendendo && indice >= p.primeiroExclusivo();
+            boolean exclusivo = aba == 2 || (!vendendo && indice >= p.primeiroExclusivo());
             boolean hover = (int) mx >= x0 + 4 && (int) mx < x0 + LARGURA - 10
                     && (int) my >= ry && (int) my < ry + LINHA_ALT;
 
@@ -386,6 +406,9 @@ public class EsquinaoCardapioScreen extends Screen {
                 g.text(this.font, etiqueta, px, ry + 4, semSaldo ? VERMELHO : TINTA);
             }
 
+            // v1.2.44: o clique da aba exclusivos volta pro índice LOCAL (o
+            // ComprarPayload do servidor resolve de novo via o mesmo offset)
+            int indiceClique = aba == 2 ? indice - p.primeiroExclusivo() : indice;
             // botao R$
             int[] b = botaoDaLinha(v);
             boolean botaoHover = dentro(mx, my, b) && !semSaldo;
@@ -425,6 +448,12 @@ public class EsquinaoCardapioScreen extends Screen {
             g.fill(barraX(), py, barraX() + 4, py + altAlmofada, VERDE_LETREIRO);
             g.outline(barraX(), py, 4, altAlmofada, VERDE_BORDA);
         }
+    }
+
+
+    /** v1.2.44: texto CENTRADO sem sombra (a flag do centeredText nao existe). */
+    private void textoCentrado(GuiGraphicsExtractor g, Component texto, int cx, int y, int cor) {
+        g.text(this.font, texto, cx - this.font.width(texto) / 2, y, cor, false);
     }
 
     /** Rodape: saldo do fregues + botao FECHAR. */

@@ -3,6 +3,7 @@
 Uso: python tools/gen_opio.py  (a partir da raiz do projeto do mod)
 """
 from PIL import Image
+import os
 
 IMG = "src/main/resources/assets/intoxicantes/textures/item/opio.png"
 
@@ -41,6 +42,10 @@ def main():
     for (x, y) in [(8, 8), (9, 10), (7, 11), (10, 6)]:
         px[x, y] = ESCURO
 
+    # v1.2.35: arte MANUAL do usuário — nunca sobrescrever
+    if os.path.exists(IMG) and os.path.getsize(IMG) > 20000:
+        print(f"  SKIP (manual do usuário): {os.path.basename(IMG)}")
+        return
     img.save(IMG)
     print(f"Sprite salva: {IMG}")
 

@@ -3,6 +3,7 @@
 Uso: python tools/gen_real.py  (a partir da raiz do projeto do mod)
 """
 from PIL import Image, ImageDraw
+import os
 
 IMG = "src/main/resources/assets/intoxicantes/textures/item/real.png"
 
@@ -48,6 +49,10 @@ def main():
         d.point((x, 6), fill=VERDE_CLARO)
         d.point((x + (1 if x < 8 else -1), 9), fill=VERDE_ESCURO)
 
+    # v1.2.35: arte MANUAL do usuário — nunca sobrescrever
+    if os.path.exists(IMG) and os.path.getsize(IMG) > 20000:
+        print(f"  SKIP (manual do usuário): {os.path.basename(IMG)}")
+        return
     img.save(IMG)
     print(f"Sprite salva: {IMG}")
 

@@ -1,6 +1,8 @@
 package com.intoxicantes;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -655,6 +657,50 @@ public class CommerceGameTest {
     }
 
     /**
+     * v1.2.19 — Report do playtest: a expulsao teleportava com OFFSET FIXO
+     * (+5,+1,+5 do mercado, sem dimensao) — com a fundacao da v1.2.18 o fregues
+     * nascia DENTRO da pedra ("me trancou nas pedras wtf") ou caiu pro void.
+     * A casa nova tem que ter pe no chao, corpo em ar e ficar LONGE do Gago.
+     */
+    @GameTest
+    public void expelledCustomerLandsOnSolidGroundAwayFromTheGago(GameTestHelper helper) {
+        helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+        // run hermetico: sem posicao de mercado pre-salva, a expulsao (e qualquer
+        // gerenciador de plantao) NAO usa a estrutura de outro teste como ancora
+        BlockPos mercado = helper.absolutePos(new BlockPos(3, 1, 3));
+        MarketSystem.setMarketPos(null);
+        try {
+            MarketSystem.setMarketPos(mercado);
+            var gago = helper.spawn(IntoxicantesMod.GAGO, new BlockPos(1, 1, 1));
+            var vitima = vitimaSobrevivente(helper);
+            vitima.absSnapTo(mercado.getX() + 0.5, mercado.getY(), mercado.getZ() + 0.5);
+
+            // piso solido a 6 blocos (anel 6), corpo em ar — a casa que o teste prova
+            BlockPos casaEsperada = mercado.offset(6, 0, 0);
+            helper.setBlock(casaEsperada.below(), net.minecraft.world.level.block.Blocks.STONE);
+            gago.enraivecer(vitima);
+
+            helper.assertTrue(vitima.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD),
+                "Customer must stay in the overworld (was dropped to the bottom of the world)");
+            BlockPos pe = vitima.blockPosition();
+            var piso = helper.getLevel().getBlockState(pe.below());
+            helper.assertTrue(piso.isSolidRender(),
+                "Expelled customer must stand on solid ground (was locked inside the stones)");
+            helper.assertTrue(helper.getLevel().getBlockState(pe).isAir()
+                    && helper.getLevel().getBlockState(pe.above()).isAir(),
+                "Expelled customer must have air for body and head");
+            helper.assertTrue(gago.blockPosition().distSqr(vitima.blockPosition()) >= 25,
+                "House is chosen far from the Gago (he does not keep beating the customer)");
+            helper.assertTrue(vitima.getDeltaMovement().lengthSqr() == 0.0
+                    && vitima.fallDistance == 0.0F,
+                "Teleport does not inherit velocity or fall damage");
+        } finally {
+            MarketSystem.setMarketPos(null);
+        }
+        helper.succeed();
+    }
+
+    /**
      * v1.2.11 — O CASO DO WITHER, reproducao direta do report: o Gago atira
      * volleys de balins IGUAIS (3.0) num wither blindado (vida <= 50%). Com os
      * i-frames do 26.3 (damageCooldownTime + regra "so dano maior"), o 2o balim
@@ -936,6 +982,98 @@ public class CommerceGameTest {
     }
 
     /**
+     * v1.2.46 — A CAFEINA DE VERDADE: o extrato cura a bebedeira (2 níveis),
+     * a cura MATA a ressaca (o café do dia seguinte) e a cura em si NUNCA
+     * PROVOCA ressaca (só a BEBIDA que zera cobra a manhã seguinte).
+     */
+    @GameTest
+    public void caffeineExtractCuresDrunkAndHangover(GameTestHelper helper) {
+        ModConfig teste = new ModConfig();
+        teste.embriaguezRessacaSegundos = 60;
+        ModConfig atual = ModConfig.get();
+        configDeTeste(teste);
+        try {
+            var player = vitimaSobrevivente(helper);
+            Embriaguez.setNivelTeste(player, 0);
+
+            // bêbado (nível 3): o extrato derruba 2 níveis de uma vez
+            Embriaguez.setNivelTeste(player, 3);
+            Embriaguez.curar(player, 2);
+            helper.assertTrue(Embriaguez.nivel(player) == 1,
+                    "Caffeine extract drops two drunkenness levels");
+
+            // ressaca ATIVA + nível 0: o café MATA ela (antes não fazia nada)
+            Embriaguez.setNivelTeste(player, 3);
+            for (int i = 0; i < 3; i++) {
+                sobriedadeTeste(player, teste.embriaguezDecaySegundos - 1);
+                passaSegundoTeste(player); // decay até zero: ressaca entra
+            }
+            helper.assertTrue(Embriaguez.emRessaca(player),
+                    "Hangover is active before the cure");
+            Embriaguez.curar(player, 2);
+            helper.assertFalse(Embriaguez.emRessaca(player),
+                    "Caffeine extract KILLS the hangover");
+
+            // e a cura em si NÃO deixa ressaca: sair da bebedeira pelo café
+            // (de nível 2 direto a 0) não cobra a manhã seguinte
+            Embriaguez.setNivelTeste(player, 2);
+            Embriaguez.curar(player, 2);
+            helper.assertTrue(Embriaguez.nivel(player) == 0,
+                    "Cure from level 2 reaches zero");
+            sobriedadeTeste(player, teste.embriaguezDecaySegundos - 1);
+            passaSegundoTeste(player);
+            helper.assertFalse(Embriaguez.emRessaca(player),
+                    "The cure itself never triggers a hangover");
+        } finally {
+            configDeTeste(atual);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.46 — O TAPA ACORDA O VENDEDOR: soco no Gago de plantão tira ele
+     * da posição (não quica), solta a IA e saca a 12 (canal do vandalismo);
+     * e o soco do SURVIVOR remove vida de verdade.
+     */
+    @GameTest
+    public void gagoPunchWhileOnDutyWakesHimUp(GameTestHelper helper) {
+        var level = helper.getLevel();
+        // canAttack() recusa alvo Player em dificuldade PACIFICA (idem outro teste)
+        level.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+        GagoEntity gago = helper.spawn(IntoxicantesMod.GAGO, new BlockPos(1, 1, 1));
+        var vitima = vitimaSobrevivente(helper);
+        vitima.absSnapTo(gago.getX() + 2, gago.getY(), gago.getZ());
+        // o placeNewPlayer aplica o gamemode padrão do servidor nos abilities:
+        // sem isso o guard anti-criativo do hurtServer engole a raiva kkkk
+        vitima.getAbilities().invulnerable = false;
+        vitima.getAbilities().instabuild = false;
+
+        // de plantão (NoAI): o estado que fazia o hit "não fazer nada"
+        gago.setupPostoMercado(gago.blockPosition());
+        float vidaAntes = gago.getHealth();
+        var soco = level.damageSources().playerAttack(vitima);
+
+        // 1o tapa: DANO de verdade (não quica) + só a advertência do vandalismo
+        gago.hurtServer(level, soco, 3.0F);
+        helper.assertTrue(gago.getHealth() < vidaAntes,
+                "The punch actually damages the on-duty Gago");
+        helper.assertTrue(gago.isNoAi(), "First tap only warns (the advertencia)");
+        helper.assertTrue(gago.getTarget() == null,
+                "First tap does not enrage the shopkeeper");
+
+        // repetiu dentro da advertência: saca a 12 e vai atrás (IA solta)
+        gago.hurtServer(level, soco, 3.0F);
+        helper.assertTrue(gago.getTarget() == vitima,
+                "The repeated punch enrages the Gago");
+        helper.assertTrue(
+                gago.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND)
+                        .is(IntoxicantesMod.ESCOPETA),
+                "The enraged Gago draws the shotgun");
+        helper.assertTrue(!gago.isNoAi(), "The AI is released to chase");
+        helper.succeed();
+    }
+
+    /**
      * v1.2.13 — A VANTAGEM DO GAGO + O CAMBALEIO: fregues bêbado paga markup
      * por nível acima do limiar (teto 30%), a tela e a cobranca usam o mesmo
      * metodo; e no nivel do soluco o corpo empurra o fregues sem pedir licenca.
@@ -1082,4 +1220,1230 @@ public class CommerceGameTest {
                 "Powered lever: energy flows, lamp is ON");
         helper.succeed();
     }
+
+    /**
+     * v1.2.18 — O LETREIRO CUSTOM. v1.2.31: DISPLAY DE FACHADA — a faixa
+     * larga MONTADA NA FACHADA (sem torres/pólos e nada na frente da porta):
+     * painel central com o texto, extensões sem block entity, nome em UMA
+     * linha esticada pela largura e queda em cadeia da faixa inteira.
+     */
+    @GameTest
+    public void esquinaoSignboardIsARealCustomSign(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos painel = helper.absolutePos(new BlockPos(2, 3, 1));
+
+        // colocar o PAINEL: NADA nasce sozinho na calçada (o display é
+        // montado no prédio — a anatomia de torres virou legado)
+        level.setBlockAndUpdate(painel, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.PAINEL));
+        var be = level.getBlockEntity(painel);
+        helper.assertTrue(be instanceof PlacaEsquinaoBlockEntity,
+                "The panel part has the signboard block entity");
+        var placa = (PlacaEsquinaoBlockEntity) be;
+
+        // texto de fábrica: o nome da loja em UMA linha (o renderer estica)
+        var linhas = placa.getLinhas();
+        helper.assertTrue(linhas.size() == 1 && "MERCADO ESQUINÃO".equals(linhas.get(0)),
+                "The signboard holds the store name in a single LED line");
+        helper.assertTrue(placa.getLargura() == PlacaEsquinaoBlockEntity.LARGURA_FACHADA,
+                "Fresh signboard is the full-facade display");
+
+        // extensões da faixa: SEM block entity (o texto renderiza 1× só)
+        level.setBlockAndUpdate(painel.west(), IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.EXTENSAO));
+        level.setBlockAndUpdate(painel.east(), IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.EXTENSAO));
+        helper.assertTrue(level.getBlockEntity(painel.west()) == null
+                        && level.getBlockEntity(painel.east()) == null,
+                "Extensions have no block entity (text renders once)");
+
+        // persistência: save/load preserva as linhas e a largura
+        var saida = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, level.registryAccess());
+        placa.saveWithoutMetadata(saida);
+        var entrada = TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), saida.buildResult());
+        var reidratada = new PlacaEsquinaoBlockEntity(painel, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState());
+        reidratada.loadWithComponents(entrada);
+        helper.assertTrue(reidratada.getLinhas().size() == 1,
+                "Signboard text survives save/load");
+
+        // desmontagem: quebrar o PAINEL derruba a FAIXA INTEIRA (é um objeto)
+        level.destroyBlock(painel, false);
+        helper.assertTrue(level.getBlockState(painel.west()).isAir()
+                        && level.getBlockState(painel.east()).isAir(),
+                "Breaking one strip block fells the whole display row");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.31 — A MIGRAÇÃO: placa da anatomia VELHA (torres na calçada,
+     * versao<3) é reformada pelo zelador em 1 passada: as torres caem, a
+     * faixa nova nasce MONTADA NA FACHADA (1 acima, 1 pra dentro) com a
+     * largura do prédio, e o painel velho (na frente da porta) sai.
+     */
+    @GameTest
+    public void facadeMigrationRebuildsOldSignboardOnTheFacade(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos velhoPainel = helper.absolutePos(new BlockPos(7, 3, 2));
+
+        // A FACHADA do prédio: a migração mede a largura dela (isSolidRender
+        // em y=3, 1 pra dentro do painel velho) — sem a parede, a faixa
+        // "encosta" pra 5 e o teste mediria mentira.
+        for (int dx = -7; dx <= 7; dx++) {
+            level.setBlockAndUpdate(velhoPainel.offset(dx, 0, -1),
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+
+        // a placa velha exatamente como o mundo 1.2.27~30 guarda: painel +
+        // torres de 4 a ±2, NBT SEM a chave "versao" (o load lê 1)
+        level.setBlockAndUpdate(velhoPainel, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.PAINEL));
+        var be = (PlacaEsquinaoBlockEntity) level.getBlockEntity(velhoPainel);
+        var saida = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, level.registryAccess());
+        be.saveWithoutMetadata(saida);
+        var tag = saida.buildResult();
+        tag.remove("versao");
+        tag.putString("linha0", "MERCADO");
+        tag.putString("linha1", "ESQUINÃO");
+        be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag));
+        helper.assertTrue(be.getVersao() < PlacaEsquinaoBlockEntity.VERSAO_ANATOMIA,
+                "Signboard without the version key reads as old anatomy");
+        for (int dy = -1; dy <= 2; dy++) {
+            PlacaEsquinaoBlock.Nivel nivel = dy == -1 ? PlacaEsquinaoBlock.Nivel.RODAPE
+                    : dy == 2 ? PlacaEsquinaoBlock.Nivel.TOPO : PlacaEsquinaoBlock.Nivel.COLUNA;
+            level.setBlockAndUpdate(velhoPainel.west(2).offset(0, dy, 0),
+                    IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                            .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                            .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.ESQUERDA)
+                            .setValue(PlacaEsquinaoBlock.NIVEL, nivel));
+            level.setBlockAndUpdate(velhoPainel.east(2).offset(0, dy, 0),
+                    IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState()
+                            .setValue(PlacaEsquinaoBlock.FACING, net.minecraft.core.Direction.SOUTH)
+                            .setValue(PlacaEsquinaoBlock.PARTE, PlacaEsquinaoBlock.Parte.DIREITA)
+                            .setValue(PlacaEsquinaoBlock.NIVEL, nivel));
+        }
+
+        // 1 passada do zelador da autocura
+        PlacaEsquinaoBlockEntity.zeladorDaAutocura(level, velhoPainel, be);
+
+        // as torres caíram, a faixa atravessa a fachada, o painel velho saiu
+        BlockPos centro = velhoPainel.above()
+                .relative(net.minecraft.core.Direction.NORTH); // facing sul → 1 pra dentro
+        helper.assertTrue(level.getBlockState(velhoPainel).isAir()
+                        && level.getBlockState(velhoPainel.west(2)).isAir()
+                        && level.getBlockState(velhoPainel.east(2).above(2)).isAir(),
+                "Old towers and floating panel are gone");
+        for (int dx = -7; dx <= 7; dx++) {
+            helper.assertTrue(level.getBlockState(centro.west(dx))
+                            .getBlock() == IntoxicantesMod.PLACA_ESQUINAO,
+                    "The facade strip spans the whole building");
+        }
+        var novoBe = level.getBlockEntity(centro);
+        helper.assertTrue(novoBe instanceof PlacaEsquinaoBlockEntity
+                        && ((PlacaEsquinaoBlockEntity) novoBe).getLargura()
+                                == PlacaEsquinaoBlockEntity.LARGURA_FACHADA
+                        && ((PlacaEsquinaoBlockEntity) novoBe).getVersao()
+                                == PlacaEsquinaoBlockEntity.VERSAO_ANATOMIA
+                        && "MERCADO".equals(((PlacaEsquinaoBlockEntity) novoBe).getLinhas().get(0)),
+                "The migrated display keeps the text and the new anatomy");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.19 — O LETREIRO VIVO + O PORTÃO DO GAGO: estado ABERTO/FECHADO na
+     * placa (persistente), portão fechado recusando cliente e poste de luz
+     * seguindo o relógio (19h~5h aceso).
+     */
+    @GameTest
+    public void esquinaoSignboardOpenClosedAndStreetlight(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos painel = helper.absolutePos(new BlockPos(2, 2, 1));
+
+        // --- a placa do letreiro: link + estado aberto/fechado persistem
+        var tag = PlacaEsquinaoBlockEntity.nbtDoTemplate();
+        var entrada = TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag);
+        var placa = new PlacaEsquinaoBlockEntity(painel, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState());
+        placa.loadWithComponents(entrada);
+        helper.assertTrue(placa.isLinkMercado(), "Template signboard is linked to the market");
+        helper.assertTrue(placa.isAberto(), "Signboard starts open by default");
+        placa.abertoChanged(false);
+        var saida = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, level.registryAccess());
+        placa.saveWithoutMetadata(saida);
+        var reidratada = new PlacaEsquinaoBlockEntity(painel, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState());
+        reidratada.loadWithComponents(TagValueInput.create(
+                ProblemReporter.DISCARDING, level.registryAccess(), saida.buildResult()));
+        helper.assertTrue(reidratada.isLinkMercado() && !reidratada.isAberto(),
+                "Open/closed state survives save/load");
+
+        // --- v1.2.44 MERCADO 24H: o portão saiu do jogo — o Gago atende
+        // SEMPRE, mesmo com DATA_ABERTO=false de save antigo (a flag de
+        // compatibilidade não recusa mais cliente)
+        var vendedor = IntoxicantesMod.GAGO.create(level, net.minecraft.world.entity.EntitySpawnReason.EVENT);
+        vendedor.absSnapTo(painel.getX() + 0.5, painel.getY(), painel.getZ() + 0.5, 0F, 0F);
+        level.addFreshEntity(vendedor);
+        vendedor.setMercadoAberto(false);
+        helper.assertFalse(vendedor.isMercadoAberto(), "Gate flag still syncs for old saves");
+        var fregues = helper.makeMockServerPlayerInLevel();
+        fregues.teleportTo(painel.getX() + 0.5, painel.getY(), painel.getZ() + 1.5);
+        var resposta = vendedor.mobInteract(fregues, net.minecraft.world.InteractionHand.MAIN_HAND);
+        helper.assertTrue(resposta == net.minecraft.world.InteractionResult.SUCCESS_SERVER,
+                "24h market serves the customer even with gate flag false");
+
+        // --- o POSTE DE LUZ: LIT segue o horário (meio-dia apaga, madrugada acende)
+        // v1.2.24: a BASE semeada ergue o poste INTEIRO (corpo + topo)
+        BlockPos poste = helper.absolutePos(new BlockPos(4, 1, 3));
+        level.setBlockAndUpdate(poste, IntoxicantesMod.POSTE_LUZ.defaultBlockState());
+        var posteBloco = (PosteLuzBlock) level.getBlockState(poste).getBlock();
+        PosteLuzBlock.selfHealAPartirDaBase(level, poste);
+        helper.assertTrue(
+                level.getBlockState(poste.above()).getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.CORPO
+                        && level.getBlockState(poste.above(2)).getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.TOPO,
+                "Streetlight base rises body and lamp head above");
+        var clockHolder = level.registryAccess()
+                .lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_CLOCK)
+                .getOrThrow(net.minecraft.world.clock.WorldClocks.OVERWORLD);
+        java.util.function.LongConsumer vaiPraHora = hora ->
+                level.clockManager().setTotalTicks(clockHolder,
+                        Math.floorDiv(level.getOverworldClockTime(), 24000L) * 24000L + hora);
+
+        // meio-dia (6000): o sol mata o poste — checagem DIRETA via tick (o
+        // teste é do mesmo package, o método protegido é alcançável)
+        vaiPraHora.accept(6000L);
+        posteBloco.tick(level.getBlockState(poste), level, poste, level.getRandom());
+        helper.assertFalse(level.getBlockState(poste).getValue(PosteLuzBlock.LIT),
+                "Streetlight is OFF at noon");        // madrugada (00:00 = 18000): o poste acende
+        vaiPraHora.accept(18000L);
+        posteBloco.tick(level.getBlockState(poste), level, poste, level.getRandom());
+        helper.assertTrue(level.getBlockState(poste).getValue(PosteLuzBlock.LIT),
+                "Streetlight is ON at midnight");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.20 — O ZELADOR DA PROPRIEDADE: árvore invadindo a loja (folha,
+     * tronco e muda do bioma) é expulsa na varredura; a loja em si fica ilesa.
+     */
+    @GameTest
+    public void marketGroundskeeperRemovesInvasiveTree(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos centro = helper.absolutePos(new BlockPos(2, 1, 2));
+        // planta a invasão dentro da propriedade: folha, tronco e muda
+        level.setBlockAndUpdate(centro,
+                net.minecraft.world.level.block.Blocks.OAK_LEAVES.defaultBlockState());
+        level.setBlockAndUpdate(centro.east(),
+                net.minecraft.world.level.block.Blocks.OAK_LOG.defaultBlockState());
+        level.setBlockAndUpdate(centro.west(),
+                net.minecraft.world.level.block.Blocks.OAK_SAPLING.defaultBlockState());
+
+        // e a LOJA da propriedade (lâmpada UV da plantação indoor) deve ficar
+        BlockPos lampada = centro.above();
+        level.setBlockAndUpdate(lampada, IntoxicantesMod.LAMPADA_UV.defaultBlockState());
+
+        // uma passada do zelador (mesmo package: chamada direta, determinística)
+        MarketSystem.zeladorDaPropriedade(level, centro);
+
+        helper.assertTrue(!level.getBlockState(centro).is(
+                net.minecraft.world.level.block.Blocks.OAK_LEAVES), "Leaves evicted");
+        helper.assertTrue(!level.getBlockState(centro.east()).is(
+                net.minecraft.world.level.block.Blocks.OAK_LOG), "Log evicted");
+        helper.assertTrue(!level.getBlockState(centro.west()).is(
+                net.minecraft.world.level.block.Blocks.OAK_SAPLING), "Sapling evicted");
+        helper.assertTrue(level.getBlockState(lampada).is(IntoxicantesMod.LAMPADA_UV),
+                "The shop itself is untouched");
+
+        helper.succeed();
+    }
+
+    /** Concatena dois arrays de BlockPos (helper do teste da placa). */
+    private static BlockPos[] concat(BlockPos[] a, BlockPos[] b) {
+        BlockPos[] out = new BlockPos[a.length + b.length];
+        System.arraycopy(a, 0, out, 0, a.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
+        return out;
+    }
+
+    /**
+     * v1.2.24 — O ZELADOR SELETIVO: a placa VELHA (sem a marca "nova" no NBT,
+     * anatomia 1.2.18–1.2.23) cai na passada do zelador; a placa NOVA fica
+     * intacta (antes o concerto derrubava TUDO, inclusive placa recém-colocada).
+     */
+    @GameTest
+    public void groundskeeperDismantlesOnlyLegacySignboards(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos centro = helper.absolutePos(new BlockPos(2, 1, 2));
+
+        // ---- a placa VELHA: coloca (nasce nova=true), reescreve o NBT SEM a
+        // marca (exatamente o que o load de um save 1.2.23 produz) → velha
+        BlockPos velha = centro.north();
+        level.setBlockAndUpdate(velha, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState());
+        var beVelha = (PlacaEsquinaoBlockEntity) level.getBlockEntity(velha);
+        var saida = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, level.registryAccess());
+        beVelha.saveWithoutMetadata(saida);
+        var tag = saida.buildResult();
+        tag.remove("nova"); // o save do mundo velho não tem a chave
+        var entrada = TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag);
+        beVelha.loadWithComponents(entrada);
+        beVelha.setChanged();
+        helper.assertFalse(beVelha.isNova(), "Signboard without the mark reads as legacy");
+
+        // ---- a placa NOVA: recém-colocada (BE de fábrica = nova=true)
+        BlockPos nova = centro.south();
+        level.setBlockAndUpdate(nova, IntoxicantesMod.PLACA_ESQUINAO.defaultBlockState());
+        var beNova = (PlacaEsquinaoBlockEntity) level.getBlockEntity(nova);
+        helper.assertTrue(beNova != null && beNova.isNova(), "Fresh signboard reads as new");
+
+        // uma passada do zelador: a velha some, a nova fica
+        MarketSystem.zeladorDaPropriedade(level, centro);
+
+        helper.assertTrue(level.getBlockState(velha).isAir(),
+                "Legacy signboard is dismantled by the groundskeeper");
+        helper.assertTrue(level.getBlockState(nova).is(IntoxicantesMod.PLACA_ESQUINAO),
+                "New signboard survives the groundskeeper");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.24 — A DECORAÇÃO DA ESQUINA: a faixa de pedestre é PLANA (anda por
+     * cima sem degrau) e morre se o asfalto debaixo sumir; o hidrante fica de
+     * pé, responde ao uso (jato d'água) e não se move.
+     */
+    @GameTest
+    public void crosswalkLiesFlatAndHydrantSplashes(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos chao = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos posFaixa = chao.above();
+        BlockPos posHidrante = chao.east().above();
+
+        // ---- faixa de pedestre sobre o asfalto
+        level.setBlockAndUpdate(chao, IntoxicantesMod.ASFALTO.defaultBlockState());
+        level.setBlockAndUpdate(posFaixa, IntoxicantesMod.FAIXA_PEDESTRE.defaultBlockState());
+        var shape = level.getBlockState(posFaixa).getShape(level, posFaixa);
+        helper.assertTrue(shape.max(net.minecraft.core.Direction.Axis.Y) <= 0.0625,
+                "Crosswalk paint lies flat (1px, walkable without a step)");
+
+        // o chão cedeu? a tinta vai junto (nada de faixa flutuante)
+        level.destroyBlock(chao, false);
+        helper.assertTrue(level.getBlockState(posFaixa).isAir(),
+                "Crosswalk paint vanishes when the asphalt below is gone");
+
+        // ---- hidrante: coloca, usa (jato d'água) e segue inteiro
+        level.setBlockAndUpdate(posHidrante, IntoxicantesMod.HIDRANTE.defaultBlockState());
+        var shapeH = level.getBlockState(posHidrante).getShape(level, posHidrante);
+        helper.assertTrue(shapeH.max(net.minecraft.core.Direction.Axis.Y) >= 0.85
+                        && shapeH.max(net.minecraft.core.Direction.Axis.Y) < 1.0,
+                "Hydrant is TALL street furniture now (15px), not a nanico squat");
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        var hit = new net.minecraft.world.phys.BlockHitResult(
+                net.minecraft.world.phys.Vec3.atCenterOf(posHidrante),
+                net.minecraft.core.Direction.UP, posHidrante, false);
+        level.getBlockState(posHidrante).useWithoutItem(level, player, hit);
+        helper.assertTrue(level.getBlockState(posHidrante).is(IntoxicantesMod.HIDRANTE),
+                "Hydrant survives its own water jet");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.24 — A FONTE DE LED NUNCA MAIS EXPLODE (o crash do render frame:
+     * glifo desafasado pedia índice 46 num array de 46) e o texto SEMPRE cabe
+     * na faixa de LED entre as torres. Varredura completa: TODO caractere
+     * acentuado do português (ex. o Ã de ESQUINÃO) devolve glifo de exatamente
+     * 7 linhas; o cálculo de escala nunca estoura a caixa alvo.
+     */
+    @GameTest
+    public void ledFontGlyphsNeverExplodeAndFitTheBand(GameTestHelper helper) {
+        // ---- 1. TODO caractere legível devolve glifo 7×5, sem OOB
+        String abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&.,!?-:$/'*+%°"
+                + "ÁÀÂÃÄáàâãäÉÈÊËéèêë\u00CD\u00CC\u00CE\u00CFíìîï"
+                + "ÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ ";
+        for (char c : abc.toCharArray()) {
+            byte[] g = LedFont.glifo(c);
+            helper.assertTrue(g.length == LedFont.ALTURA_GLYPH,
+                    "Glyph of '" + c + "' has exactly 7 rows (never out of bounds)");
+            for (byte row : g) {
+                helper.assertTrue((row & ~0x1F) == 0,
+                        "Glyph of '" + c + "' fits the 5px width");
+            }
+        }
+        // caractere desconhecido: espaço em branco, nunca crash
+        helper.assertTrue(LedFont.glifo('\u0000').length == LedFont.ALTURA_GLYPH,
+                "Unknown chars fall back to a blank glyph");
+
+        // ---- 2. o CICLO do letreiro (v1.2.25): nome e status alternam SOZINHOS
+        // na faixa de 48×16px — e cada fase tem que entrar GRANDE (letra de
+        // posto), nunca espremida. Guarda anti-tracinhos: escala ≥ 0.9.
+        List<String> faseNome = List.of(PlacaEsquinaoBlockEntity.LINHAS_PADRAO);
+        List<String> faseStatus = List.of(PlacaEsquinaoBlockEntity.STATUS_ABERTO,
+                PlacaEsquinaoBlockEntity.STATUS_FECHADO);
+        // v1.2.31: a caixa agora é o DISPLAY DE FACHADA (largura do prédio ×
+        // 16px de altura) — nome e status entram GRANDES (letra de display).
+        int faixaLarguraPx = PlacaEsquinaoBlockEntity.LARGURA_FACHADA * 16;
+        for (List<String> fase : List.of(faseNome, faseStatus)) {
+            float escala = LedFont.escalaPara(fase, faixaLarguraPx, 16);
+            helper.assertTrue(escala > 0F && escala <= 1.0F,
+                    "Cycle content scales to fit the facade LED band");
+            helper.assertTrue(escala >= 0.9F,
+                    "LED text is NEVER tiny (no crumb-sized glyphs on the signboard)");
+            // larguraMax JÁ conta glifo+gap; com a escala, não passa da faixa
+            int larguraFinal = (int) Math.ceil(LedFont.larguraMax(fase) * escala);
+            helper.assertTrue(larguraFinal <= faixaLarguraPx,
+                    "Scaled content never overflows the LED band width");
+        }
+
+        // ---- 3. o texto de fábrica do template (o MESMO que o mundo real usa):
+        // 1 linha esticada + a anatomia do display de fachada no NBT
+        var tag = PlacaEsquinaoBlockEntity.nbtDoTemplate();
+        helper.assertTrue(tag.contains("linha0") && !tag.contains("linha1")
+                        && tag.getIntOr("largura", 0) == PlacaEsquinaoBlockEntity.LARGURA_FACHADA
+                        && tag.getIntOr("versao", 0) == PlacaEsquinaoBlockEntity.VERSAO_ANATOMIA,
+                "Template NBT carries the stretched line and the facade anatomy");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.25 — A REFORMA DO PÁTIO: mundos 1.2.23/1.2.24 não têm faixa nem
+     * hidrantes. Uma passada do zelador pinta a faixa e planta os hidrantes
+     * NOS offsets do template — SÓ sobre o asfalto do mercado (nada nasce em
+     * ar, chão de jogador ou terreno estranho). A segunda passada é idempotente.
+     */
+    @GameTest
+    public void groundskeeperRetrofitsCrosswalkAndHydrantsOnAsphaltOnly(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos centro = helper.absolutePos(new BlockPos(2, 1, 2));
+
+        // o pátio velho (v1.2.29): asfalto no chão, NADA em cima — mais os
+        // DOIS hidrantes velhos nas vagas (1.2.24~28), que o zelador recolhe
+        BlockPos[] faixa = new BlockPos[5];
+        for (int i = 0; i < 5; i++) faixa[i] = centro.offset(-2 + i, 1, 6);
+        BlockPos[] hidrantes = { centro.offset(-3, 1, 7) }; // novo: x4,z12 do template
+        BlockPos[] velhos = { centro.offset(-5, 1, 9), centro.offset(5, 1, 9) };
+        for (BlockPos p : concat(faixa, concat(hidrantes, velhos))) {
+            level.setBlockAndUpdate(p.below(), IntoxicantesMod.ASFALTO.defaultBlockState());
+            level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        }
+        // hidrante velho plantado na vaga (o "faz sentido nenhum" do playtest)
+        level.setBlockAndUpdate(velhos[0], IntoxicantesMod.HIDRANTE.defaultBlockState());
+        BlockPos vizinho = centro.east(3);
+        level.setBlockAndUpdate(vizinho, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        level.setBlockAndUpdate(vizinho.below(),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()); // fora do pátio
+
+        MarketSystem.zeladorDaPropriedade(level, centro);
+
+        for (BlockPos p : faixa) {
+            helper.assertTrue(level.getBlockState(p).is(IntoxicantesMod.FAIXA_PEDESTRE),
+                    "Groundskeeper paints the crosswalk on the old lot");
+        }
+        for (BlockPos p : hidrantes) {
+            helper.assertTrue(level.getBlockState(p).is(IntoxicantesMod.HIDRANTE),
+                    "Groundskeeper plants the hydrant on the sidewalk by the crosswalk");
+        }
+        // os velhos das vagas são RECOLHIDOS (sem drop)
+        for (BlockPos p : velhos) {
+            helper.assertTrue(level.getBlockState(p).isAir(),
+                    "Old in-slot hydrants are collected by the groundskeeper");
+        }
+        // fora do pátio (pedra do jogador): NADA nasce
+        helper.assertTrue(level.getBlockState(vizinho).isAir(),
+                "Retrofit never spawns on foreign ground");
+
+        // segunda passada: idempotente (não empilha, não quebra, não re-planta)
+        MarketSystem.zeladorDaPropriedade(level, centro);
+        helper.assertTrue(level.getBlockState(hidrantes[0]).is(IntoxicantesMod.HIDRANTE),
+                "Second pass is idempotent");
+        helper.assertTrue(level.getBlockState(velhos[0]).isAir(),
+                "Collected hydrants stay collected");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.25 — A REGIÃO PERSISTIDA: setMarketPos zera a região (mundo velho
+     * = clássico), o descobridor grava a chave real (setRegiaoMercado) e o
+     * save/load leva a pele no NBT — o /gagomarket rebuild ergue o prédio
+     * da MESMA cor que o mundo nasceu.
+     */
+    @GameTest
+    public void marketRegionPersistsThroughSaveRoundTrip(GameTestHelper helper) {
+        var level = helper.getLevel();
+
+        // mundo velho: região vazia lê como clássico
+        MarketSystem.setMarketPos(new BlockPos(0, -64, 0));
+        helper.assertTrue(MarketSystem.getRegiaoMercado().isEmpty(),
+                "Legacy saves read as the classic building");
+
+        // descoberta: a chave da estrutura vira a região
+        MarketSystem.setRegiaoMercado("sertao");
+        helper.assertTrue("sertao".equals(MarketSystem.getRegiaoMercado()),
+                "Discovered structure key becomes the persisted region");
+
+        // round-trip REAL: save() no diretorio temporario, zera tudo, load()
+        // volta — a pele sobrevive ao restart do servidor (mesmo arquivo do
+        // contrato de produção: intoxicantes_market.dat)
+        java.nio.file.Path dirTemp = null;
+        try {
+            dirTemp = java.nio.file.Files.createTempDirectory("intoxicantes_test");
+            MarketSystem.save(dirTemp.toFile());
+            MarketSystem.setRegiaoMercado("");
+            MarketSystem.setMarketPos(null);
+            MarketSystem.load(dirTemp.toFile());
+            helper.assertTrue("sertao".equals(MarketSystem.getRegiaoMercado()),
+                    "Region survives the save/load round trip");
+            helper.assertTrue(MarketSystem.getMarketPos() != null
+                            && MarketSystem.getMarketPos().getY() == -64,
+                    "Market position also survives the round trip");
+        } catch (java.io.IOException e) {
+            helper.fail("Round trip I/O failed: " + e.getMessage());
+        } finally {
+            // teste hermético: limpa o estado global e o arquivo temporario
+            MarketSystem.setMarketPos(null);
+            MarketSystem.setRegiaoMercado("");
+            if (dirTemp != null) {
+                try (var walk = java.nio.file.Files.walk(dirTemp)) {
+                    walk.sorted(java.util.Comparator.reverseOrder())
+                            .forEach(p -> p.toFile().delete());
+                } catch (java.io.IOException ignorado) {
+                    // limpeza best-effort: o teste já decidiu o resultado
+                }
+            }
+        }
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.24 — O POSTE DE 3 BLOCOS: qualquer parte ergue o poste INTEIRO
+     * (base→corpo+topo; topo→corpo+base), nunca apaga bloco alheio no caminho
+     * e quebrar uma parte derruba as três.
+     */
+    @GameTest
+    public void streetlightIsThreeBlocksBuiltFromAnyEnd(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos chao = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos posBase = chao.above();
+        BlockPos posCorpo = posBase.above();
+        BlockPos posTopo = posCorpo.above();
+
+        // um "invasor" no caminho do topo: a montagem NUNCA pode apagar ele
+        level.setBlockAndUpdate(posTopo,
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+
+        // colocando a BASE, corpo e topo sobem (o topo NÃO nasce sobre pedra)
+        level.setBlockAndUpdate(posBase, IntoxicantesMod.POSTE_LUZ.defaultBlockState());
+        PosteLuzBlock.selfHealAPartirDaBase(level, posBase);
+        helper.assertTrue(
+                level.getBlockState(posCorpo).getBlock() instanceof PosteLuzBlock
+                        && level.getBlockState(posCorpo).getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.CORPO,
+                "Placing the base raises the pole body");
+        helper.assertTrue(level.getBlockState(posTopo).is(
+                net.minecraft.world.level.block.Blocks.STONE),
+                "Mounting never overwrites a foreign block");
+
+        // colocando o TOPO em outro lugar, corpo e base sobem POR BAIXO
+        BlockPos outroTopo = chao.east(3).above(2);
+        level.setBlockAndUpdate(outroTopo, IntoxicantesMod.POSTE_LUZ.defaultBlockState()
+                .setValue(PosteLuzBlock.PARTE, PosteLuzBlock.Parte.TOPO));
+        PosteLuzBlock.selfHealAPartirDoTopo(level, outroTopo);
+        helper.assertTrue(
+                level.getBlockState(outroTopo.below()).getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.CORPO
+                        && level.getBlockState(outroTopo.below(2)).getValue(PosteLuzBlock.PARTE) == PosteLuzBlock.Parte.BASE,
+                "Seeding the lamp head builds the pole downward");
+
+        // quebrar UMA parte derruba o poste inteiro (aqui: base+corpo; o topo
+        // era a pedra invasora e SEGUE lá — derrubar poste não derruba vizinho)
+        level.destroyBlock(posCorpo, false);
+        helper.assertTrue(level.getBlockState(posBase).isAir(),
+                "Breaking the body fells the base");
+        helper.assertTrue(level.getBlockState(posTopo).is(
+                net.minecraft.world.level.block.Blocks.STONE),
+                "The foreign block above survives the pole felling");
+
+        // no poste completo (montado do topo), quebrar a BASE derruba corpo+topo
+        level.destroyBlock(outroTopo.below(2), false);
+        helper.assertTrue(level.getBlockState(outroTopo.below()).isAir()
+                        && level.getBlockState(outroTopo).isAir(),
+                "Breaking the base fells body and lamp head");
+
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.30 — O GAGO NÃO SUFFOCA, NÃO SAI E NÃO VIRA LOOT NO CHÃO: o ciclo
+     * que o playtest flagrou ("às vezes o gago simplesmente some, e fica
+     * dropando um monte de item do mod dentro do mercado") tinha 3 elos, e
+     * o teste mata os 3: (1) gerenciarGago com o posto OCUPADO limpa o bloco
+     * em vez de teleportar o Gago pra dentro dele; (2) dano de parede
+     * (IN_WALL) não passa em serviço; (3) morte no posto não dropa loot.
+     */
+    @GameTest
+    public void gagoNeverSuffocatesOrLootsAtPost(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos centro = helper.absolutePos(new BlockPos(2, 1, 2));
+        MarketSystem.setMarketPos(centro);
+
+        // ---- ELO 1: postos ocupados (a reforma da 1.2.26 plantou bloco no
+        // balcão; o plantio velho podia bloquear a porta também) — o
+        // gerenciador LIMPA o posto do plantão vigente e o Gago nasce de pé.
+        // Os DOIS candidatos ficam bloqueados: o destino depende do relógio.
+        BlockPos posto = MarketSystem.getPosBalcao(centro);
+        BlockPos porta = MarketSystem.getPosPorta(centro);
+        for (BlockPos p : new BlockPos[]{posto, posto.above(), porta, porta.above()}) {
+            level.setBlockAndUpdate(p,
+                    net.minecraft.world.level.block.Blocks.QUARTZ_BLOCK.defaultBlockState());
+        }
+
+        MarketSystem.gerenciarGago(level, centro); // package-private: chamada direta
+
+        // a LIMPEZA do posto derruba os blocos plantados pelo próprio teste
+        // (quartzo) como item — isso é a REFORMA (arranjo novo da 1.2.36),
+        // não loot de mercado: o chão é limpo antes dos elos 2/3 pra
+        // asserção de morte medir só o loot do Gago.
+        for (var item : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(centro).inflate(24))) {
+            item.discard();
+        }
+
+        BlockPos alvo = MarketSystem.estaNaPorta(level) ? porta : posto;
+        helper.assertTrue(level.getBlockState(alvo).isAir()
+                        && level.getBlockState(alvo.above()).isAir(),
+                "Occupied post is cleared before the Gago takes it");
+        var gagos = level.getEntitiesOfClass(GagoEntity.class,
+                new net.minecraft.world.phys.AABB(centro).inflate(48));
+        helper.assertTrue(!gagos.isEmpty(), "A Gago exists after management");
+        GagoEntity gago = gagos.get(0);
+
+        // ---- ELO 2: sufocamento NÃO passa em serviço (mesmo com o Gago
+        // forçado pra dentro de um bloco, o IN_WALL não o fere)
+        gago.setupPostoMercado(alvo); // emPostoMercado = true
+        float vidaAntes = gago.getHealth();
+        var fonte = gago.damageSources().inWall();
+        gago.hurtServer(level, fonte, 5.0F);
+        helper.assertTrue(gago.isAlive() && gago.getHealth() == vidaAntes,
+                "In-wall damage is ignored while on duty");
+
+        // ---- ELO 3: morte no posto NÃO vira loot (sem cachaça/cerveja/R$
+        ///cartucho esparzindo no mercado — defesa em profundidade)
+        gago.hurtServer(level, gago.damageSources().genericKill(),
+                Float.MAX_VALUE);
+        // (genericKill bypassa invulnerabilidades; emPostoMercado derrubou a
+        // IA no hurtServer — o drop guarda pela POSIÇÃO do posto)
+        var drops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                new net.minecraft.world.phys.AABB(alvo).inflate(3));
+        helper.assertTrue(drops.isEmpty(),
+                "Dying at the post drops no market loot");
+
+        MarketSystem.setMarketPos(null); // hermeticidade: não vaza pro resto da suíte
+        helper.succeed();
+    }
+
+    // ==================================================== v1.2.32: A 12 EM NIVEL GUN MOD
+
+    @GameTest
+    public void escopetaMechanismReloadPumpAndDryFire(GameTestHelper helper) {
+        ModConfig atual = ModConfig.get();
+        ModConfig teste = new ModConfig();
+        teste.escopetaCooldownTicks = 2;   // quase zero: o ciclo roda rapido
+        teste.escopetaTicksPorShell = 2;   // 1 shell a cada 2 ticks
+        teste.escopetaTicksPump = 3;       // pump curto pro teste
+        teste.escopetaCapacidadeTubo = 3;
+        teste.escopetaBalins = 1;
+        teste.escopetaDanoPorBalim = 0.5F;
+        teste.escopetaAlcanceMaximo = 12;
+        configDeTeste(teste);
+        try {
+            helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+            var atirador = vitimaSobrevivente(helper);
+            // placeNewPlayer nasce com abilities de criativo: o instabuild faria
+            // o use() ver "reserva infinita" e iniciar recarga no click seco
+            atirador.getAbilities().instabuild = false;
+            atirador.getAbilities().invulnerable = false;
+            BlockPos p1 = helper.absolutePos(new BlockPos(1, 1, 1));
+            atirador.absSnapTo(p1.getX(), p1.getY(), p1.getZ());
+            atirador.setYRot(0.0F); // olhando pro sul (+Z), onde o alvo vai nascer
+            atirador.getInventory().clearContent(); // entrega do guia na 1a entrada nao pode ocupar a mao
+            atirador.getInventory().setSelectedSlot(0);
+            atirador.getInventory().add(new ItemStack(IntoxicantesMod.ESCOPETA));
+            ItemStack arma = atirador.getMainHandItem();
+            helper.assertTrue(arma.is(IntoxicantesMod.ESCOPETA), "shotgun in main hand");
+
+            // ---- 1) ARMA VAZIA, SEM CARTUCHO: click seco — FAIL, nada consumido
+            var resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.FAIL,
+                    "Empty shotgun dry-fires (FAIL): " + resultado);
+            EscopetaEstado vazio = EscopetaItem.estado(arma);
+            helper.assertTrue(vazio.fase() == EscopetaEstado.FASE_PRONTA && !vazio.camara()
+                            && vazio.noTubo() == 0,
+                    "Dry fire leaves the mechanism untouched");
+
+            // ---- 2) COM CARTUCHOS: use() inicia a recarga (fase RECARREGANDO)
+            atirador.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO, 5));
+            resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(
+                    resultado.consumesAction() && atirador.isUsingItem(),
+                    "Holding right-click starts the reload: " + resultado);
+            helper.assertTrue(EscopetaItem.estado(arma).fase()
+                            == EscopetaEstado.FASE_RECARREGANDO,
+                    "Reload phase is RECARREGANDO");
+
+            // ---- 3) SIMULO 11 ticks de uso (onUseTick direto = deterministico):
+            // shells entram um a um (a cada 2 ticks; tubo cap 3)
+            int duracao = arma.getItem().getUseDuration(arma, atirador);
+            for (int restante = duracao - 1; restante >= duracao - 11; restante--) {
+                arma.getItem().onUseTick(helper.getLevel(), atirador, arma, restante);
+            }
+            EscopetaEstado carregando = EscopetaItem.estado(arma);
+            helper.assertTrue(carregando.noTubo() >= 2,
+                    "Shells entered the tube one-by-one: tubo=" + carregando.noTubo());
+
+            // solta o botao: fecha a recarga — e a CAMARA fica carregada
+            arma.getItem().releaseUsing(arma, helper.getLevel(), atirador, 0);
+            EscopetaEstado fechada = EscopetaItem.estado(arma);
+            helper.assertTrue(fechada.camara(),
+                    "Releasing the reload chambers the first shell");
+            helper.assertTrue(fechada.fase() == EscopetaEstado.FASE_PRONTA,
+                    "Closed reload is PRONTA");
+            int noPente = 5 - (EscopetaItem.contarCartuchos(atirador) + fechada.noTubo()
+                    + (fechada.camara() ? 1 : 0));
+            helper.assertTrue(noPente == 0,
+                    "Every shell came from the inventory (nenhum sumido)");
+
+            // ---- 4) TIRO: consome a CAMARA (nao o inventario) e engata o pump
+            var alvo = helper.spawn(IntoxicantesMod.TRAFICANTE, new BlockPos(1, 1, 3));
+            float vidaAlvo = alvo.getHealth();
+            resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
+                    "Chambered shotgun fires: " + resultado);
+            EscopetaEstado aposTiro = EscopetaItem.estado(arma);
+            helper.assertTrue(!aposTiro.camara(),
+                    "Firing consumes the CHAMBER, not the inventory");
+            helper.assertTrue(aposTiro.fase() == EscopetaEstado.FASE_BOMBA
+                            && aposTiro.timer() > 0,
+                    "Firing engages the pump cycle");
+            helper.assertTrue(alvo.getHealth() < vidaAlvo,
+                    "Shot damages the target: vida=" + alvo.getHealth());
+
+            // ---- 5) SIMULO os ticks do pump: proximo shell do tubo entra na camara
+            for (int t = 0; t < teste.escopetaTicksPump + 1; t++) {
+                arma.getItem().inventoryTick(arma, helper.getLevel(), atirador,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+            }
+            EscopetaEstado aposPump = EscopetaItem.estado(arma);
+            helper.assertTrue(aposPump.camara() && aposPump.fase()
+                            == EscopetaEstado.FASE_PRONTA,
+                    "Pump cycle re-chambers from the tube");
+            helper.assertTrue(aposPump.noTubo() == aposTiro.noTubo() - 1,
+                    "Re-chambering drains the tube: tubo=" + aposPump.noTubo());
+        } finally {
+            configDeTeste(atual);
+        }
+        helper.succeed();
+    }
+
+    // ==================================================== v1.2.33: O .38 EM NIVEL GUN MOD
+
+    @GameTest
+    public void revolverMechanismReloadSpinAndCascavelFire(GameTestHelper helper) {
+        ModConfig atual = ModConfig.get();
+        ModConfig teste = new ModConfig();
+        teste.revolverCooldownTicks = 2;   // quase zero: o ciclo roda rapido
+        teste.revolverTicksPorShell = 2;   // 1 shell a cada 2 ticks
+        teste.revolverTicksFecho = 2;      // fecho curto pro teste
+        teste.revolverDano = 0.5F;
+        teste.revolverAlcanceMaximo = 12;
+        configDeTeste(teste);
+        try {
+            helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+            var atirador = vitimaSobrevivente(helper);
+            atirador.getAbilities().instabuild = false;
+            atirador.getAbilities().invulnerable = false;
+            BlockPos p1 = helper.absolutePos(new BlockPos(1, 1, 1));
+            atirador.absSnapTo(p1.getX(), p1.getY(), p1.getZ());
+            atirador.setYRot(0.0F); // olhando pro sul (+Z), onde o alvo vai nascer
+            atirador.getInventory().clearContent(); // entrega do guia na 1a entrada nao pode ocupar a mao
+            atirador.getInventory().setSelectedSlot(0);
+            atirador.getInventory().add(new ItemStack(IntoxicantesMod.REVOLVER));
+            ItemStack arma = atirador.getMainHandItem();
+            helper.assertTrue(arma.is(IntoxicantesMod.REVOLVER), ".38 in main hand");
+
+            // ---- 1) TAMBOR VAZIO, SEM CARTUCHO: click seco — FAIL, nada consumido
+            var resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.FAIL,
+                    "Empty .38 dry-fires (FAIL): " + resultado);
+            RevolverEstado vazio = RevolverItem.estado(arma);
+            helper.assertTrue(vazio.fase() == RevolverEstado.FASE_PRONTA && vazio.balas() == 0,
+                    "Dry fire leaves the drum untouched");
+
+            // ---- 2) COM CARTUCHOS: use() inicia a recarga (fase RECARREGANDO)
+            atirador.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO_38, 6));
+            resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(
+                    resultado.consumesAction() && atirador.isUsingItem(),
+                    "Holding right-click starts the cylinder reload: " + resultado);
+            helper.assertTrue(RevolverItem.estado(arma).fase()
+                            == RevolverEstado.FASE_RECARREGANDO,
+                    "Reload phase is RECARREGANDO");
+
+            // ---- 3) SIMULO 7 ticks de uso (onUseTick direto = deterministico):
+            // shells entram um a um (a cada 2 ticks; o 1º entra em t=1)
+            int duracao = arma.getItem().getUseDuration(arma, atirador);
+            for (int restante = duracao - 1; restante >= duracao - 7; restante--) {
+                arma.getItem().onUseTick(helper.getLevel(), atirador, arma, restante);
+            }
+            RevolverEstado carregando = RevolverItem.estado(arma);
+            helper.assertTrue(carregando.balas() >= 3,
+                    "Shells entered the drum one-by-one: balas=" + carregando.balas());
+
+            // solta o botao: fecha a recarga (fase FERRAMENTA = fecho do ferrolho)
+            arma.getItem().releaseUsing(arma, helper.getLevel(), atirador, 0);
+            RevolverEstado fechada = RevolverItem.estado(arma);
+            helper.assertTrue(fechada.fase() == RevolverEstado.FASE_FERRAMENTA
+                            && fechada.timer() > 0,
+                    "Releasing the reload engages the latch closing");
+
+            // ---- 4) SIMULO o fecho: tambor travado, PRONTA pra atirar
+            for (int t = 0; t < teste.revolverTicksFecho + 1; t++) {
+                arma.getItem().inventoryTick(arma, helper.getLevel(), atirador,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+            }
+            RevolverEstado fechado = RevolverItem.estado(arma);
+            helper.assertTrue(fechado.fase() == RevolverEstado.FASE_PRONTA,
+                    "Latch closes into PRONTA");
+            helper.assertTrue(fechado.alinhadaCarregada(),
+                    "The chamber aligned with the barrel is loaded");
+            int conservacao = RevolverItem.contarCartucho38(atirador) + fechado.balas();
+            helper.assertTrue(conservacao == 6,
+                    "Every .38 came from the inventory (nenhum sumido): " + conservacao);
+
+            // ---- 5) CASCAVEL: 3 tiros seguidos do tambor, sem recarregar
+            var alvo = helper.spawn(IntoxicantesMod.TRAFICANTE, new BlockPos(1, 1, 3));
+            float vidaAlvo = alvo.getHealth();
+            int balasAntes = fechado.balas();
+            for (int tiro = 0; tiro < 3; tiro++) {
+                // cooldown do tiro anterior expira por tempo de jogo: reseta pra 0
+                atirador.getCooldowns().addCooldown(arma, 0);
+                resultado = arma.getItem().use(helper.getLevel(), atirador,
+                        net.minecraft.world.InteractionHand.MAIN_HAND);
+                helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
+                        "Cascavel shot " + (tiro + 1) + " fires: " + resultado);
+                RevolverEstado apos = RevolverItem.estado(arma);
+                helper.assertTrue(apos.balas() == balasAntes - tiro - 1,
+                        "Shot " + (tiro + 1) + " consumes exactly one chamber: "
+                                + apos.balas());
+                helper.assertTrue(apos.fase() == RevolverEstado.FASE_FERRAMENTA,
+                        "Shot engages the latch cycle");
+                // fecha o fecho pra proxima bala ficar pronta
+                for (int t = 0; t < teste.revolverTicksFecho + 1; t++) {
+                    arma.getItem().inventoryTick(arma, helper.getLevel(), atirador,
+                            net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+                }
+                helper.assertTrue(RevolverItem.estado(arma).fase()
+                                == RevolverEstado.FASE_PRONTA,
+                        "Latch closes for the next shot");
+            }
+            helper.assertTrue(alvo.getHealth() < vidaAlvo,
+                    "Shots damage the target: vida=" + alvo.getHealth());
+
+            // ---- 6) GIRO NO SECO: câmara seca com bala em OUTRO buraco — o tambor
+            // gira no click (o .38 de filme) em vez de exigir recarga
+            atirador.getCooldowns().addCooldown(arma, 0); // cooldown do último tiro expira
+            arma.set(RevolverItem.ESTADO, new RevolverEstado(
+                    1 << 3, 0, 0, RevolverEstado.FASE_PRONTA)); // bit 3, câmara 0 seca
+            resultado = arma.getItem().use(helper.getLevel(), atirador,
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            helper.assertTrue(resultado == net.minecraft.world.InteractionResult.SUCCESS,
+                    "Empty chamber with loaded drum spins: " + resultado);
+            RevolverEstado girado = RevolverItem.estado(arma);
+            helper.assertTrue(girado.camara() == 1 && girado.fase()
+                            == RevolverEstado.FASE_FERRAMENTA,
+                    "Spin advances the cylinder to the next chamber");
+            helper.assertTrue(girado.balas() == 1,
+                    "Spin does NOT consume the cartridge");
+        } finally {
+            configDeTeste(atual);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.41 — A TECLA R na 12: payload C2S aperta → fase TECLA → shells entram
+     * pelo motor (inventoryTick). v1.2.48 — R de UM APERTO: a janela fecha
+     * SOZINHA ao encher o tubo; soltar não interrompe mais. Mesma anatomia do
+     * botão direito, sem travar pose.
+     */
+    @GameTest
+    public void escopetaRecargaTeclaR(GameTestHelper helper) {
+        ModConfig atual = ModConfig.get();
+        ModConfig teste = new ModConfig();
+        teste.escopetaCapacidadeTubo = 5;
+        teste.escopetaTicksPorShell = 2; // recarga rápida no teste
+        configDeTeste(teste);
+        try {
+            ServerPlayer player = vitimaSobrevivente(helper);
+            player.getAbilities().instabuild = false; // consumo real de munição
+            player.getInventory().clearContent(); // entrega do guia na 1a entrada nao pode ocupar a mao
+            player.getInventory().setSelectedSlot(0); // R exige arma na main
+            player.getInventory().add(new ItemStack(IntoxicantesMod.ESCOPETA));
+            player.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO, 10));
+
+            // APERTA R (o payload chama o mesmo caminho do servidor)
+            RecargaPayload.despacharTeste(player, true);
+            ItemStack naMao = pilhaDe(player, IntoxicantesMod.ESCOPETA);
+            EscopetaEstado inicio = EscopetaItem.estado(naMao);
+            helper.assertTrue(inicio.fase() == EscopetaEstado.FASE_TECLA,
+                "Press R enters TECLA phase (was " + inicio.fase() + ")");
+
+            // UM APERTO SÓ: 10 cartuchos na reserva e tubo de 5 — o mecanismo
+            // precisa fechar SOZINHO (1 shell a cada TICKS_SHELL=2 + camara),
+            // sem ninguém soltar nem segurar nada:
+            boolean fechouSozinho = false;
+            for (int t = 0; t < 30; t++) {
+                naMao.inventoryTick(helper.getLevel(), player,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+                if (EscopetaItem.estado(naMao).fase() != EscopetaEstado.FASE_TECLA) {
+                    fechouSozinho = true;
+                    break;
+                }
+            }
+            helper.assertTrue(fechouSozinho,
+                "Reload closes BY ITSELF when the tube fills (1 press)");
+
+            // SOLTA R DEPOIS DO FECHO: inerte (não reabre, não atrapalha)
+            RecargaPayload.despacharTeste(player, false);
+            EscopetaEstado fechada = EscopetaItem.estado(naMao);
+            helper.assertTrue(fechada.fase() == EscopetaEstado.FASE_PRONTA,
+                "Release after auto-close stays PRONTA (fase=" + fechada.fase() + ")");
+            helper.assertTrue(fechada.noTubo() + (fechada.camara() ? 1 : 0)
+                    == teste.escopetaCapacidadeTubo,
+                "Full load: the tube feeds the chamber on close (tubo=" + fechada.noTubo()
+                    + " camara=" + fechada.camara() + ")");
+            int gastados = 10 - contarNoInventario(player, IntoxicantesMod.CARTUCHO);
+            helper.assertTrue(gastados == teste.escopetaCapacidadeTubo,
+                "Each shell consumed 1 cartridge (gastos=" + gastados + ")");
+        } finally {
+            configDeTeste(atual);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * v1.2.41 — A TECLA R no .38: aperta entra na fase TECLA, balas caem nos
+     * buracos a partir da câmara. v1.2.48 — UM APERTO: o fecho acontece
+     * SOZINHO quando o tambor enche; soltar não faz nada.
+     */
+    @GameTest
+    public void revolverRecargaTeclaR(GameTestHelper helper) {
+        ModConfig atual = ModConfig.get();
+        ModConfig teste = new ModConfig();
+        teste.revolverTicksPorShell = 2;
+        configDeTeste(teste);
+        try {
+            ServerPlayer player = vitimaSobrevivente(helper);
+            player.getAbilities().instabuild = false; // consumo real de munição
+            player.getInventory().clearContent(); // entrega do guia na 1a entrada nao pode ocupar a mao
+            player.getInventory().setSelectedSlot(0); // R exige arma na main
+            player.getInventory().add(new ItemStack(IntoxicantesMod.REVOLVER));
+            player.getInventory().add(new ItemStack(IntoxicantesMod.CARTUCHO_38, 12));
+
+            RecargaPayload.despacharTeste(player, true);
+            ItemStack naMao = pilhaDe(player, IntoxicantesMod.REVOLVER);
+            RevolverEstado inicio = RevolverItem.estado(naMao);
+            helper.assertTrue(inicio.fase() == RevolverEstado.FASE_TECLA,
+                "Press R enters TECLA phase (was " + inicio.fase() + ")");
+
+            // UM APERTO SÓ: o tambor enche e o fecho acontece SOZINHO
+            for (int t = 0; t < 40 && RevolverItem.estado(naMao).fase()
+                    == RevolverEstado.FASE_TECLA; t++) {
+                naMao.inventoryTick(helper.getLevel(), player,
+                        net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+            }
+            // SOLTA R DEPOIS DO FECHO: inerte (não reabre, não atrapalha)
+            RecargaPayload.despacharTeste(player, false);
+            RevolverEstado fechada = RevolverItem.estado(naMao);
+            helper.assertTrue(fechada.fase() == RevolverEstado.FASE_FERRAMENTA,
+                "Cylinder closed by fecho on its own (fase=" + fechada.fase() + ")");
+            helper.assertTrue(fechada.balas() == RevolverEstado.CAPACIDADE,
+                "Full cylinder after ONE press (balas=" + fechada.balas() + ")");
+            int gastados = 12 - contarNoInventario(player, IntoxicantesMod.CARTUCHO_38);
+            helper.assertTrue(gastados == fechada.balas(),
+                "Each round consumed 1 cartridge (gastos=" + gastados + " balas="
+                    + fechada.balas() + ")");
+        } finally {
+            configDeTeste(atual);
+        }
+        helper.succeed();
+    }
+
+    /** Acha a stack de um item no inventário do player (helper dos testes). */
+    private static ItemStack pilhaDe(ServerPlayer player, Item item) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack slot = player.getInventory().getItem(i);
+            if (slot.is(item)) {
+                return slot;
+            }
+        }
+        throw new IllegalStateException("item não encontrado no inventário: " + item);
+    }
+
+    /** Conta itens de um tipo no inventário do player (helper dos testes). */
+    private static int contarNoInventario(ServerPlayer player, Item item) {
+        int total = 0;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack slot = player.getInventory().getItem(i);
+            if (slot.is(item)) {
+                total += slot.getCount();
+            }
+        }
+        return total;
+    }
+
+    // ==================================================== BEBIDAS (v1.2.50)
+
+    /** Executa o clique do jogador no bloco (fluxo real das maquinas). */
+    private static void beClique(net.minecraft.server.level.ServerLevel level, BlockPos pos,
+            ServerPlayer player, ItemStack mao) {
+        var be = level.getBlockEntity(pos);
+        if (be instanceof MaquinaPrimaBlockEntity maquina) {
+            if (!mao.isEmpty() && maquina.tentarCarregar(level, player, mao)) {
+                mao.shrink(maquina.qtdNecessaria(mao));
+            } else {
+                maquina.interagir(level, player);
+            }
+        } else if (be instanceof DornaBebidaBlockEntity dorna) {
+            if (!mao.isEmpty() && dorna.tentarCarregar(level, player, mao)) {
+                mao.shrink(dorna.qtdNecessaria(mao));
+            } else {
+                dorna.interagir(level, player);
+            }
+        } else if (be instanceof AlambiqueBlockEntity alambique) {
+            if (!mao.isEmpty() && alambique.tentarCarregar(level, player, mao)) {
+                mao.shrink(alambique.qtdNecessaria(mao));
+            } else {
+                alambique.interagir(level, player);
+            }
+        } else if (be instanceof BarrilBebidaBlockEntity barril) {
+            barril.interagir(level, player, mao);
+        }
+    }
+
+    private static int conta(ServerPlayer player, Item item) {
+        int total = 0;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            var st = player.getInventory().getItem(i);
+            if (st.is(item)) {
+                total += st.getCount();
+            }
+        }
+        return total;
+    }
+
+    @GameTest(maxTicks = 3000)
+    public void cadeiaCachacaMoendaDornaAlambiqueBarril(GameTestHelper helper) {
+        ModConfig.setVelocidadeTeste(0.05F); // x20: processos de minutos viram segundos
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var centro = helper.absolutePos(BlockPos.ZERO);
+
+        // MOENDA: 4 canas -> 4 caldo + bagaco (2s na velocidade de teste)
+        var posMoenda = centro.offset(2, 0, 0);
+        level.setBlockAndUpdate(posMoenda, IntoxicantesMod.MOENDA_CANA.defaultBlockState());
+        beClique(level, posMoenda, player, new ItemStack(IntoxicantesMod.CANA_DE_ACUCAR, 4));
+        helper.runAfterDelay(60, () -> {
+            beClique(level, posMoenda, player, ItemStack.EMPTY);
+            helper.assertTrue(conta(player, IntoxicantesMod.CALDO_DE_CANA) >= 4,
+                    "Moenda deve render 4 caldo de cana");
+            helper.assertTrue(conta(player, IntoxicantesMod.BAGACO_DE_CANA) >= 1,
+                    "Moenda deve render bagaco de cana");
+
+            // DORNA: 4 caldo -> 4 mosto fermentado (7min/20 = 21s -> 440 ticks)
+            var posDorna = centro.offset(0, 0, 2);
+            level.setBlockAndUpdate(posDorna, IntoxicantesMod.DORNA_BEBIDA.defaultBlockState());
+            beClique(level, posDorna, player, new ItemStack(IntoxicantesMod.CALDO_DE_CANA, 4));
+            helper.runAfterDelay(500, () -> {
+                beClique(level, posDorna, player, ItemStack.EMPTY);
+                helper.assertTrue(conta(player, IntoxicantesMod.MOSTO_CANA_FERMENTADO) >= 4,
+                        "Dorna deve fermentar caldo em mosto");
+
+                // ALAMBIQUE (com fogo): 4 mosto -> 2 cachaca jovem (90s/20 = 4.5s)
+                var posAlambique = centro.offset(0, 0, 4);
+                level.setBlockAndUpdate(posAlambique.below(),
+                        net.minecraft.world.level.block.Blocks.CAMPFIRE.defaultBlockState());
+                level.setBlockAndUpdate(posAlambique, IntoxicantesMod.ALAMBIQUE.defaultBlockState());
+                beClique(level, posAlambique, player, new ItemStack(IntoxicantesMod.MOSTO_CANA_FERMENTADO, 4));
+                helper.runAfterDelay(140, () -> {
+                    beClique(level, posAlambique, player, ItemStack.EMPTY);
+                    helper.assertTrue(conta(player, IntoxicantesMod.CACHACA_JOVEM) >= 2,
+                            "Alambique deve destilar mosto em cachaca jovem");
+
+                    // BARRIL DE CACHACA: 2 jovens, matura (600s/20 = 30s = 620t)
+                    var posBarril = centro.offset(2, 0, 4);
+                    level.setBlockAndUpdate(posBarril, IntoxicantesMod.BARRIL_CACHACA.defaultBlockState());
+                    beClique(level, posBarril, player, new ItemStack(IntoxicantesMod.CACHACA_JOVEM, 2));
+                    helper.runAfterDelay(660, () -> {
+                        for (int i = 0; i < 4; i++) {
+                            beClique(level, posBarril, player,
+                                    new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE, 1));
+                        }
+                        helper.assertTrue(conta(player, IntoxicantesMod.CACHACA) >= 4,
+                                "Barril de cachaca deve render 4 garrafas");
+                        ModConfig.setVelocidadeTeste(null);
+                        helper.succeed();
+                    });
+                });
+            });
+        });
+    }
+
+    @GameTest(maxTicks = 3000)
+    public void cadeiaCervejaCaldeiraoBarril(GameTestHelper helper) {
+        ModConfig.setVelocidadeTeste(0.05F);
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var centro = helper.absolutePos(BlockPos.ZERO);
+
+        // CALDEIRAO (agua embaixo): 4 malte (40s/20=2s) -> lupulo (30s/20=1.5s)
+        var posCaldeirao = centro.offset(0, 0, 2);
+        level.setBlockAndUpdate(posCaldeirao.below(),
+                net.minecraft.world.level.block.Blocks.WATER.defaultBlockState());
+        level.setBlockAndUpdate(posCaldeirao, IntoxicantesMod.CALDEIRAO_MOSTURA.defaultBlockState());
+        beClique(level, posCaldeirao, player, new ItemStack(IntoxicantesMod.MALTE, 4));
+        helper.runAfterDelay(80, () -> {
+            beClique(level, posCaldeirao, player, new ItemStack(IntoxicantesMod.LOUPULO_FRESCO, 1));
+            helper.runAfterDelay(80, () -> {
+                beClique(level, posCaldeirao, player, ItemStack.EMPTY);
+                helper.assertTrue(conta(player, IntoxicantesMod.MOSTO_CERVEJA_LUPULADO) >= 4,
+                        "Caldeirao deve render mosto lupulado (malte + lupulo)");
+
+                // BARRIL DE CERVEJA: fermenta 480s/20=24s + condiciona 120s/20=6s
+                var posBarril = centro.offset(2, 0, 2);
+                level.setBlockAndUpdate(posBarril, IntoxicantesMod.BARRIL_CERVEJA.defaultBlockState());
+                beClique(level, posBarril, player, new ItemStack(IntoxicantesMod.MOSTO_CERVEJA_LUPULADO, 4));
+                helper.runAfterDelay(660, () -> {
+                    for (int i = 0; i < 4; i++) {
+                        beClique(level, posBarril, player,
+                                new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE, 1));
+                    }
+                    helper.assertTrue(conta(player, IntoxicantesMod.CERVEJA) >= 4,
+                            "Barril de cerveja deve render 4 garrafas");
+                    ModConfig.setVelocidadeTeste(null);
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @GameTest(maxTicks = 3000)
+    public void cadeiaRumMelacoBarril(GameTestHelper helper) {
+        ModConfig.setVelocidadeTeste(0.05F);
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var centro = helper.absolutePos(BlockPos.ZERO);
+
+        // DORNA: 1 melaco -> 4 mosto de rum
+        var posDorna = centro.offset(0, 0, 2);
+        level.setBlockAndUpdate(posDorna, IntoxicantesMod.DORNA_BEBIDA.defaultBlockState());
+        beClique(level, posDorna, player, new ItemStack(IntoxicantesMod.MELACO, 1));
+        helper.runAfterDelay(500, () -> {
+            beClique(level, posDorna, player, ItemStack.EMPTY);
+            helper.assertTrue(conta(player, IntoxicantesMod.MOSTO_RUM_FERMENTADO) >= 4,
+                    "Dorna deve fermentar melaco em mosto de rum");
+
+            // ALAMBIQUE -> RUM JOVEM
+            var posAlambique = centro.offset(0, 0, 4);
+            level.setBlockAndUpdate(posAlambique.below(),
+                    net.minecraft.world.level.block.Blocks.CAMPFIRE.defaultBlockState());
+            level.setBlockAndUpdate(posAlambique, IntoxicantesMod.ALAMBIQUE.defaultBlockState());
+            beClique(level, posAlambique, player, new ItemStack(IntoxicantesMod.MOSTO_RUM_FERMENTADO, 4));
+            helper.runAfterDelay(140, () -> {
+                beClique(level, posAlambique, player, ItemStack.EMPTY);
+                helper.assertTrue(conta(player, IntoxicantesMod.RUM_JOVEM) >= 2,
+                        "Alambique deve destilar rum jovem");
+
+                // BARRIL DE RUM: envelhece 600s/20 = 30s
+                var posBarril = centro.offset(2, 0, 4);
+                level.setBlockAndUpdate(posBarril, IntoxicantesMod.BARRIL_RUM.defaultBlockState());
+                beClique(level, posBarril, player, new ItemStack(IntoxicantesMod.RUM_JOVEM, 2));
+                helper.runAfterDelay(660, () -> {
+                    for (int i = 0; i < 4; i++) {
+                        beClique(level, posBarril, player,
+                                new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE, 1));
+                    }
+                    helper.assertTrue(conta(player, IntoxicantesMod.RUM) >= 4,
+                            "Barril de rum deve render 4 garrafas");
+                    ModConfig.setVelocidadeTeste(null);
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @GameTest(maxTicks = 3000)
+    public void cadeiaVinhoPrensaBarril(GameTestHelper helper) {
+        ModConfig.setVelocidadeTeste(0.05F);
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var centro = helper.absolutePos(BlockPos.ZERO);
+
+        // PRENSA: 6 uvas -> 4 mosto de uva
+        var posPrensa = centro.offset(0, 0, 2);
+        level.setBlockAndUpdate(posPrensa, IntoxicantesMod.PRENSA_UVAS.defaultBlockState());
+        beClique(level, posPrensa, player, new ItemStack(IntoxicantesMod.UVA, 6));
+        helper.runAfterDelay(80, () -> {
+            beClique(level, posPrensa, player, ItemStack.EMPTY);
+            helper.assertTrue(conta(player, IntoxicantesMod.MOSTO_DE_UVA) >= 4,
+                    "Prensa deve esmagar uvas em mosto");
+
+            // BARRIL DE VINHO: fermenta 300s/20=15s + matura 300s/20=15s
+            var posBarril = centro.offset(2, 0, 2);
+            level.setBlockAndUpdate(posBarril, IntoxicantesMod.BARRIL_VINHO.defaultBlockState());
+            beClique(level, posBarril, player, new ItemStack(IntoxicantesMod.MOSTO_DE_UVA, 4));
+            helper.runAfterDelay(660, () -> {
+                for (int i = 0; i < 4; i++) {
+                    beClique(level, posBarril, player,
+                            new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE, 1));
+                }
+                helper.assertTrue(conta(player, IntoxicantesMod.VINHO) >= 4,
+                        "Barril de vinho deve render 4 garrafas");
+                ModConfig.setVelocidadeTeste(null);
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest
+    public void dornaPersisteLoteAposSaveLoad(GameTestHelper helper) {
+        ModConfig.setVelocidadeTeste(0.05F);
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var pos = helper.absolutePos(BlockPos.ZERO);
+        level.setBlockAndUpdate(pos, IntoxicantesMod.DORNA_BEBIDA.defaultBlockState());
+        beClique(level, pos, player, new ItemStack(IntoxicantesMod.CALDO_DE_CANA, 4));
+
+        helper.runAfterDelay(20, () -> {
+            var be = level.getBlockEntity(pos);
+            helper.assertTrue(be instanceof DornaBebidaBlockEntity, "Dorna precisa de BlockEntity");
+            var saida = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
+            be.saveWithoutMetadata(saida);
+            var entrada = TagValueInput.create(ProblemReporter.DISCARDING,
+                    level.registryAccess(), saida.buildResult());
+            be.loadWithComponents(entrada);
+            helper.assertTrue(((DornaBebidaBlockEntity) be).fermentando(),
+                    "O lote da dorna deve sobreviver a save/load");
+            ModConfig.setVelocidadeTeste(null);
+            helper.succeed();
+        });
+    }
+
 }

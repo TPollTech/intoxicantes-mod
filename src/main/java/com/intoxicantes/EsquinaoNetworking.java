@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
@@ -33,6 +34,8 @@ import net.minecraft.world.item.ItemStack;
 public final class EsquinaoNetworking {
     /** Sessoes de atendimento abertas: UUID do fregues -> Gago que atende. */
     private static final Map<UUID, GagoEntity> SESSOES = new HashMap<>();
+    /** v1.2.44: sessoes do PONTO DO TRAFICANTE (tela propria, mesmo esquema). */
+    private static final Map<UUID, TraficanteEntity> SESSOES_T = new HashMap<>();
 
     private EsquinaoNetworking() {}
 
@@ -54,11 +57,41 @@ public final class EsquinaoNetworking {
                 (payload, ctx) -> negociar(ctx.player(), payload.indice(), false));
         ServerPlayNetworking.registerGlobalReceiver(VenderPayload.TYPE,
                 (payload, ctx) -> negociar(ctx.player(), payload.indice(), true));
+
+        // v1.2.44 — O PONTO DO TRAFICANTE (tela propria dele)
+        PayloadTypeRegistry.clientboundPlay().register(
+                AbrirPontoPayload.TYPE, AbrirPontoPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(
+                DestrancoPayload.TYPE, DestrancoPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(
+                FiadoPayload.TYPE, FiadoPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(
+                DiazinhoPayload.TYPE, DiazinhoPayload.STREAM_CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(ComprarPayload.TYPE,
+                (payload, ctx) -> comprarNoTraficante(ctx.player(), payload.indice()));
+        ServerPlayNetworking.registerGlobalReceiver(VenderPayload.TYPE,
+                (payload, ctx) -> venderNoTraficante(ctx.player(), payload.indice()));
+        ServerPlayNetworking.registerGlobalReceiver(DestrancoPayload.TYPE,
+                (payload, ctx) -> {
+                    TraficanteEntity t = SESSOES_T.get(ctx.player().getUUID());
+                    if (t != null) t.largarAtendimento();
+                    ingressarTraf(ctx.player(), t);
+                });
+        ServerPlayNetworking.registerGlobalReceiver(FiadoPayload.TYPE,
+                (payload, ctx) -> {
+                    TraficanteEntity t = SESSOES_T.get(ctx.player().getUUID());
+                    if (t != null) t.emprestarFiado(ctx.player());
+                });
+        ServerPlayNetworking.registerGlobalReceiver(DiazinhoPayload.TYPE,
+                (payload, ctx) -> {
+                    TraficanteEntity t = SESSOES_T.get(ctx.player().getUUID());
+                    if (t != null) t.pagarDivida(ctx.player());
+                });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> SESSOES.clear());
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> encerrarSessao(handler.player));
 
-        // C2S: fregues fechou a tela (Esc ou botao Fechar)
+        // v1.2.44: o C2S 'fechar' também desmonta a sessão do traficante
         ServerPlayNetworking.registerGlobalReceiver(FecharCardapioPayload.TYPE,
                 (payload, ctx) -> encerrarSessao(ctx.player()));
 
@@ -66,6 +99,37 @@ public final class EsquinaoNetworking {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (server.getTickCount() % 10 != 0) {
                 return; // a cada meio segundo basta
+            }
+            // v1.2.44: watchdog das sessoes do traficante (mesma regra do Gago:
+            // vivo, perto, mesma dimensao, ainda em atendimento)
+            List<UUID> encerradasT = null;
+            for (Map.Entry<UUID, TraficanteEntity> sessao : SESSOES_T.entrySet()) {
+                ServerPlayer player = server.getPlayerList().getPlayer(sessao.getKey());
+                TraficanteEntity traficante = sessao.getValue();
+                boolean valida = player != null && traficante != null && traficante.isAlive()
+                        && !traficante.isRemoved() && player.isAlive()
+                        && player.level() == traficante.level()
+                        && traficante.getTradingPlayer() == player
+                        && player.distanceToSqr(traficante) <= 6.0 * 6.0;
+                if (valida) {
+                    continue;
+                }
+                if (encerradasT == null) {
+                    encerradasT = new ArrayList<>();
+                }
+                encerradasT.add(sessao.getKey());
+                if (player != null) {
+                    ServerPlayNetworking.send(player, new FecharCardapioPayload());
+                }
+                if (traficante != null && traficante.getTradingPlayer() != null
+                        && traficante.getTradingPlayer().getUUID().equals(sessao.getKey())) {
+                    traficante.largarAtendimento();
+                }
+            }
+            if (encerradasT != null) {
+                for (UUID uuid : encerradasT) {
+                    SESSOES_T.remove(uuid);
+                }
             }
             List<UUID> encerradas = null;
             for (Map.Entry<UUID, GagoEntity> sessao : SESSOES.entrySet()) {
@@ -100,6 +164,78 @@ public final class EsquinaoNetworking {
                 }
             }
         });
+    }
+
+    // ==================================================== PAYLOADS
+
+    /** S2C: estado completo do PONTO DO TRAFICANTE (v1.2.44). */
+    public record AbrirPontoPayload(boolean abrir, int estoqueMaconha, int estoqueCocaina,
+            int estoqueHeroina, int estoqueLsd, int estoqueBaseado, int estoqueOpio,
+            int estoqueExtrato, int desconto, int estoqueDiamante, int fiadoDevendo,
+            int fiadoNivel, int saldo, int divida, int exclusiveN, int exclusiveEstoque,
+            int exclusivePreco, int comprasHoje) implements CustomPacketPayload {
+
+        public static final CustomPacketPayload.Type<AbrirPontoPayload> TYPE =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("intoxicantes", "abrir_ponto"));
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, AbrirPontoPayload> STREAM_CODEC =
+                CustomPacketPayload.codec(AbrirPontoPayload::escrever, AbrirPontoPayload::ler);
+
+        private static void escrever(AbrirPontoPayload p, RegistryFriendlyByteBuf buf) {
+            buf.writeBoolean(p.abrir);
+            for (int v : new int[]{p.estoqueMaconha, p.estoqueCocaina, p.estoqueHeroina,
+                    p.estoqueLsd, p.estoqueBaseado, p.estoqueOpio, p.estoqueExtrato,
+                    p.desconto, p.estoqueDiamante, p.fiadoDevendo, p.fiadoNivel,
+                    p.saldo, p.divida, p.exclusiveN, p.exclusiveEstoque, p.exclusivePreco,
+                    p.comprasHoje}) {
+                ByteBufCodecs.VAR_INT.encode(buf, v);
+            }
+        }
+
+        private static AbrirPontoPayload ler(RegistryFriendlyByteBuf buf) {
+            boolean abrir = buf.readBoolean();
+            int[] v = new int[17];
+            for (int i = 0; i < v.length; i++) {
+                v[i] = ByteBufCodecs.VAR_INT.decode(buf);
+            }
+            return new AbrirPontoPayload(abrir, v[0], v[1], v[2], v[3], v[4], v[5], v[6],
+                    v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15], v[16]);
+        }
+
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** C2S: saiu da fila e voltou pro balcao (o botao 'Bora pro fim da fila'). */
+    public record DestrancoPayload() implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<DestrancoPayload> TYPE =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("intoxicantes", "destranco"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, DestrancoPayload> STREAM_CODEC =
+                CustomPacketPayload.codec((p, buf) -> {}, buf -> new DestrancoPayload());
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** C2S: 'me empresta aí' — o fiado do traficante. */
+    public record FiadoPayload() implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<FiadoPayload> TYPE =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("intoxicantes", "fiado"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, FiadoPayload> STREAM_CODEC =
+                CustomPacketPayload.codec((p, buf) -> {}, buf -> new FiadoPayload());
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    /** C2S: pagar a divida do fiado. */
+    public record DiazinhoPayload() implements CustomPacketPayload {
+        public static final CustomPacketPayload.Type<DiazinhoPayload> TYPE =
+                new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("intoxicantes", "diazinho"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, DiazinhoPayload> STREAM_CODEC =
+                CustomPacketPayload.codec((p, buf) -> {}, buf -> new DiazinhoPayload());
+        @Override
+        public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
     private static void negociar(ServerPlayer player, int index, boolean selling) {
@@ -157,6 +293,81 @@ public final class EsquinaoNetworking {
         if (gago != null && gago.getTradingPlayer() == player) {
             gago.encerrarAtendimento();
         }
+        TraficanteEntity traficante = SESSOES_T.remove(player.getUUID());
+        if (traficante != null && traficante.getTradingPlayer() == player) {
+            traficante.largarAtendimento();
+        }
+    }
+
+    // ==================================================== PONTO DO TRAFICANTE (v1.2.44)
+
+    /** Nomes do catalogo de venda do traficante (ordem do TradeCatalog.traficanteFixo). */
+    static final String[] TITULOS = {
+            "maconha_seda", "cocaina", "heroina", "lsd", "baseado", "opio", "extrato_cafeina"
+    };
+
+    /** Monta e envia o estado completo do ponto (estoque, desconto, fiado, Exclusive). */
+    public static void enviarPonto(ServerPlayer player, TraficanteEntity t, boolean abrir) {
+        ServerPlayNetworking.send(player, new AbrirPontoPayload(abrir,
+                t.estoqueDe(TITULOS[0]), t.estoqueDe(TITULOS[1]),
+                t.estoqueDe(TITULOS[2]), t.estoqueDe(TITULOS[3]),
+                t.estoqueDe(TITULOS[4]), t.estoqueDe(TITULOS[5]),
+                t.estoqueDe(TITULOS[6]),
+                t.getDescontoAtivo(), t.estoqueDe("diamante"),
+                t.getFiadoPlayer(player), t.getFiadoNivel(player),
+                PlayerMoney.get(player), PlayerMoney.getDivida(player),
+                t.getExclusiveN(), t.getExclusiveEstoque(), t.getExclusivePreco(player),
+                t.getComprasHoje(player)));
+    }
+
+    /** Sessao do traficante: trava a IA e manda o estado pro client. */
+    public static void ingressarTraf(ServerPlayer player, TraficanteEntity traficante) {
+        if (traficante == null || !traficante.isAlive() || traficante.isRemoved()) {
+            return;
+        }
+        TraficanteEntity anterior = SESSOES_T.get(player.getUUID());
+        if (anterior != null && anterior != traficante && anterior.getTradingPlayer() == player) {
+            anterior.largarAtendimento();
+        }
+        SESSOES_T.put(player.getUUID(), traficante);
+        traficante.setTradingPlayer(player);
+        traficante.refreshTradeStock();
+        enviarPonto(player, traficante, true);
+    }
+
+    /** Compra (ou aluga) o item de indice tal do ponto do traficante. */
+    public static void comprarNoTraficante(ServerPlayer player, int indice) {
+        TraficanteEntity t = SESSOES_T.get(player.getUUID());
+        if (t == null) return;
+        if (!t.comprar(player, indice)) {
+            player.playSound(net.minecraft.sounds.SoundEvents.VILLAGER_NO, 0.7F, 1.0F);
+        }
+        enviarPonto(player, t, false);
+    }
+
+    /** Vende colheita pro traficante (ele paga na hora, sem fila). */
+    public static void venderNoTraficante(ServerPlayer player, int indice) {
+        TraficanteEntity t = SESSOES_T.get(player.getUUID());
+        if (t == null) return;
+        if (!t.venderColheita(player, indice)) {
+            player.playSound(net.minecraft.sounds.SoundEvents.VILLAGER_NO, 0.7F, 1.0F);
+        }
+        enviarPonto(player, t, false);
+    }
+
+    /** Saldo de R$ de um fregues (a tela do traficante le). */
+    public static int saldoDe(ServerPlayer player) {
+        return PlayerMoney.get(player);
+    }
+
+    /** Debita (false se nao tem) e avisa a carteira. */
+    public static boolean cobrarDe(ServerPlayer player, int quantia) {
+        return PlayerMoney.subtrair(player, quantia);
+    }
+
+    /** Credita (paguei divida, ganhei venda). */
+    public static void ajustarSaldoDe(ServerPlayer player, int quantia) {
+        PlayerMoney.add(player, quantia);
     }
 
     // ==================================================== PAYLOADS
