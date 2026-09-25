@@ -78,17 +78,19 @@ public final class ModConfig {
     // Servidor pode desligar; o livro continua obtível pelo CRAFT (livro + R$).
     public boolean guiaNaPrimeiraEntrada = true;
 
-    // ==================================================== saude (v1.2.54, calibrada na v1.2.55)
+    // ==================================================== saude (v1.2.54, calibrada na v1.2.56)
     // SEDE: 1 ponto cai a cada `saudeSedeSegundos` de vida limpa (multiplicado
     // por corrida/Nether/bêbado). Zerada = fraqueza/lentidão/nausea, NUNCA dano.
-    // 60s = ~100 min parado, ~40 min correndo, ~20 min na bebedeira correndo:
-    // perceptível sem irritar (v1.2.55: era 45 — secia rápido demais).
-    public int saudeSedeSegundos = 60;
+    // 75s = ~2h parado, ~1h correndo, ~30 min na bebedeira correndo: dá pra
+    // perceber a barra sem ela dominar a partida (v1.2.55: 60).
+    public int saudeSedeSegundos = 75;
     // VICIO: acima deste nível o fregues é dependente (a síndrome de abstinência liga).
     public int saudeVicioLimiar = 30;
-    // ABSTINENCIA: segundos limpos até o pico da síndrome (metade = início,
+    // ABSTINENCIA: segundos limpos até o PICO da síndrome (metade = início,
     // 2x = grave, 4x = colapso; o colapso NUNCA mata — para em 1 coração).
-    public int saudeAbstinenciaSegundos = 90;
+    // 150s: início aos 75s, colapso aos 10 min — dá tempo de correr atrás da
+    // dose ou do detox sem o mundo acabar (v1.2.55: 90 = tremia em 45s kkkk).
+    public int saudeAbstinenciaSegundos = 150;
     // MARKUP DO DESPERADO: % de markup pro fregues em abstinência comprando no
     // Gago (ele aceita qualquer preço kkkk). 0 = desligado. Vira o markup MAIOR
     // entre este e o da embriaguez.

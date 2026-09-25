@@ -123,14 +123,16 @@ public class SaudeGameTest {
         helper.assertTrue(player.hasEffect(Efeitos.OVERDRIVE),
                 "Cocaína aplica o efeito Overdrive");
 
-        // síndrome: 1 estagio em saudeAbstinenciaSegundos/2 (45s limpos), 2 em 90s
+        // síndrome: 1 estagio em saudeAbstinenciaSegundos/2, 2 em
+        // saudeAbstinenciaSegundos (v1.2.56: lê o config, sem número mágico)
         SaudeData.setVicioTeste(player, "cocaina", 50);
-        avancarTempoLimpo(player, 45);
+        int abc = ModConfig.get().saudeAbstinenciaSegundos;
+        avancarTempoLimpo(player, abc / 2);
         helper.assertTrue(SaudeSystem.estagioAbstinencia(player) == 1,
-                "45s limpos = abstinência estágio 1");
-        avancarTempoLimpo(player, 45); // 90s no total
+                (abc / 2) + "s limpos = abstinência estágio 1");
+        avancarTempoLimpo(player, abc / 2); // abc no total
         helper.assertTrue(SaudeSystem.estagioAbstinencia(player) == 2,
-                "90s limpos = abstinência estágio 2");
+                abc + "s limpos = abstinência estágio 2");
         helper.assertTrue(player.hasEffect(Efeitos.ABSTINENCIA),
                 "A síndrome aplica o efeito próprio");
         helper.succeed();
@@ -144,8 +146,8 @@ public class SaudeGameTest {
                 "teste_saude_colapso.json"));
 
         SaudeData.setVicioTeste(player, "heroina", 80);
-        // direto no estágio 4 (4x os 90s = 360s limpos)
-        avancarTempoLimpo(player, 360);
+        // direto no estágio 4 (4x saudeAbstinenciaSegundos, do config)
+        avancarTempoLimpo(player, 4 * ModConfig.get().saudeAbstinenciaSegundos);
         helper.assertTrue(SaudeSystem.estagioAbstinencia(player) == 4,
                 "360s limpos = colapso (estágio 4)");
         float vidaCheia = player.getMaxHealth();
@@ -243,6 +245,38 @@ public class SaudeGameTest {
         SaudeSystem.logicaPorSegundo(player);
         helper.assertTrue(player.hasEffect(MobEffects.NAUSEA) || player.hasEffect(MobEffects.DARKNESS),
                 "A queda da viagem chega (náusea/trevas)");
+        helper.succeed();
+    }
+
+    @GameTest
+    public void janelaDeDosesDecaiComOTempoLimpo(GameTestHelper helper) {
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        SaudeData.initTeste(new java.io.File(helper.getLevel().getServer()
+                .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).toFile(),
+                "teste_saude_janela.json"));
+
+        CatalogoSubstancias.Ficha lsd = CatalogoSubstancias.porId("lsd");
+        for (int i = 0; i < 5; i++) {
+            SaudeSystem.consumir(player, lsd); // 5 doses = intensidade 3
+        }
+        helper.assertTrue(SaudeData.dosesDaSubstancia(player, "lsd") == 5,
+                "5 doses acumulam na janela");
+
+        // v1.2.56: 5 minutos limpo derrete METADE das doses (piso 1) — a
+        // intensidade é memória recente, não reputação vitalícia
+        SaudeSystem.expirarJanelaTeste(player, "lsd");
+        SaudeSystem.logicaPorSegundo(player);
+        helper.assertTrue(SaudeData.dosesDaSubstancia(player, "lsd") == 2,
+                "Janela vencida derrete metade (5→2, veio "
+                        + SaudeData.dosesDaSubstancia(player, "lsd") + ")");
+
+        // o piso: quem já tinha 1 dose não desce pra 0 (a primeira viagem
+        // continua valendo intensidade 1)
+        SaudeData.setDosesTeste(player, "lsd", 1);
+        SaudeSystem.expirarJanelaTeste(player, "lsd");
+        SaudeSystem.logicaPorSegundo(player);
+        helper.assertTrue(SaudeData.dosesDaSubstancia(player, "lsd") == 1,
+                "O piso é 1 — primeira viagem nunca morre");
         helper.succeed();
     }
 

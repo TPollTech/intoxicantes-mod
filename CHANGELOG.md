@@ -1,5 +1,44 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.56 — BALANCEAMENTO DA SAÚDE PRA PRIMEIRA PARTIDA (25/09/2026)
+
+### 💧 Sede
+- Ciclo de dreno 60 → **75s** por ponto: ~2h parado, ~1h correndo, ~30 min na
+  bebedeira correndo — a barra dá o ar da graça sem dominar a partida.
+- Correr agora desidrata 2× (era 2.5×): jogar normal (correndo) não seca mais
+  a barra em 40 minutos.
+- **Dreno fracionário** (v1.2.56): multiplicadores aceleram o relógio SEM
+  arredondar — bêbado bebe água a cada 37.5s, não 38 (o round() antigo fazia
+  o bêbado drenar na MESMA cadência do sóbrio com ciclo ímpar).
+
+### ⛓ Vício e abstinência
+- **Janela de doses DECAY**: 5 minutos limpo da droga derrete metade das
+  doses (piso 1). A intensidade da viagem era memória vitalícia — depois de
+  uma sessão, TODA viagem vinha em intensidade 3 pra sempre. Agora é memória
+  RECENTE: pare de usar e a intensidade desce de volta.
+- **Abstinência 90 → 150s** até o pico: início aos 75s (era 45s — tremia
+  antes do player entender o que tava acontecendo), grave aos 5 min, colapso
+  aos 10 min. Dá tempo de correr atrás da dose ou do detox.
+
+### 🍄 Viagens (duração e vício por dose)
+| Droga | Duração | Vício/dose |
+|---|---|---|
+| Baseado | 150 → **240s** | 3 → **2** |
+| Seda | 120 → **180s** | 2 → **1** |
+| Ópio | 180 → **300s** | 6 (mantém) |
+| Heroína | 200 → **240s** | 10 (mantém) |
+| **Cocaína** | 120 → **180s** | 12 (mantém) |
+| LSD | 240 → **420s** | 4 → **3** |
+
+- A cocaína era a viagem mais CURTA do jogo (120s) sendo a mais viciante — o
+  risco não compensava. LSD vira a viagem-mãe (7 min). Leves quase não prendem
+  (1-2/dose: precisaria de 15+ doses seguidas pra depender de seda).
+
+### 🔧 Interno
+- Testes de abstinência lêem `saudeAbstinenciaSegundos` do config (sem número
+  mágico quebrando a cada balanceamento). Teste novo: decay da janela de
+  doses (5→2 metades, piso 1). **70/70 game tests passando.**
+
 ## v1.2.55 — MÁQUINAS VIVAS + CALIBRAGEM DA SAÚDE (25/09/2026)
 
 ### ⚙️ As máquinas vivas (a versão chique das animações)

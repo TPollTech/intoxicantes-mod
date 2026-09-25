@@ -250,6 +250,12 @@ public final class SaudeData {
         return de(player).dosesDaSubstancia.getOrDefault(droga, 0);
     }
 
+    /** v1.2.56: define as doses da janela (o decay da viagem usa). */
+    static void setDosesTeste(ServerPlayer player, String droga, int doses) {
+        de(player).dosesDaSubstancia.put(droga, Math.max(0, doses));
+        marcar();
+    }
+
     static void contarDose(ServerPlayer player, String droga) {
         Estado e = de(player);
         e.dosesDaSubstancia.merge(droga, 1, Integer::sum);

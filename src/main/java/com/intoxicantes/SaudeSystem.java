@@ -42,8 +42,11 @@ public final class SaudeSystem {
     /** Detector de fim de gole (mesmo esquema do Embriaguez, mapas proprios). */
     private static final Map<UUID, ItemStack> EM_USO = new HashMap<>();
     private static final Map<UUID, Integer> USO_REMAINING = new HashMap<>();
-    /** Segundos ate o proximo ponto de sede drenado. */
-    private static final Map<UUID, Integer> SEDE_CONTADOR = new HashMap<>();
+    /** v1.2.56: a sede drena em MILISSEGUNDOS de pontos — multiplicadores
+     *  aceleram o relógio SEM arredondar (75s/2x = 1 ponto a cada 37.5s) e
+     *  SEM drift de float (inteiros exatos). */
+    private static final Map<UUID, Integer> SEDE_MILIS = new HashMap<>();
+
     /** Segundos restantes ate a QUEDA da viagem atual (0 = sem viagem pendente). */
     private static final Map<UUID, Integer> QUEDA_EM = new HashMap<>();
     /** Qual viagem pendente de queda (CatalogoSubstancias.Viagem.name()). */
@@ -55,6 +58,35 @@ public final class SaudeSystem {
     /** Segunda-feira do vicio: ticks limpos acumulados contados por dia. */
     private static final Map<UUID, Integer> RELOGIO_DIA = new HashMap<>();
 
+    // v1.2.56: decay da janela de doses — 5 min limpo = metade (min 1)
+    static final long JANELA_SEGUNDOS_DECAY = 300;
+    record JanelaKey(UUID jogador, String droga) {}
+    private static final Map<JanelaKey, Long> JANELA_DECAY = new HashMap<>();
+
+    /** 
+     * v1.2.56: o decay da janela de doses. Roda 1x/s por jogador: quando o
+     * prazo vence, metade das doses derrete (piso 1). A janela da droga é
+     * recente — a intensidade da viagem desce se você para de usar.
+     */
+    static void tickDecayJanela(ServerPlayer player) {
+        long agora = player.level().getGameTime();
+        for (Map.Entry<JanelaKey, Long> e : JANELA_DECAY.entrySet()) {
+            if (!e.getKey().jogador().equals(player.getUUID())) continue;
+            if (agora < e.getValue()) continue;
+            String droga = e.getKey().droga();
+            int doses = SaudeData.dosesDaSubstancia(player, droga);
+            int novo = Math.max(1, doses / 2);
+            SaudeData.setDosesTeste(player, droga, novo);
+            e.setValue(agora + JANELA_SEGUNDOS_DECAY * 20L);
+        }
+    }
+
+    /** Game test: força o prazo do decay da janela pra agora. */
+    static void expirarJanelaTeste(ServerPlayer player, String droga) {
+        JANELA_DECAY.put(new JanelaKey(player.getUUID(), droga),
+                player.level().getGameTime());
+    }
+
     // ==================================================== REGISTRO
 
     public static void register() {
@@ -63,9 +95,10 @@ public final class SaudeSystem {
             SaudeData.saveSeSujo();
             EM_USO.clear();
             USO_REMAINING.clear();
-            SEDE_CONTADOR.clear();
+            SEDE_MILIS.clear();
             QUEDA_EM.clear();
             QUEDA_VIAGEM.clear();
+            JANELA_DECAY.clear();
             ESTAGIO_ABSTINENCIA.clear();
             PROXIMO_COLAPSO.clear();
             RELOGIO_DIA.clear();
@@ -76,9 +109,10 @@ public final class SaudeSystem {
             UUID id = handler.getPlayer().getUUID();
             EM_USO.remove(id);
             USO_REMAINING.remove(id);
-            SEDE_CONTADOR.remove(id);
+            SEDE_MILIS.remove(id);
             QUEDA_EM.remove(id);
             QUEDA_VIAGEM.remove(id);
+            JANELA_DECAY.keySet().removeIf(k -> k.jogador().equals(id));
             ESTAGIO_ABSTINENCIA.remove(id);
             PROXIMO_COLAPSO.remove(id);
             RELOGIO_DIA.remove(id);
@@ -139,6 +173,7 @@ public final class SaudeSystem {
         ModConfig cfg = ModConfig.get();
         tickSede(player, cfg);
         tickQueda(player);
+        tickDecayJanela(player);
         tickVicioEAbstinencia(player, cfg);
         SaudeNetworking.enviarSync(player);
     }
@@ -153,23 +188,29 @@ public final class SaudeSystem {
             return;
         }
         // taxa base: 1 ponto a cada saudeSedeSegundos de vida limpa.
-        // multiplicadores: correndo 2.5x, mundo quente (Nether) 2x, bêbado (>= fonar) 2x.
+        // multiplicadores: correndo 2x (v1.2.56: 2.5 castigava o jogo normal),
+        // mundo quente (Nether) 2x, bêbado (>= fonar) 2x.
+        // v1.2.56: dreno FRACIONÁRIO — o multiplicador avança o relógio em
+        // frações de ponto (75s/2x = 1 ponto a cada 37.5s), sem o round() que
+        // fazia o bêbado drenar na mesma cadência do sóbrio.
         float fator = 1.0F;
-        if (player.isSprinting()) fator *= 2.5F;
+        if (player.isSprinting()) fator *= 2.0F;
         // v1.2.54: no 26.3 o "mundo quente" virou EnvironmentAttribute — a
         // checagem direta do Nether é mais legível e imune à mudança de API
         if (player.level().dimension() == net.minecraft.world.level.Level.NETHER) fator *= 2.0F;
         if (Embriaguez.nivel(player) >= cfg.embriaguezLimiarFonar) fator *= 2.0F;
-        int taxa = Math.max(1, Math.round(cfg.saudeSedeSegundos / fator));
-        int contador = SEDE_CONTADOR.getOrDefault(id, 0) + 1;
-        if (contador >= taxa) {
-            SEDE_CONTADOR.put(id, 0);
-            SaudeData.alterarHidratacao(player, -1);
+        float avancoMilis = Math.round(fator * 1000.0F); // ms de ponto/segundo
+        int limite = cfg.saudeSedeSegundos * 1000;       // ms por ponto inteiro
+        int acumulado = SEDE_MILIS.getOrDefault(id, 0) + (int) avancoMilis;
+        if (acumulado >= limite) {
+            int pontos = acumulado / limite;
+            SEDE_MILIS.put(id, acumulado % limite);
+            SaudeData.alterarHidratacao(player, -pontos);
             if (SaudeData.hidratacao(player) == 0) {
                 player.sendSystemMessage(Component.translatable("effect.intoxicantes.sede.zerou"));
             }
         } else {
-            SEDE_CONTADOR.put(id, contador);
+            SEDE_MILIS.put(id, acumulado);
         }
         aplicarDebulatesDeSede(player);
     }
@@ -236,6 +277,11 @@ public final class SaudeSystem {
 
         // 7. sede: droga pesada seca (a boca de algodao e real)
         SaudeData.alterarHidratacao(player, -Math.max(2, ficha.tier() * 3));
+
+        // 8. v1.2.56: a janela DECAY — 5 minutos limpos da droga derretem metade
+        // das doses (min 1): a intensidade da viagem é memória RECENTE, não
+        // reputação vitalícia. Sem isso, intensidade 3 vira permanente.
+        JANELA_DECAY.put(new JanelaKey(id, ficha.id()), player.level().getGameTime() + JANELA_SEGUNDOS_DECAY * 20L);
 
         // avisinho no chat (sabor; intensidade 2+ muda a fala)
         player.sendSystemMessage(Component.translatable(
@@ -475,7 +521,7 @@ public final class SaudeSystem {
         UUID id = player.getUUID();
         EM_USO.remove(id);
         USO_REMAINING.remove(id);
-        SEDE_CONTADOR.remove(id);
+        SEDE_MILIS.remove(id);
         QUEDA_EM.remove(id);
         QUEDA_VIAGEM.remove(id);
         ESTAGIO_ABSTINENCIA.remove(id);

@@ -48,24 +48,30 @@ public final class CatalogoSubstancias {
     }
 
     static {
+        // v1.2.56: números calibrados pra PRIMEIRA partida (ver CHANGELOG).
+        // Duracao: leves longas e amigas, pesadas curtas e intensas — mas a
+        // cocaína (a mais viciante) não pode ser a mais CURTA (era 120s, o
+        // risco não compensava); LSD é a viagem-mãe, dura.
+        // Vicio: escala pelo risco — leves quase não prendem (2/1), pesadas
+        // cobram caro (10/12/6).
         // T1 — a erva: fuma, ri, come. Pesa no pulmão, vicia de leve.
         registrar(new Ficha("baseado", IntoxicantesMod.BASEADO,
-                Viagem.TRANQUILO, 1, 150, 3, Orgao.PULMAO, 12, "erva"));
+                Viagem.TRANQUILO, 1, 240, 2, Orgao.PULMAO, 12, "erva"));
         registrar(new Ficha("maconha_seda", IntoxicantesMod.MACONHA_SEDA,
-                Viagem.TRANQUILO, 1, 120, 2, Orgao.PULMAO, 8, "erva"));
+                Viagem.TRANQUILO, 1, 180, 1, Orgao.PULMAO, 8, "erva"));
         // T2 — o ópio: o casaco quente. Vício médio.
         registrar(new Ficha("opio", IntoxicantesMod.OPIO,
-                Viagem.MORNO, 2, 180, 6, Orgao.ESTOMAGO, 25, "pó"));
+                Viagem.MORNO, 2, 300, 6, Orgao.ESTOMAGO, 25, "pó"));
         // T2.5 — a heroína: o nod. Vicia muito.
         registrar(new Ficha("heroina", IntoxicantesMod.HEROINA,
-                Viagem.SONHO, 3, 200, 10, Orgao.ESTOMAGO, 35, "pó"));
+                Viagem.SONHO, 3, 240, 10, Orgao.ESTOMAGO, 35, "pó"));
         // T3 — a cocaína: o overdrive. Vicia rápido e cobra o coração (estômago
         // na ficção do prontuário: "coração/estômago" — a barriga de pó).
         registrar(new Ficha("cocaina", IntoxicantesMod.COCAINA,
-                Viagem.OVERDRIVE, 3, 120, 12, Orgao.ESTOMAGO, 30, "pó"));
+                Viagem.OVERDRIVE, 3, 180, 12, Orgao.ESTOMAGO, 30, "pó"));
         // T4 — o LSD: a viagem. Menos vício físico, mais alma.
         registrar(new Ficha("lsd", IntoxicantesMod.LSD,
-                Viagem.VIAGEM, 4, 240, 4, Orgao.ESTOMAGO, 20, "pílula"));
+                Viagem.VIAGEM, 4, 420, 3, Orgao.ESTOMAGO, 20, "pílula"));
     }
 
     /** Ficha pelo id ("" -> null). */
