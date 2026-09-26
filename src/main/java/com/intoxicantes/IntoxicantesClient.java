@@ -73,6 +73,13 @@ public class IntoxicantesClient implements ClientModInitializer {
         net.minecraft.client.renderer.blockentity.BlockEntityRenderers.register(
                 IntoxicantesMod.BARRIL_BEBIDA_ENTITY, MaquinasVivasRenderer.BarrilRenderer::new);
 
+        // v1.2.59: A GUI DAS MÁQUINAS — uma tela pros seis tipos (o classtweaker
+        // do fabric-menu-api-v1 abre o registro vanilla do MenuScreens).
+        // O payload (TipoMaquina) chega pelo ExtendedMenuType; slots/progresso
+        // chegam pelo sync vanilla do menu.
+        net.minecraft.client.gui.screens.MenuScreens.register(
+                IntoxicantesMod.MENU_MAQUINA_SNC, TelaMaquinaBase::new);
+
         // ==================================================== PONTO DO TRAFICANTE (v1.2.44)
         // S2C: o traficante mandou o estado do ponto -> abre a tela dele.
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking

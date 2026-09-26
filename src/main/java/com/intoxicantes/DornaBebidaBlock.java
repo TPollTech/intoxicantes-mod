@@ -63,8 +63,13 @@ public class DornaBebidaBlock extends MaquinaGrandeBlock {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide()) {
-            // mão vazia: recolhe o lote pronto (ou mostra o status)
-            be.interagir((ServerLevel) level, player);
+            if (player.isShiftKeyDown()) {
+                // shift + mão vazia: recolhe o fermentado (a rota de sempre)
+                be.interagir((ServerLevel) level, player);
+            } else {
+                // v1.2.59: botão direito abre a GUI da dorna
+                player.openMenu(be);
+            }
         }
         return InteractionResult.SUCCESS_SERVER;
     }
@@ -78,17 +83,31 @@ public class DornaBebidaBlock extends MaquinaGrandeBlock {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS_SERVER;
         }
-        // com item na mão: tenta carregar (valida receita/quantidade no servidor)
-        boolean aceitou = be.tentarCarregar((ServerLevel) level, player, stack);
-        if (aceitou) {
-            stack.shrink(be.qtdNecessaria(stack));
-            level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW,
-                    SoundSource.BLOCKS, 0.7F, 0.9F);
+        // SHIFT + item: inserção rápida (a BE mesma consome a dose certa)
+        if (player.isShiftKeyDown()) {
+            boolean aceitou = be.tentarCarregar((ServerLevel) level, player, stack);
+            if (aceitou) {
+                level.playSound(null, pos, SoundEvents.BREWING_STAND_BREW,
+                        SoundSource.BLOCKS, 0.7F, 0.9F);
+            } else {
+                be.interagir((ServerLevel) level, player);
+            }
             return InteractionResult.SUCCESS_SERVER;
         }
-        // não aceitou: mostra o status (o jogador entende o porquê)
-        be.interagir((ServerLevel) level, player);
+        // clique normal: abre a GUI
+        player.openMenu(be);
         return InteractionResult.SUCCESS_SERVER;
+    }
+
+    /** v1.2.59: quebrou a dorna, devolve o mosto e o fermentado. */
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state,
+            Player player) {
+        if (level instanceof ServerLevel servidor
+                && level.getBlockEntity(posDoCorpo(state, pos)) instanceof DornaBebidaBlockEntity be) {
+            be.soltarConteudo(servidor);
+        }
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
     /** Bolhas de fermentação (client, baratas: 1 a cada 30 ticks quando ativa). */

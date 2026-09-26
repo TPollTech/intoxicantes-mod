@@ -344,9 +344,16 @@ public final class SaudeSystem {
             }
             player.sendSystemMessage(Component.translatable("effect.intoxicantes.detox.bebeu"));
         }
-        // AGUA DE COCO: o isotopico do sertao (+50)
+        // AGUA DE COCO: o isotopico do sertao (+45 — logo abaixo do suco;
+        // o coco na mão é grátis, mas ainda custa achar a praia e subir)
         if (stack.is(IntoxicantesMod.AGUA_DE_COCO)) {
-            SaudeData.alterarHidratacao(player, 50);
+            SaudeData.alterarHidratacao(player, 45);
+        }
+        // v1.2.58: o COCO in natura — morder o fruto bebe a água dele (+15,
+        // logo abaixo da garrafa de água vanilla: o fruto é um lanche de
+        // emergência, a garrafa é a infraestrutura)
+        if (stack.is(IntoxicantesMod.COCO_FRUTO)) {
+            SaudeData.alterarHidratacao(player, 15);
         }
     }
 

@@ -2174,25 +2174,27 @@ public class CommerceGameTest {
 
     // ==================================================== BEBIDAS (v1.2.50)
 
-    /** Executa o clique do jogador no bloco (fluxo real das maquinas). */
+    /** Executa o clique do jogador no bloco (fluxo real das maquinas).
+     * v1.2.59: quem consome a dose da mão é a PRÓPRIA máquina (split do
+     * buffer) — nenhum shrink externo aqui, senão é consumo duplo. */
     private static void beClique(net.minecraft.server.level.ServerLevel level, BlockPos pos,
             ServerPlayer player, ItemStack mao) {
         var be = level.getBlockEntity(pos);
         if (be instanceof MaquinaPrimaBlockEntity maquina) {
             if (!mao.isEmpty() && maquina.tentarCarregar(level, player, mao)) {
-                mao.shrink(maquina.qtdNecessaria(mao));
+                // dose já entrou no buffer (o motor gasta lote a lote)
             } else {
                 maquina.interagir(level, player);
             }
         } else if (be instanceof DornaBebidaBlockEntity dorna) {
             if (!mao.isEmpty() && dorna.tentarCarregar(level, player, mao)) {
-                mao.shrink(dorna.qtdNecessaria(mao));
+                // dose já entrou no buffer
             } else {
                 dorna.interagir(level, player);
             }
         } else if (be instanceof AlambiqueBlockEntity alambique) {
             if (!mao.isEmpty() && alambique.tentarCarregar(level, player, mao)) {
-                mao.shrink(alambique.qtdNecessaria(mao));
+                // dose já entrou no buffer
             } else {
                 alambique.interagir(level, player);
             }

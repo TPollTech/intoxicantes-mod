@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>SNC Adventures — Prévia das GUIs das Máquinas (v1.2.59)</title>
+<style>
+  body { background:#171512; color:#e8e0cc; font-family:"Segoe UI",Arial,sans-serif; margin:24px; }
+  h1 { font-size:22px; color:#f3e9cf; margin:0 0 4px; }
+  h1 small { color:#9a8f74; font-weight:normal; font-size:14px; }
+  .lede { color:#b5a98c; font-size:13px; max-width:900px; margin:6px 0 28px; line-height:1.5; }
+  .linha { display:flex; gap:36px; align-items:flex-start; margin-bottom:44px; flex-wrap:wrap; }
+  .gui { width:624px; height:666px; position:relative; image-rendering:pixelated; flex:none;
+         box-shadow:0 0 0 1px #000, 0 18px 40px rgba(0,0,0,.55); }
+  .nota { max-width:520px; }
+  .nota h2 { color:#f3e9cf; font-size:17px; margin:0 0 6px; }
+  .nota .paleta { display:flex; gap:6px; margin:10px 0; }
+  .nota .paleta i { width:26px; height:26px; border:1px solid #000; display:block; }
+  .nota ul { font-size:12.5px; color:#c9bda0; line-height:1.55; padding-left:18px; margin:8px 0; }
+  .nota .rotulo { display:inline-block; background:#2a2620; border:1px solid #4a4436; color:#e0c987;
+                  font-size:11px; padding:2px 8px; margin:2px 4px 0 0; }
+  .rodape { color:#8a8168; font-size:12px; border-top:1px solid #383327; padding-top:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>SNC Adventures — GUIs das Máquinas de Bebida <small>· v1.2.59 · uma classe de tela, seis CENAS</small></h1>
+<div class="lede">
+  Prévia 1:1 da <b>TelaMaquinaBase</b> (painel vetorial 208×222 escalado 3×). Cada máquina tem uma
+  <b>CENA pixel-art própria</b> desenhada no corpo da GUI — rolos da esmagadora, fuso da prensa, tacho sobre o fogo,
+  tanque borbulhando, serpentina do alambique, barril deitado com torneira — definida no <b>TipoMaquina</b> e pintada
+  com a paleta da própria máquina. Barra de progresso <b>REAL</b> (ContainerData server-authoritative) e painel
+  “PRODUZ” lendo o mesmo catálogo do Guia. Estado mostrado = máquina em operação (exemplo).
+</div>
+<div id="raiz"></div>
+<div class="rodape">
+  Slots de saída só entregam (não aceitam item); insumo filtra pelas receitas da máquina; shift-click funciona nos dois sentidos;
+  quebrar a máquina devolve buffer + lote em curso + produto. Barra verde = 100% / produto pronto.
+</div>
+
+<script>
+const S = 3; // escala 3x
+const ITENS = {
+  cana:{c:"#7dbe4c",n:"Cana-de-açúcar"}, caldo:{c:"#c9e45a",n:"Caldo de cana"}, bagaco:{c:"#8a6b3a",n:"Bagaço"},
+  uva:{c:"#7a3b6e",n:"Uva"}, mosto_uva:{c:"#9c4e6d",n:"Mosto de uva"},
+  malte:{c:"#c79a4b",n:"Malte"}, lupulo:{c:"#7fa653",n:"Lúpulo fresco"}, mosto_lup:{c:"#b98a3e",n:"Mosto lupulado"},
+  mosto_fer:{c:"#a98a4c",n:"Mosto fermentado"}, melaco:{c:"#4e3320",n:"Melaço"}, mosto_rum:{c:"#8a6a3e",n:"Mosto de rum"},
+  jovem:{c:"#d8e8e8",n:"Destilado jovem"}, rum_jovem:{c:"#e8d8b0",n:"Rum jovem"},
+  garrafa:{c:"#b8d8d8",n:"Garrafa de vidro"}, cerva:{c:"#e8b84b",n:"Cerveja"}, vinho:{c:"#6e2440",n:"Vinho"},
+  cachaca:{c:"#e8f0e8",n:"Cachaça"}
+};
+// cores fixas de cena (idênticas às constantes do TipoMaquina)
+const COR = {
+  VAPOR:"rgba(255,255,255,.4)", BRILHO:"rgba(255,255,255,.53)", FOGO:"#e07020",
+  CANA:"#6e8f3c", VINHO:"#5c2a38", MOSTO:"#c98f3f", MURK:"#8a8a4c",
+  ROTULO:"#c9a866", BEBIDA:"#6e2440", AGUA:"rgba(0,170,204,.15)"
+};
+let root = document.getElementById("raiz");
+
+function chip(p, id, x, y, qtd){
+  const it = ITENS[id];
+  const d = document.createElement("div");
+  d.style.cssText = `position:absolute;left:${x*S}px;top:${y*S}px;width:${16*S}px;height:${16*S}px;
+    background:linear-gradient(135deg, ${it.c} 0%, ${it.c} 45%, rgba(0,0,0,.35) 100%);
+    box-shadow:inset 0 ${2*S}px 0 rgba(255,255,255,.35), inset 0 -${2*S}px 0 rgba(0,0,0,.4);`;
+  d.title = it.n;
+  const s = document.createElement("span");
+  s.textContent = qtd;
+  s.style.cssText = `position:absolute;right:0;bottom:-2px;font:bold ${9*S}px monospace;color:#fff;
+    text-shadow:${S}px ${S}px 0 #3f3f3f;`;
+  d.appendChild(s); p.appendChild(d);
+}
+function rect(p, x, y, w, h, cor){ const d=document.createElement("div");
+  d.style.cssText=`position:absolute;left:${x*S}px;top:${y*S}px;width:${w*S}px;height:${h*S}px;background:${cor}`; p.appendChild(d);}
+function outline(p, x, y, w, h, cor){ const d=document.createElement("div");
+  d.style.cssText=`position:absolute;left:${x*S}px;top:${y*S}px;width:${w*S}px;height:${h*S}px;
+    box-shadow:inset 0 0 0 ${S}px ${cor};`; p.appendChild(d);}
+function txt(p, x, y, s, cor, opts={}){
+  const d=document.createElement("div"); d.textContent=s;
+  d.style.cssText=`position:absolute;left:${x*S}px;top:${y*S}px;color:${cor};white-space:nowrap;
+    font:${(opts.px||9)*S}px/${1.15} monospace; text-shadow:${S}px ${S}px 0 rgba(0,0,0,.5);`+
+    (opts.center?`transform:translateX(-50%);`:"")+(opts.bold?"font-weight:bold;":"");
+  p.appendChild(d); return d;}
+function slotQuadro(p, x, y, cor){
+  const d=document.createElement("div");
+  d.style.cssText=`position:absolute;left:${(x-1)*S}px;top:${(y-1)*S}px;width:${18*S}px;height:${18*S}px;
+    box-shadow:inset 0 0 0 ${S}px ${cor}, inset 0 0 0 ${2*S}px rgba(0,0,0,.25);`; p.appendChild(d);}
+
+function gui(cfg){
+  const wrap = document.createElement("div"); wrap.className="linha";
+  const g = document.createElement("div"); g.className="gui"; g.id=cfg.id; wrap.appendChild(g);
+  const nota = document.createElement("div"); nota.className="nota";
+  nota.innerHTML = `<h2>${cfg.tituloNota}</h2>
+    <div class="paleta">${cfg.pal.map(c=>`<i style="background:${c}"></i>`).join("")}</div>
+    <ul>${cfg.nota}</ul>
+    <div>${cfg.tags.map(t=>`<span class="rotulo">${t}</span>`).join("")}</div>`;
+  wrap.appendChild(nota); root.appendChild(wrap);
+
+  const P = cfg; // atalhos
+  const fundo=P.fundo, mold=P.mold, faixa=P.faixa, acent=P.acent, texto=P.texto, fraco=P.fraco;
+  const sim = {"-1":acent, "-2":mold, "-3":faixa, "-4":texto, "-5":fraco};
+  // painel
+  rect(g,3,3,208,222,"rgba(0,0,0,.4)"); rect(g,0,0,208,222,fundo);
+  rect(g,0,0,208,1,mold); rect(g,0,221,208,1,mold); rect(g,0,0,1,222,mold); rect(g,207,0,1,222,mold);
+  rect(g,1,1,206,1,faixa); rect(g,1,220,206,1,faixa); rect(g,1,1,1,220,faixa); rect(g,206,1,1,220,faixa);
+  rect(g,3,3,202,1,esc(faixa,.8)); rect(g,3,218,202,1,esc(faixa,.8));
+  rect(g,3,3,1,216,esc(faixa,.8)); rect(g,204,3,1,216,esc(faixa,.8));
+  // letreiro + rebites
+  rect(g,4,4,200,19,faixa);
+  for(let px=6; px<202; px+=7) rect(g,px,4,3,2,acent);
+  txt(g,104,11,P.nome,"#f3e9cf",{center:true,px:9,bold:true});
+  // A CENA ÚNICA desta máquina (mesmos retângulos do TipoMaquina.cena)
+  for(const r of P.cena){
+    if(r[4]===-10){ outline(g, r[0],r[1],r[2]-r[0],r[3]-r[1], mold); continue; }
+    rect(g, r[0],r[1],r[2]-r[0],r[3]-r[1], typeof r[4]==="string" ? COR[r[4]] : sim[String(r[4])]);
+  }
+  // barra REAL na posição da cena
+  const [bx,by,bw]=P.barra, bh=6, frac=P.frac;
+  rect(g,bx-1,by-1,bw+2,bh+2,mold);
+  rect(g,bx,by,bw,bh,esc(fundo,.55));
+  rect(g,bx,by,Math.round(bw*frac),bh, P.pronta?"#67c24a":acent);
+  // sem rótulo solto: o percentual já mora na frase de fase abaixo
+  txt(g,104,66,P.status,P.pronta?"#67c24a":texto,{center:true,px:9});
+  // painel PRODUZ + receitas
+  txt(g,8,78,"PRODUZ",fraco,{px:8});
+  rect(g,6,84,196,44,esc(fundo,.88));
+  let y=90;
+  for(const linha of P.receitas){
+    let x=14;
+    for(const cel of linha){
+      if(cel=="->"){ txt(g,x,y+4,"→",fraco,{px:9}); x+=14; continue; }
+      if(cel=="+"){ txt(g,x,y+4,"+",fraco,{px:9}); x+=12; continue; }
+      chip(g, cel[0], x, y, cel[1]); x+=20;
+    }
+    // linha clicável (tooltip no jogo: "6× Uva" etc.)
+    const d=document.createElement("div");
+    d.style.cssText=`position:absolute;left:${8*S}px;top:${(y-2)*S}px;width:${192*S}px;height:${22*S}px;cursor:default;`;
+    d.title = linha.filter(c=>Array.isArray(c)).map(c=>`${c[1]}× ${ITENS[c[0]].n}`).join("  →  ");
+    g.appendChild(d);
+    y+=20;
+  }
+  // slots da máquina
+  for(const s of P.slots){ slotQuadro(g, s[0], s[1], acent); if(s[2]) chip(g, s[2], s[0], s[1], s[3]); }
+  // inventário do jogador
+  txt(g,8,134,"Inventário",fraco,{px:8});
+  for(let l=0;l<3;l++) for(let c=0;c<9;c++) slotQuadro(g, 8+c*18, 148+l*18, esc(faixa,.85));
+  for(let c=0;c<9;c++) slotQuadro(g, 8+c*18, 206, esc(faixa,.85));
+  // conteúdo de exemplo do inventário (uvas sobrando)
+  if(P.mao){ chip(g,P.mao[0], 8+P.mao[1]*18, 206, P.mao[2]); }
+}
+function esc(hex,f){ const n=parseInt(hex.slice(1),16);
+  const r=Math.min(255,Math.round(((n>>16)&255)*f)),g=Math.min(255,Math.round(((n>>8)&255)*f)),b=Math.min(255,Math.round((n&255)*f));
+  return `rgb(${r},${g},${b})`; }
+
+// ================= AS SEIS MÁQUINAS =================
+// cena: retângulos [x1,y1,x2,y2,código] EXATAMENTE como no TipoMaquina
+// códigos: -1 acento · -2 moldura · -3 faixa · -4 texto · -5 texto fraco · -10 contorno
+gui({
+  id:"moenda", nome:"Esmagadora de Cana", tituloNota:"1 · Esmagadora de Cana (moenda_cana)",
+  fundo:"#f2e8ce", mold:"#5c4023", faixa:"#3f6f35", acent:"#8fbf6b", texto:"#33270f", fraco:"#7a6a4a",
+  pal:["#f2e8ce","#5c4023","#3f6f35","#8fbf6b"],
+  frac:.68, status:"Esmagando… 68%",
+  barra:[60,52,56],
+  cena:[[84,24,96,46,-1],[84,24,96,46,-10],[86,26,89,44,"BRILHO"],
+    [100,24,112,46,-1],[100,24,112,46,-10],[102,26,105,44,"BRILHO"],
+    [92,28,96,31,-2],[92,36,96,39,-2],[100,24,104,27,-2],[100,41,104,44,-2],
+    [88,24,92,26,-2],[104,24,108,26,-2],
+    [46,32,64,36,"CANA"],[62,35,78,39,"CANA"],
+    [78,46,118,51,-3],[80,47,116,50,-1],
+    [118,42,128,46,-1],[128,38,138,42,-1],[138,34,146,38,-1],
+    [112,47,124,50,-4],[124,50,136,53,-4],[136,53,146,54,-4]],
+  receitas:[ [ ["cana",4], "->", ["caldo",4], "+", ["bagaco",1] ] ],
+  slots:[[26,28,"cana",8],[148,26,"caldo",4],[148,44,"bagaco",1]],
+  mao:["cana",5,13],
+  nota:`<li>4 canas → 4 caldo <b>+ 1 bagaço</b> (extra tem slot próprio) · 40 s por lote.</li>
+        <li>Cena: cana entra pelos <b>rolos dentados</b>; caldo sobe à direita, bagaço cai abaixo.</li>
+        <li>Buffer aceita até 4 doses de uma vez: 20 canas = 5 lotes seguidos, sem clicar de novo.</li>
+        <li>5 canas? Aceita: consome 4, <b>sobra 1 na mão</b> (nunca mais “exatamente 4”).</li>`,
+  tags:["barra real (ContainerData)","multi-lote","saída dupla"]
+});
+gui({
+  id:"prensa", nome:"Prensa de Uvas", tituloNota:"2 · Prensa de Uvas (prensa_uvas)",
+  fundo:"#f3e9db", mold:"#4a2530", faixa:"#6e2f3d", acent:"#a04455", texto:"#2e1b20", fraco:"#83655f",
+  pal:["#f3e9db","#4a2530","#6e2f3d","#a04455"],
+  frac:.72, status:"Prensando… 72%",
+  barra:[120,50,56],
+  cena:[[62,24,118,28,-2],[62,24,68,28,-1],[112,24,118,28,-1],
+    [86,28,94,42,-1],[86,30,94,31,-2],[86,34,94,35,-2],[86,38,94,39,-2],
+    [68,42,112,46,-4],[70,43,110,44,-2],
+    [72,46,108,52,"VINHO"],[78,48,81,51,-1],[90,47,93,50,-1],[100,49,103,52,-1],[76,52,104,54,-1],
+    [112,42,122,46,-1],[122,38,132,42,-1],[132,34,142,38,-1]],
+  receitas:[ [ ["uva",6], "->", ["mosto_uva",4] ] ],
+  slots:[[26,28,"uva",7],[148,28,"mosto_uva",4]],
+  mao:["uva",2,42],
+  nota:`<li>6 uvas → 4 mosto de uva · 40 s por lote (a máquina-piloto do rework).</li>
+        <li>Cena: o <b>fuso rosqueado</b> desce com o prato de pressão; a massa de uvas sangra mosto.</li>
+        <li>13 uvas no slot = <b>2 lotes + 1 de sobra</b>; o 2º lote começa sozinho.</li>
+        <li>Fase “pronta” pinta a barra de verde e diz o que fazer a seguir.</li>`,
+  tags:["tons vinho/bordô","produção contínua"]
+});
+gui({
+  id:"caldeirao", nome:"Caldeirão de Cerveja", tituloNota:"3 · Caldeirão de Cerveja (caldeirao_mostura)",
+  fundo:"#f1e7d0", mold:"#7a4a1e", faixa:"#9a6428", acent:"#c99044", texto:"#352510", fraco:"#84704e",
+  pal:["#f1e7d0","#7a4a1e","#9a6428","#c99044"],
+  frac:.45, status:"Fervendo… 45%",
+  barra:[76,52,56],
+  cena:[[72,22,74,27,"VAPOR"],[82,21,84,26,"VAPOR"],[92,22,94,27,"VAPOR"],[102,23,104,28,"VAPOR"],
+    [66,31,112,46,-1],[66,31,112,46,-10],[68,33,110,36,"MOSTO"],
+    [64,28,114,31,-2],
+    [103,18,106,32,-2],[99,30,107,34,-2],
+    [72,45,76,49,"FOGO"],[80,44,84,49,"FOGO"],[90,45,94,49,"FOGO"],[100,44,104,49,"FOGO"],[106,46,110,49,"FOGO"],
+    [68,49,110,51,-2],
+    [112,36,126,40,-2],[126,32,138,36,-2],[138,34,150,38,-1]],
+  receitas:[ [ ["malte",4], "+", ["lupulo",1], "->", ["mosto_lup",4] ] ],
+  slots:[[22,26,"malte",8],[22,44,"lupulo",3],[152,28,"mosto_lup",4]],
+  mao:null,
+  nota:`<li>4 malte + 1 lúpulo → 4 mosto lupulado · mostura 40 s + fervura 30 s.</li>
+        <li>Cena: tacho sobre o <b>fogo</b> com vapor, concha na borda e tubo de mosto à direita.</li>
+        <li>2ª dose no slot de baixo (lúpulo entra no meio do processo, como já era).</li>
+        <li>Sem água embaixo: barra para e a fase avisa <b>“Sem água”</b> — nada se perde.</li>`,
+  tags:["2 doses","exige água embaixo"]
+});
+gui({
+  id:"dorna", nome:"Barril de Fermentação", tituloNota:"4 · Barril de Fermentação (dorna_bebida)",
+  fundo:"#eee9d8", mold:"#5f5442", faixa:"#77694a", acent:"#9fa871", texto:"#2e2a1c", fraco:"#7c7561",
+  pal:["#eee9d8","#5f5442","#77694a","#9fa871"],
+  frac:.81, status:"Fermentando… 81%",
+  barra:[76,52,56],
+  cena:[[60,26,124,49,-3],[60,26,124,49,-10],
+    [70,28,72,47,-5],[84,28,86,47,-5],[98,28,100,47,-5],[112,28,114,47,-5],
+    [66,35,118,44,"MURK"],[66,35,118,38,"VAPOR"],
+    [74,39,76,41,"BRILHO"],[88,41,90,43,"BRILHO"],[96,38,98,40,"BRILHO"],[106,40,108,42,"BRILHO"],
+    [60,30,124,32,-2],[60,43,124,45,-2],
+    [88,21,96,25,-2],[90,20,94,21,-2],[97,20,101,23,"VAPOR"],
+    [124,38,132,42,-2],[126,36,130,38,-2],[132,36,142,40,-1],[142,34,148,38,-1]],
+  receitas:[ [ ["caldo",4], "->", ["mosto_fer",4] ], [ ["melaco",1], "->", ["mosto_rum",4] ] ],
+  slots:[[24,28,"caldo",4],[150,28,"mosto_fer",4]],
+  mao:null,
+  nota:`<li>4 caldo → 4 mosto fermentado · <b>ou</b> 1 melaço → 4 mosto de rum (420 s).</li>
+        <li>Cena: tanque de aduelas com <b>visor de nível</b> — líquido, espuma e bolhas subindo.</li>
+        <li>Todas as receitas ficam listadas no painel — o jogador vê o que a máquina produz.</li>
+        <li>Antigamente a dorna guardava a pilha INTEIRA como lote; agora é buffer + doses.</li>`,
+  tags:["2 receitas","migração de NBT legado"]
+});
+gui({
+  id:"alambique", nome:"Alambique de Cobre", tituloNota:"5 · Alambique de Cobre (alambique)",
+  fundo:"#f0e5ce", mold:"#8c4a16", faixa:"#b2621e", acent:"#e08a2e", texto:"#3a2410", fraco:"#8a6c48",
+  pal:["#f0e5ce","#8c4a16","#b2621e","#e08a2e"],
+  frac:.33, status:"Destilando… 33%",
+  barra:[76,52,56],
+  cena:[[55,23,61,26,-2],
+    [48,26,68,30,-1],[42,30,74,34,-1],[40,34,76,38,-1],[40,38,76,46,-1],[40,38,76,46,-10],
+    [44,32,47,44,"BRILHO"],
+    [62,26,72,30,-1],[70,30,80,34,-1],[78,34,88,38,-1],
+    [90,32,110,46,"AGUA"],[88,30,112,48,-10],
+    [92,34,108,36,-2],[92,44,108,46,-2],[92,36,94,44,-2],[106,36,108,44,-2],[98,38,102,42,-1],
+    [46,46,50,50,"FOGO"],[54,46,58,50,"FOGO"],[62,46,66,50,"FOGO"],[42,50,74,52,-2],
+    [112,42,124,46,-1],[124,38,136,42,-1],[136,34,148,38,-1]],
+  receitas:[ [ ["mosto_fer",4], "->", ["jovem",2] ], [ ["mosto_rum",4], "->", ["rum_jovem",2] ] ],
+  slots:[[22,28,"mosto_fer",4],[152,28,"jovem",2]],
+  mao:null,
+  nota:`<li>4 mosto → 2 destilado jovem (destilar CONCENTRA) · 90 s com fogo embaixo.</li>
+        <li>Cena: <b>domo de cobre</b> + pescoço de cisne + <b>serpentina</b> no tonel d’água, fogo embaixo.</li>
+        <li>Sem fogo: fase <b>“Sem fogo”</b> na GUI (o servidor conhece o calor e sincroniza).</li>
+        <li>Barra ligada ao timer real — nada de animação inventada no client.</li>`,
+  tags:["cobre/vapor","exige fogo embaixo"]
+});
+gui({
+  id:"barril", nome:"Barril de Cachaça", tituloNota:"6 · Barril de Bebida (barril_cachaca/cerveja/rum/vinho)",
+  fundo:"#ebdfc4", mold:"#4e3a24", faixa:"#6b4e2e", acent:"#b08d57", texto:"#2c2114", fraco:"#7a6a50",
+  pal:["#ebdfc4","#4e3a24","#6b4e2e","#b08d57"],
+  frac:1.0, pronta:true, status:"Pronto! Coloque garrafas",
+  barra:[76,52,56],
+  cena:[[62,26,126,48,-3],[62,26,126,48,-10],
+    [74,28,76,46,-5],[86,28,88,46,-5],[102,28,104,46,-5],[114,28,116,46,-5],
+    [78,34,112,40,"ROTULO"],[92,35,98,39,"BEBIDA"],
+    [70,26,74,48,-2],[96,26,100,48,-2],[118,26,122,48,-2],
+    [90,24,98,28,-2],[92,25,96,27,-1],
+    [58,40,62,44,-2],[56,44,60,47,-1],
+    [46,45,58,51,-10],[48,47,56,49,-1],
+    [126,30,140,34,-2],[140,32,148,36,-1]],
+  receitas:[ [ ["jovem",2], "->", ["cachaca",4] ] ],
+  slots:[[24,26,"jovem",2],[24,44,"garrafa",3],[150,28,"cachaca",2]],
+  mao:null,
+  nota:`<li>2 jovens descansam → 4 cachaças · maturação 600 s (vinho fermenta 300 s + matura 300 s).</li>
+        <li>Cena: barril <b>deitado</b> com rótulo da bebida, rolha no topo e torneira pingando no copo.</li>
+        <li>Slot de garrafas: 1 garrafa de vidro = 1 bebida engarrafada; clique com garrafa na mão também engarrafa.</li>
+        <li>Quarta fase sincronizada (garrafas restantes) + <b>quebra devolve tudo</b> — antes o lote se perdia.</li>`,
+  tags:["2 fases + engarrafamento","fase pronta verde"]
+});
+</script>
+</body>
+</html>

@@ -22,6 +22,7 @@ import net.fabricmc.fabric.api.biome.v1.BiomeSelectionContext;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -42,6 +43,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.TintedParticleLeavesBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.storage.loot.LootPool;
@@ -52,6 +55,7 @@ import net.minecraft.world.item.component.Consumable;
 import net.minecraft.world.item.component.UseRemainder;
 import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
 import net.minecraft.world.item.consume_effects.PlaySoundConsumeEffect;
+import net.minecraft.world.item.consume_effects.RemoveStatusEffectsConsumeEffect;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.SpawnEggItem;
@@ -90,6 +94,33 @@ public class IntoxicantesMod implements ModInitializer {
     public static final Block UVA_PLANT = registerCropBlock("uva_plant", false);
     public static final Block CAFE_PLANT = registerCropBlock("cafe_plant", false);
     public static final Block PAPOULA_PLANT = registerCropBlock("papoula_plant", false);
+
+    // ============================================================ BLOCOS: COQUEIRO (v1.2.58)
+    // A praia tem dono: tronco curvado, folhas e coco comível. O coco no pé
+    // (CocoBlock) dropa o item; a AGUA_DE_COCO vira craft real.
+    public static final Block COQUEIRO_TRONCO = registerBlockWithItem("coqueiro_tronco",
+            new RotatedPillarBlock(BlockBehaviour.Properties.of()
+                    .strength(0.8F)
+                    .sound(SoundType.WOOD)
+                    .mapColor(net.minecraft.world.level.material.MapColor.WOOD)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "coqueiro_tronco")))));
+    public static final Block COQUEIRO_FOLHAS = registerBlockWithItem("coqueiro_folhas",
+            new TintedParticleLeavesBlock(0.3F, BlockBehaviour.Properties.of()
+                    .strength(0.2F)
+                    .randomTicks()
+                    .sound(SoundType.GRASS)
+                    .noOcclusion()
+                    .mapColor(net.minecraft.world.level.material.MapColor.PLANT)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "coqueiro_folhas")))));
+    public static final Block COCO_BLOCO = registerBlockWithItem("coco_bloco",
+            new CocoBlock(BlockBehaviour.Properties.of()
+                    .strength(0.5F)
+                    .sound(SoundType.WOOD)
+                    .mapColor(net.minecraft.world.level.material.MapColor.WOOD)
+                    .setId(ResourceKey.create(Registries.BLOCK,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "coco_bloco")))));
 
     // ============================================================ BLOCOS: LAMPADA UV
     public static final Block LAMPADA_UV = registerBlockWithItem("lampada_uv", new LampadaUvBlock(
@@ -255,6 +286,19 @@ public class IntoxicantesMod implements ModInitializer {
                             (pos, state) -> new MaquinaPrimaBlockEntity(pos, state,
                                     MaquinaPrimaBlock.Tipo.CALDEIRAO),
                             java.util.Set.of(CALDEIRAO_MOSTURA)));
+
+    // ============================================================ GUI DAS MÁQUINAS
+    // v1.2.59: UM MenuType pros SEIS tipos de máquina — o TipoMaquina viaja no
+    // payload de abertura (ExtendedMenuType do fabric-menu-api-v1) e a tela do
+    // client reabre com a mesma geometria (MenuMaquinaSNC.reabrir). O conteúdo
+    // dos slots e o ContainerData (progresso REAL) são sync vanilla.
+    public static final net.fabricmc.fabric.api.menu.v1.ExtendedMenuType<MenuMaquinaSNC, Integer> MENU_MAQUINA_SNC =
+            Registry.register(BuiltInRegistries.MENU,
+                    ResourceKey.create(Registries.MENU,
+                            Identifier.fromNamespaceAndPath(MOD_ID, "maquina_snc")),
+                    new net.fabricmc.fabric.api.menu.v1.ExtendedMenuType<>(
+                            (id, inv, tipoOrdinal) -> MenuMaquinaSNC.reabrir(id, inv, tipoOrdinal),
+                            net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
 
     // ============================================================ CROP: CEVADA
     // v1.2.50: crop vanilla-style (7 estágios) — a matéria-prima da cerveja.
@@ -609,6 +653,30 @@ public class IntoxicantesMod implements ModInitializer {
     // AGUA DE COCO: o isotônico do sertão (+50 de hidratação).
     public static final Item AGUA_DE_COCO = drink("agua_de_coco");
 
+    // ==================================================== A VIDA ALÉM DA CERVEJA (v1.2.58)
+    // COCO: o fruto in natura — quebra o coco no pé, come e já mata fome e sede
+    // (a hidratação +30 o SaudeSystem aplica no fim da mordida).
+    public static final Item COCO_FRUTO = register("coco", comLore("coco",
+            new Item.Properties().stacksTo(64)
+                    .food(new FoodProperties.Builder().nutrition(2).saturationModifier(0.3F).alwaysEdible().build())));
+    // CHÁ DE LÚPULO: a calma da flor — corta a viagem na hora (é o "café" do
+    // psicodélico) e regenera devagar. Devolve a garrafa vazia.
+    public static final Item CHA_LUPULO = comLoreConsumivel("cha_lupulo",
+            new Item.Properties().stacksTo(16),
+            Consumable.builder()
+                    .animation(ItemUseAnimation.DRINK)
+                    .sound(SoundEvents.GENERIC_DRINK)
+                    .onConsume(new ApplyStatusEffectsConsumeEffect(List.of(
+                            new MobEffectInstance(MobEffects.REGENERATION, 200, 0))))
+                    .onConsume(new RemoveStatusEffectsConsumeEffect(HolderSet.direct(
+                            Efeitos.OVERDRIVE, Efeitos.VIAGEM)))
+                    .build());
+    // PÃO DE CEVADA: a comida honesta da colheita — mata fome de verdade
+    // (o trigo tem pão, a cevada tem o dela agora)
+    public static final Item PAO_CEVADA = register("pao_cevada", comLore("pao_cevada",
+            new Item.Properties().stacksTo(64)
+                    .food(new FoodProperties.Builder().nutrition(6).saturationModifier(0.6F).build())));
+
     /** Abas vanilla onde os itens tambem aparecem (facilidade de descoberta). */
     private static final ResourceKey<CreativeModeTab> FOOD_AND_DRINKS = ResourceKey.create(
             Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath("minecraft", "food_and_drinks"));
@@ -650,6 +718,10 @@ public class IntoxicantesMod implements ModInitializer {
                 output.accept(UVA);
                 output.accept(CAFE_VERDE);
                 output.accept(CANA_DE_ACUCAR);
+                // v1.2.58: o coqueiro (bloco + fruto)
+                output.accept(COQUEIRO_TRONCO);
+                output.accept(COQUEIRO_FOLHAS);
+                output.accept(COCO_FRUTO);
                 // v1.2.50: a cadeia das bebidas (matéria-prima, máquinas e barris)
                 output.accept(SEMENTE_CEVADA);
                 output.accept(CEVADA);
@@ -697,6 +769,12 @@ public class IntoxicantesMod implements ModInitializer {
                 // v1.2.54: o caminho de cura (saúde do fregues)
                 output.accept(SUCO_DETOX);
                 output.accept(AGUA_DE_COCO);
+                // v1.2.58: a vida além da cerveja (chá, pão de cevada)
+                // (COCO_FRUTO não entra aqui de novo: já está no grupo do
+                // coqueiro acima — item repetido na MESMA aba quebra o client
+                // com "Accidentally adding the same item stack twice")
+                output.accept(CHA_LUPULO);
+                output.accept(PAO_CEVADA);
                 // Armas do Gago
                 output.accept(ESCOPETA);
                 output.accept(CARTUCHO);
@@ -1067,6 +1145,10 @@ public class IntoxicantesMod implements ModInitializer {
         // Cada cultura tem seu bioma de preferencia, igual weed na natureza kkkk
         addWildPatches();
 
+        // v1.2.58: a FEATURE do coqueiro (java) + o JSON de placed_feature que
+        // o patch() acima injeta nas praias
+        registrarFeature("coqueiro", CoqueiroFeature.CODEC);
+
         LOGGER.info("[Intoxicantes] Plantacoes, bebidas, NPCs e substancias ficticias registradas. Lembre: e so jogo!");
     }
 
@@ -1096,6 +1178,10 @@ public class IntoxicantesMod implements ModInitializer {
         patch("cevada_selvagem",
                 BiomeSelectors.includeByKey(
                         Biomes.PLAINS, Biomes.SUNFLOWER_PLAINS, Biomes.TAIGA, Biomes.SNOWY_PLAINS));
+        // v1.2.58: o coqueiro nas praias — a fonte do coco (e da água de coco)
+        patch("coqueiro_praia",
+                BiomeSelectors.includeByKey(
+                        Biomes.BEACH, Biomes.JUNGLE, Biomes.STONY_SHORE));
     }
 
     /** Injeta a placed_feature (JSON) nos biomas selecionados, na etapa de vegetação. */
@@ -1105,6 +1191,17 @@ public class IntoxicantesMod implements ModInitializer {
                 Identifier.fromNamespaceAndPath(MOD_ID, nome));
         BiomeModifications.addFeature(seletor,
                 GenerationStep.Decoration.VEGETAL_DECORATION, chave);
+    }
+
+    /**
+     * v1.2.58: registra uma feature JAVA (a do coqueiro) no registry do
+     * worldgen — JSON sozinho não segura lógica de construção (tronco curvo,
+     * coroa, cocos pendurados).
+     */
+    private static void registrarFeature(String nome, com.mojang.serialization.MapCodec<? extends net.minecraft.world.level.levelgen.feature.Feature> codec) {
+        Registry.register(BuiltInRegistries.FEATURE_TYPE,
+                ResourceKey.create(Registries.FEATURE_TYPE,
+                        Identifier.fromNamespaceAndPath(MOD_ID, nome)), codec);
     }
 
     // ============================================================ UV / LUZ
@@ -1187,6 +1284,19 @@ public class IntoxicantesMod implements ModInitializer {
                 new net.minecraft.world.item.component.ItemLore(java.util.List.of(
                         net.minecraft.network.chat.Component.translatable(
                                 "item.intoxicantes." + name + ".lore"))));
+    }
+
+    /**
+     * v1.2.58: consumível com lore + efeitos de consumo + sobra (a garrafa).
+     * O chá de lúpulo usa isto em vez do drink() padrão porque PRECISA limpar
+     * a viagem ativa (RemoveStatusEffects) — coisa que o drink() não faz.
+     */
+    private static Item comLoreConsumivel(String name, Item.Properties properties,
+            Consumable consumavel) {
+        return register(name, comLore(name, properties
+                .food(new FoodProperties.Builder().alwaysEdible().build(), consumavel)
+                .component(net.minecraft.core.component.DataComponents.USE_REMAINDER,
+                        new UseRemainder(new ItemStackTemplate(Items.GLASS_BOTTLE)))));
     }
 
     /** Registra um SoundEvent (o sounds.json define quais .ogg ele toca). */

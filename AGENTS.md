@@ -10,6 +10,7 @@ Estas instruções se aplicam a todo o projeto. Instruções explícitas do usu�
 - **O nome oficial do mod é `SNC Adventures`** (já é o `name` do `fabric.mod.json`). O mod id/namespace `intoxicantes` é técnico/legado e NÃO deve aparecer ao jogador como nome do mod; não renomear IDs existentes.
 - **Documentação no Guia (regra do usuário):** toda nova funcionalidade relevante do SNC Adventures deve ser documentada no Guia do SNC Adventures no MESMO trabalho em que for implementada — implementação, receitas, assets, lang, página do guia, changelog. Uma feature não é considerada completa se o guia ficar desatualizado. (Guia em planejamento — ver `PLANO-GUIA.md`; a regra passa a valer a partir da implementação dele.)
 - **Arma só está pronta depois de revisar lateral, isométrica e primeira pessoa.** Não considerar uma arma finalizada apenas porque o JSON é válido — o modelo pode estar tecnicamente correto e ainda ficar estranho na mão (foi o que fez a diferença na escopeta 12).
+- **Veículos seguem o padrão de modelagem detalhada (regra do usuário):** qualquer veículo novo (carro, caminhão, trator, colheitadeira, implemento) nasce detalhado, articulado e com preview-estúdio 3D antes de integrar ao jogo — ver a seção "Padrão definitivo de veículos" mais abaixo.
 - Mantenha-se informado sobre a documentação atual das linguagens, ferramentas e APIs utilizadas. Confirme a compatibilidade com as versões efetivamente usadas pelo projeto; não atualize dependências automaticamente só porque existe uma versão mais recente.
 - Quando achar que terminou, volte ao início do pedido e revise todo o fluxo, inclusive os erros surgidos durante o trabalho. Não declare conclusão com falhas conhecidas escondidas ou testes relevantes pendentes.
 - Termine a melhoria priorizada antes de iniciar outras. Preserve o estilo e os comportamentos que já funcionam.
@@ -36,7 +37,7 @@ Nesse mod, CADA coisa tem a sua identidade visual própria: tela, feature, siste
 - **Ponto do Traficante**: rua — asfalto escuro, madeira crua, neon de porta de bar; nada de "loja de vilarejo".
 - **Guia do SNC Adventures**: livro de couro verde com costura e rebite, papel envelhecido com manchas, tinta vermelho-ferrugem e oliva, sumário com pontilhado, carimbos inclinados, fichas pautadas — nada de faixa verde de fachada.
 - **Central de Comando, painéis e letreiros de LED**: eletrônico — fonte de LED 5×7, vidro escuro, moldura de painel.
-- **Armas 3D**: realismo de armamento (aço, madeira, couro) — segue a seção específica de armas.
+- **Armas 3D**: realismo de armamento (aço, madeira, couro) — segue o "Padrão definitivo de armas".
 - **Itens do catálogo** (bebidas, drogas, sementes): sprite 16×16 com silhueta e detalhe próprio por produto — trocar só a cor não diferencia (regra do padrão de bebidas).
 
 ### Regras práticas para telas e features novas
@@ -174,115 +175,206 @@ Vale ao criar NPC novo ou mexer na skin de um existente (traficante, Gago, Juça
 
 - **Corpo de player, não villager**: os NPCs usam `HumanoidModel` + `HumanoidMobRenderer` (padrão do zumbi vanilla) com skin no **layout steve 64×64**. O layer de bake é **`ModelLayers.PLAYER`** (mesh steve: braços 4px, `left_arm` em texOffs(32,48) sem mirror). NUNCA `ModelLayers.SKELETON` — mesh 64×32 de braço fino 2px com membro esquerdo espelhado deixa o braço esquerdo invisível (bug da v1.2.43, corrigido na v1.2.44). Pintar sempre POR CIMA de uma skin de player — nunca usar layout de villager nem o layout 128×128 do antigo `GagoModel` (aposentado na v1.2.41).
 - Skins em `assets/intoxicantes/textures/entity/<nome>.png`. As 7 fantasias do Gago por bioma mantêm o padrão de nomes (`gago`, `gago_sertao`, `gago_mata`, `gago_cerrado`, `gago_sul`, `gago_serra`, `gago_brejo`) e o renderer escolhe pelo índice `roupa` sincronizado.
-- Ao mudar uma skin, espelhar no MOD e no PACK (`resourcepacks/minhas-texturas`) com o mesmo nome — o pack sobrescreve o jar. EXCEÇÃO: texturas-atlas de armas 3D (revólver/escopeta) NUNCA vão pro pack — ver "Padrão para armas 3D".
+- Ao mudar uma skin, espelhar no MOD e no PACK (`resourcepacks/minhas-texturas`) com o mesmo nome — o pack sobrescreve o jar. EXCEÇÃO: texturas-atlas de armas 3D (revólver/escopeta) NUNCA vão pro pack — ver "Padrão definitivo de armas".
 - Ferramentas: `tools/converte_skins_player.py` (remapeia arte pra steve 64×64, lendo dos backups), `tools/debug_atlas.py` (valida as regiões do layout: magenta = vazio, vermelho = região que devia ter arte), `tools/gen_preview_skins.py` (prévia antes×depois). Rodar o atlas depois de qualquer pintura nova.
 - Item na mão (escopeta/.38) é renderizado pelo `ItemInHandLayer` que o `HumanoidMobRenderer` já adiciona — não precisa de layer manual. Detalhes "3D" (nariz, avental, chinelos) são pixels pintados na textura, não cubos.
 - Mudança visual de NPC segue a regra de aprovação: prévia antes×depois na aba Preview antes de buildar.
 
-## Padrão para armas 3D (escopeta, revólver e futuras)
+## Padrão definitivo de armas — SNC Adventures (regra do usuário)
 
-### 1. Formato do modelo
+Toda arma nova do SNC Adventures (pistola, revólver, escopeta, rifle, fuzil, submetralhadora, arma longa, arma curta, launcher, arma especial e munição associada) segue OBRIGATORIAMENTE este padrão visual, estrutural, técnico e de detalhamento. Na dúvida entre simplificar ou preservar/adicionar detalhes com função visual, SEMPRE preservar o nível de detalhamento: é preferível gastar mais tempo e entregar uma arma detalhada, proporcional e corretamente posicionada do que produzir rápido um modelo simplificado.
 
-- NÃO usar Blender, OBJ, FBX ou modelos externos, salvo se explicitamente solicitado.
-- O padrão do projeto é usar modelos nativos do Minecraft em JSON, com `elements`.
-- Cada parte da arma deve ser construída com caixas/paralelepípedos do sistema vanilla.
-- O modelo deve continuar compatível com o carregamento normal de resource packs/mod assets.
-- Sempre que possível, a arma deve ser gerada por um script Python dentro de `tools/` (ex.: `tools/gen_escopeta.py`). O script deve gerar o JSON 3D do item, a textura e o item definition quando necessário.
+### Golden reference: Escopeta 12 (referência mínima, não limite superior)
 
-### 2. Objetivo visual
+- A Escopeta 12 atual é a REFERÊNCIA INICIAL E OFICIAL do padrão de armas e a base mínima de qualidade. Novas armas podem e devem SUPERAR seu nível quando isso melhorar silhueta, mecânica, materiais, preview, animação ou organização. Nunca interpretar a referência como teto, nem substituí-la por implementação mais simples sem pedido explícito do usuário.
+- Arquivos reais de referência neste projeto: geradores `tools/gen_escopeta.py` e `tools/gen_revolver.py`; previews `tools/preview_escopeta.py` (motor reutilizado por `preview_bebidas.py`) e `tools/preview_revolver.py`; cartucho `tools/gen_cartucho.py`; assets `src/main/resources/assets/intoxicantes/models/item/escopeta.json`, `textures/item/escopeta.png` e `items/escopeta.json` (revólver análogo). Se caminhos mudarem, localizar os arquivos reais antes de trabalhar.
+- Verificador automático (`tools/verify_arma.py`) ainda não existe: criar quando possível, conferindo JSON válido, elementos, textura existente e referenciada, UV dentro do formato, IDs, transforms, arquivos obrigatórios e referências quebradas. Validação automática NÃO substitui a revisão visual.
 
-Armas devem parecer o máximo possível com armas reais dentro das limitações visuais do Minecraft. Prioridades: proporção correta; silhueta convincente; comprimento realista; espessura adequada; detalhes visuais; boa leitura em primeira e terceira pessoa.
-- Não criar armas pequenas, comprimidas ou "naniquinhas" só para caber dentro de 0–16.
-- Os `elements` podem ultrapassar os limites tradicionais de 0–16 quando isso for necessário para manter proporções realistas.
+### 1. Estilo e estética
 
-### 3. Proporções
+- Modelos 3D detalhados compostos por cubos/cuboides em JSON nativo com `elements`, preferencialmente gerados por Python, com texturas específicas e transforms próprios por perspectiva. NÃO usar Blender, OBJ, FBX ou modelos externos, salvo pedido explícito. O modelo deve continuar compatível com o carregamento normal de resource packs/mod assets.
+- NUNCA criar armas como: um único cubo; conjunto de 3–4 caixas genéricas; sprite 2D fingindo ser 3D; modelo excessivamente simplificado; placeholder; silhueta genérica; ou modelo onde detalhe importante é só desenhado na textura quando podia existir geometricamente.
+- A arma precisa ser reconhecível pela silhueta MESMO sem textura. A textura COMPLEMENTA a geometria; nunca conserta uma geometria ruim.
+- Estética-alvo: "arma real estilizada dentro da linguagem visual voxel do Minecraft". Formas voxelizadas, superfícies em cuboides, curvas simuladas por degraus, leitura clara à distância. Não transformar a arma em bloco genérico; também não usar quantidade absurda de microcubos que destrua a estética.
 
-Antes de finalizar uma arma, verificar: comprimento geral; comprimento do cano; tamanho da coronha; tamanho do receiver; posição da empunhadura; posição de magazine/tubo; posição do pump/forend; espessura do cano; altura total; largura da arma. A silhueta deve parecer natural vista lateralmente.
+### 2. Escala, coordenadas e remapeamento
 
-Evitar: coronha excessivamente caída; coronha muito grossa; cano curto demais; receiver enorme; pump action recuado demais; peças exageradamente grossas.
+- 16 unidades de modelagem = 1 bloco; +Y = para cima; sistema de eixo consistente em todo o projeto. Proporções planejadas ANTES de modelar.
+- Se o gerador usar orientação intuitiva diferente da orientação final do JSON (ex.: `(x, y, z) -> (z, x, y)`), documentar o remapeamento e aplicá-lo TAMBÉM ao eixo de rotação (`axis`), aos pivôs e à orientação de elementos móveis — não somente a `from`, `to` e `origin`.
 
-### 4. Escopetas pump-action
+### 3. Dimensões realistas
 
-- O pump/forend deve ficar visivelmente à frente do receiver; não deixar o pump encostado ou excessivamente próximo do receiver.
-- O pump deve ter comprimento suficiente para parecer uma empunhadura frontal real.
-- As action bars devem conectar visualmente o pump ao conjunto do receiver.
-- O tubo do magazine deve acompanhar a região inferior do cano; o cano deve ter comprimento proporcional ao restante da arma; a coronha deve seguir uma linha natural em relação ao receiver e ser relativamente reta.
-- Evitar aparência de: coronha apontando muito para baixo; pump action "colado" no receiver; arma compactada artificialmente.
+- Armas longas devem parecer armas longas. Não comprimir escopeta, rifle ou fuzil apenas para caber em 0–16; quando o formato suportar, os `elements` podem ultrapassar os limites tradicionais.
+- Prioridade: 1) proporções reais; 2) silhueta; 3) ergonomia; 4) gameplay visual; 5) limites tradicionais de modelagem.
+- Para armas reais ou inspiradas em armas reais, estudar antes: comprimento total, cano, coronha, receiver, empunhadura, distância entre componentes, espessura relativa, miras, carregador e proporções da munição. Não precisa reproduzir milímetros exatos, mas a proporção deve ser imediatamente convincente.
 
-### 5. Construção de curvas
+### 4. Construção procedural — script como fonte principal
 
-Curvas devem ser simuladas com várias caixas menores, pequenos degraus, mudanças sutis de espessura e volumes sobrepostos (coronha, grip, pump, receiver, boca do cano, guarda-mato). Não usar uma única caixa enorme quando várias caixas menores produzirem uma silhueta melhor.
+- O modelo nasce de gerador em `tools/` com funções reutilizáveis para: cuboides, materiais, UV, peças centralizadas, partes repetidas, trilhos, nervuras, coronhas, grips, canos, magazines, carregadores, tambores, parafusos, miras, guarda-mato, empunhaduras e mecanismos. Não posicionar dezenas/centenas de elementos repetitivos manualmente quando uma função os produz de forma segura.
+- Fluxo obrigatório: 1) editar gerador; 2) executar gerador; 3) gerar modelo; 4) gerar textura; 5) executar verificação; 6) gerar preview; 7) revisar visualmente; 8) ajustar; 9) somente então integrar. NUNCA editar só o JSON gerado e esquecer o gerador — a próxima execução apaga a alteração (regra da correção na raiz).
 
-### 6. Nível de detalhe
+### 5. Nível de detalhe
 
-Adicionar detalhes somente quando melhorarem a leitura visual: porta de ejeção, loading port, pinos, trava/safety, guarda-mato, gatilho, action bars, banda/abraçadeira entre cano e magazine, muzzle, massa de mira, vent rib, estrias no pump, soleira da coronha. Evitar detalhes decorativos sem sentido.
+- Cada arma tem os detalhes relevantes de sua versão real. Quando aplicável, modelar separadamente: receiver, cano, câmara, muzzle, boca interna do cano, coronha, soleira, grip, guarda-mato, gatilho, safety, pinos, parafusos, porta de ejeção, loading port, carregador, magazine tube, magazine cap, action bars, bolt, pump/fore-end, charging handle, martelo, miras, massa de mira, alça de mira, trilhos, vent rib, muzzle device, sling mount e mecanismos externos visíveis.
+- Pequenos detalhes que ajudam a reconhecer a arma existem geometricamente quando viável. Evitar detalhes decorativos sem função visual perceptível.
 
-### 7. Número de elements
+### 6. Componentes críticos
 
-Não existe limite rígido baixo. Referência: modelos simples 15–30 elements; modelos detalhados 30–60. Evitar elementos redundantes que não tragam diferença visual perceptível.
+- **Pump-action** (Escopeta 12 como referência mínima): pump visivelmente à frente do receiver e com comprimento natural (empunhadura frontal real); action bars conectando pump e receiver; tubo do magazine abaixo do cano; cano proporcional; receiver compacto; coronha alinhada naturalmente e relativamente reta; gatilho corretamente posicionado; guarda-mato separado; muzzle reconhecível. Evitar: pump recuado/minúsculo/enorme, coronha excessivamente caída ou grossa, receiver muito comprido, cano curto ou grosso demais, arma visualmente curta ou compactada artificialmente.
+- **Cano**: nunca apenas uma barra grossa — corpo principal, boca, bore interno escuro, collar, vent rib, massa de mira e muzzle device quando aplicável; espessura coerente com o calibre e o restante da arma.
+- **Coronha**: comprimento proporcional, inclinação natural, transição correta com o receiver, cheek rest e butt pad/soleira quando aplicável. NÃO usar uma única caixa grande: vários volumes menores simulando curvas, taper, queda e afinamento. Não excessivamente deitada para baixo, salvo se a arma real for assim.
+- **Ergonomia**: grip, trigger, trigger guard, pump, foregrip, handguard e stock precisam ter coerência — a geometria deve aparentar que um personagem poderia realmente segurar a arma. Não posicionar componentes só porque "cabem".
+- **Guarda-mato**: quando a escala permitir, parecer vazado (parte inferior, frontal, traseira e laterais quando necessário), com o gatilho dentro do espaço correto — não um bloco sólido.
+- **Curvas em voxel**: cuboides menores, degraus, volumes sobrepostos, alterações graduais de largura/altura — especialmente coronhas, grips, pumps, handguards, receivers, magazines, tambores, muzzle e guarda-mato. Nunca uma caixa enorme onde uma forma complexa fica melhor.
+- **Mecanismos internos visíveis**: região exposta por peça móvel não fica vazia — bolt recuando revela câmara/estrutura interna; porta de ejeção aberta revela profundidade visual; cilindro de revólver aberto revela chambers. Não precisa modelar molas reais: só o que será visualmente exposto.
 
-### 8. Textura
+### 7. Partes móveis, hierarquia e pivôs
 
-- Textura criada especificamente para a arma. Preferência atual: 64×64 para modelos médios; 128×128 para armas mais detalhadas. Não limitar automaticamente a 16×16 ou 32×32.
-- Materiais com leitura visual distinta (aço, aço oxidado/azulado, metal escuro/claro, madeira clara/escura, borracha, couro, latão, interior escuro do cano).
-- Usar pequenos degradês, variações de brilho, grão e desgaste sutil, sem exagerar no ruído.
+- Toda peça que possa futuramente ser animada nasce como grupo/componente separado, mesmo sem animação ainda: pump, bolt, slide, charging handle, trigger, hammer, safety, magazine, drum, cylinder, charging lever, stock dobrável, bipod, bolt handle. A estrutura não pode tornar animações futuras (recoil, reload, pump, bolt, slide, hammer, cylinder, magazine, shell ejection) impossíveis.
+- Toda parte móvel possui: grupo próprio, pivô correto, orientação correta e espaço para movimentação. Não modelar tudo na raiz.
+- Hierarquia conceitual (arma longa): `weapon` → `receiver`, `barrel`, `stock`, `trigger_group` (→ `trigger`, `safety`), `bolt`, `magazine`, `sights`, `pump` (→ `action_bars`). Revólver: `weapon` → `frame`, `barrel`, `grip`, `trigger`, `hammer`, `cylinder` (→ `chambers`).
+- **Recoil futuro**: mover/rotacionar a arma como conjunto controlado (recuo, leve levantamento do cano, retorno), sem deformar componentes, sem movimentos exagerados.
+- **Reload futuro**: exige componentes separados — escopeta: pump + cartucho; pistola: magazine + slide; revólver: cylinder + cartridges; rifle: magazine + bolt/charging handle. A modelagem inicial prevê essas possibilidades.
 
-### 9. UV
+### 8. Munição e cartuchos
 
-Pode ser usado um atlas de materiais único para a arma; cada material ocupa uma região própria da textura. As faces podem usar tons diferentes para simular iluminação (`up` mais claro, `down` mais escuro, laterais médios). O UV deve continuar normalizado em 0–16 no JSON.
+- Cada arma é modelada considerando sua munição real (escopeta 12 → cartucho calibre 12; revólver → cartucho do calibre implementado). Não usar munição genérica para calibres claramente diferentes; modelo/textura e escala visual coerentes.
+- Quando o item de munição existir visualmente, modelar/texturizar com: estojo, base, primer, projétil, plástico em cartuchos de escopeta, crimp, cores adequadas e proporção. Um cartucho 12 deve aparentar ser um CARTUCHO DE ESCOPETA, não uma bala metálica genérica (gerador: `tools/gen_cartucho.py`).
 
-### 10. Primeira pessoa (REGRA IMPORTANTE)
+### 9. Materiais, UV e texturas
 
-Em primeira pessoa, armas longas devem aparecer como em jogos de tiro: apontadas para frente, alinhadas com a direção da visão, não excessivamente inclinadas, não deitadas lateralmente, não parecendo apoiadas no ombro de forma exagerada. O jogador deve enxergar principalmente receiver, pump/fore-end, parte do cano e linha superior da arma; a boca do cano deve seguir visualmente a direção da mira.
-- Para mão direita e esquerda, usar transforms espelhados/coerentes.
-- Nunca copiar cegamente o `display` da besta vanilla se ele fizer a arma ficar muito lateralizada. Ajustar individualmente `rotation`, `translation` e `scale`.
+- NUNCA uma única aparência para toda a arma. Separar material por tipo físico com leitura visual própria: aço azulado, aço escuro, aço polido, alumínio, polímero, borracha, madeira clara/escura, latão, interior do cano, lente, fibra, acabamento fosco. Metais diferentes são diferentes: receiver metal escuro menos brilhante, cano aço azulado, muzzle aço mais escuro, pinos metal mais claro — nada de pintar tudo do mesmo cinza.
+- Madeira é madeira, não plástico marrom: criar walnut, walnut_dark, walnut_light (ou equivalentes) com grão simulado por pequenas variações.
+- Texturas específicas para a arma: 64×64 para armas médias; 128×128 para armas detalhadas. Nunca limitar automaticamente a 16×16 ou 32×32. Preservar estética pixelada; degradê discreto, variação leve, grão de madeira, desgaste sutil, highlight e sombra; evitar ruído excessivo, aparência fotográfica, sujeira aleatória e detalhes falsos sem propósito.
+- UV: pode usar atlas único de materiais por região da textura, com faces em tons diferentes para simular iluminação (`up` mais claro, `down` mais escuro, laterais médios); UV normalizado em 0–16 no JSON.
+- **Pack do usuário (`resourcepacks/minhas-texturas`) — NUNCA espelhar textura-atlas de arma 3D (bug da v1.2.44):** o pack SOBRESCREVE os assets do jar — desejado pra skins/blocos/itens-sprite, FATAL pra armas 3D: um `textures/item/<arma>.png` no pack (ex.: arte manual antiga 1254×1254 com 62% de fundo transparente) substitui o atlas 128×128 de materiais e as UVs do modelo 3D caem em região transparente — arma invisível/minúscula no jogo mesmo perfeita no jar (bug do revólver em 24/09/2026: alpha médio 1/255 nas 186 faces). NUNCA copiar `textures/item/<arma>.png` de arma 3D pro pack; o atlas vive SÓ no jar. Item 3D novo: conferir que não existe PNG residual da versão antiga no pack — mover pra `backups/` se existir. Validação rápida: rodar as UVs do modelo contra a textura efetiva (jar + pack) e exigir alpha médio ~255 nas faces.
 
-### 11. Terceira pessoa
+### 10. Geometria antes da textura
 
-Arma longa deve parecer realmente uma arma longa: não reduzir excessivamente a escala, deve ficar proporcional ao personagem e ser segurada de maneira visualmente convincente. Pode usar escala acima de `1.0` se necessário.
+- Prioridade obrigatória: 1) silhueta; 2) proporções; 3) comprimento; 4) geometria estrutural; 5) ergonomia; 6) partes mecânicas; 7) pequenos detalhes; 8) materiais; 9) textura. Nunca tentar corrigir arma geometricamente pobre somente com textura detalhada.
 
-### 12. GUI / inventário
+### 11. Fidelidade, referências e assimetria real
 
-O tamanho real do modelo NÃO deve ser reduzido apenas para caber no inventário. O correto é manter o modelo grande e reduzir somente o transform `display.gui`. A mesma lógica vale para `fixed` e `ground`.
+- Arma baseada em modelo real: pesquisar referências suficientes ANTES de modelar (lateral, topo, frente, stock, receiver, magazine, sights, controles). Não modelar apenas de memória.
+- Arma fictícia: precisa de lógica mecânica aparente — onde está o cano? a munição? o gatilho? onde o jogador segura? o mecanismo principal? como funcionaria? Não criar design visualmente impossível sem intenção clara.
+- As características que tornam a arma reconhecível devem ser preservadas; não precisa reproduzir cada milímetro.
+- Assimetria real: porta de ejeção, charging handle, safety, release, bolt catch, controles, parafusos, marcações e sling mount podem existir apenas de um lado — colocá-los no lado correto quando houver referência. Não espelhar automaticamente.
 
-### 13. Preview obrigatório
+### 12. Densidade de geometria e performance
 
-Toda alteração importante de modelo deve gerar preview antes de ser considerada final (além da prévia na aba Preview do fluxo de aprovação). O projeto pode usar `tools/preview_escopeta.py` ou outro preview equivalente, lendo o JSON real gerado. Gerar, quando possível: isométrica, lateral, topo, frente, GUI e primeira pessoa.
+- Não existe limite artificial baixo de elementos. Referência aproximada: arma simples 20–40; média 40–70; altamente detalhada 70+ quando justificado — NÃO são limites rígidos. Não reduzir qualidade para diminuir o contador; também não empilhar centenas de elementos inúteis.
+- Meta é "máximo detalhe útil", não "máximo número possível de cubos": evitar faces invisíveis desnecessárias, elementos completamente internos sem função, duplicação e cubos minúsculos sem impacto visual.
 
-### 14. Comparação
+### 13. Transforms e perspectivas (parte do modelo)
 
-Ao fazer uma alteração grande, gerar também uma comparação ANTES × DEPOIS, principalmente quando houver mudança em comprimento, coronha, pump, proporções ou primeira pessoa.
+- Uma arma NÃO está pronta só porque o modelo 3D está bonito: primeira pessoa, terceira pessoa, GUI, ground e fixed fazem parte da qualidade final, cada um com transform próprio.
+- **PRIMEIRA PESSOA (regra crítica):** arma longa como em jogos de tiro — aponta para frente, acompanha a direção da câmera, parece estar sendo segurada, mostra receiver e parte do cano, permanece visualmente estável, não atravessa a tela inteira e não parece item vanilla inclinado. NUNCA copiar cegamente transform de espada, besta, ferramenta vanilla ou `display` da besta; ajustar individualmente `rotation`, `translation` e `scale`.
+- Leitura de referência em primeira pessoa: parte da coronha/grip → receiver → pump/handguard → cano apontando adiante. O eixo do cano segue aproximadamente a direção da mira. Deslocamento leve para direita/esquerda estilo FPS é aceitável; não precisa ficar centralizada na mira.
+- **Mão direita e esquerda:** `firstperson_righthand` e `firstperson_lefthand` coerentes entre si — versões espelhadas convincentes, não valores copiados que provoquem orientação incorreta.
+- **Terceira pessoa:** arma longa parece realmente longa e proporcional ao personagem, sem atravessar o corpo de forma absurda, com orientação de uso correto. Scale acima de `1.0` é permitido quando necessário.
+- **GUI/inventário:** NÃO reduzir o modelo físico para caber no inventário — manter o modelo grande e enquadrar pelo `display.gui` (armas longas pedem escala GUI significativamente menor que 1). Mesma lógica para `fixed` e `ground`.
+- **Ground/fixed:** validar item dropado no chão e em Item Frame/display — arma gigante no chão ou minúscula em frame indica transform inadequado.
 
-### 15. Script como fonte principal
+### 14. Preview obrigatório
 
-Quando existir um gerador Python, o script é a fonte principal. Não editar apenas o JSON final e esquecer o gerador. Fluxo correto: 1) editar `tools/gen_arma.py`; 2) executar o gerador; 3) gerar JSON; 4) gerar textura; 5) executar preview; 6) revisar visualmente; 7) entregar arquivos finais. Assim as alterações não somem na próxima regeneração.
+- Toda arma tem preview antes da integração final, apresentado na aba Preview do Freebuff conforme o fluxo de aprovação visual. Preview é ferramenta de inspeção, não imagem aleatória. Mínimo: isométrica, lateral, topo, frente, traseira quando útil, GUI e primeira pessoa — `tools/preview_escopeta.py` e equivalentes, lendo o JSON real gerado.
+- **Preview de primeira pessoa é obrigatório** e deve detectar: arma muito inclinada, pequena ou grande demais, cano apontando para o lado errado, arma parecendo estar no ombro, clipping e enquadramento incorreto. Não aprovar transform de primeira pessoa sem preview ou teste real.
+- Quando possível, evoluir para um **SNC Adventures Weapon Studio**, mesmo padrão do estúdio 3D de veículos (seção de veículos): Three.js, antialiasing, sombras suaves, sRGB, ACES Filmic Tone Mapping, iluminação de estúdio, fundo e piso neutros, grade técnica discreta, OrbitControls (rotação livre, zoom, pan, damping), enquadramento automático pelo bounding box real; vistas Perspectiva, Lateral Direita, Lateral Esquerda, Topo, Frente, Traseira, Primeira Pessoa, Terceira Pessoa e GUI (a vista lateral é especialmente importante em armas longas); contador de elementos; dimensões (comprimento, altura, largura); resolução de textura; identificação da arma; materiais/texturas reais; reset; tela cheia. Exemplo de display: "Escopeta 12 — Elements: 54 — Comprimento: 29.6 units — Textura: 128×128".
+- Com partes móveis, o estúdio deve permitir testar pump, slide, bolt, hammer, trigger, cylinder, magazine, stock e charging handle usando os MESMOS grupos, pivôs, eixos e hierarquias do modelo integrado — nunca animação fake.
+- O preview detecta: proporção errada, pivô incorreto, eixo errado, clipping, pump fora de posição, stock torto, barrel desalinhado, materiais incorretos, UV quebrado, textura faltando, arma pequena/grande demais, primeira e terceira pessoa ruins, GUI mal enquadrada.
+- Sempre que possível, fornecer versão offline autocontida (equivalente a `tools/package_weapon_preview.py`), que abre a inspeção direto no navegador.
+- REGRA DE APROVAÇÃO: se o preview de uma arma nova parecer mais simples, menos funcional, menos detalhado ou menos polido que o padrão já estabelecido no SNC Adventures, a arma ainda não está concluída.
 
-### 16. Remapeamento de eixos
+### 15. Comparação antes × depois
 
-Se o modelo for desenhado em um eixo intuitivo e depois remapeado (ex.: `(x, y, z) -> (z, x, y)`), o remapeamento precisa ser aplicado também às rotações: converter `axis` corretamente, não somente `from`, `to` e `origin`.
+- Alteração significativa em arma existente gera comparação ANTES × DEPOIS — principalmente comprimento, coronha, pump, receiver, primeira pessoa, textura e proporção — para validar que a mudança realmente melhorou o modelo.
 
-### 17. Entrega
+### 16. Integração com gameplay e organização dos arquivos
 
-Para alterações de geometria, NÃO entregar somente o PNG. Uma arma 3D normalmente precisa de `models/item/arma.json`, `textures/item/arma.png`, `items/arma.json`; com gerador, `tools/gen_arma.py`; com preview, `tools/preview_arma.py`. Preferencialmente entregar tudo em ZIP (não `.rar`).
+- Melhorar o visual SEM quebrar ID existente, munição, recipes, registro, animações, efeitos, saves e networking. Melhorar uma arma existente preserva nome do item, ID, namespace e integrações; mudanças de gameplay são tratadas separadamente.
+- Manter a estrutura de resources existente (`assets/intoxicantes/models/item/`, `assets/intoxicantes/textures/item/`, `assets/intoxicantes/items/`). Não renomear namespace porque o nome público é SNC Adventures.
+- Arquivos finais de uma arma 3D: modelo `models/item/arma.json`, textura `textures/item/arma.png`, item definition `items/arma.json`, gerador `tools/gen_arma.py`, verificador `tools/verify_arma.py` quando existir e preview `tools/preview_arma.py`. Entrega preferencial em ZIP (não `.rar`).
+- Mudança geométrica NUNCA é entregue só como PNG: PNG altera aparência; JSON altera forma, tamanho, partes, primeira pessoa, terceira pessoa e GUI. Se a alteração for estrutural, entregar todos os arquivos necessários.
 
-### 18. Compatibilidade com o projeto
+### 17. Critérios de aprovação e definição de pronto
 
-Manter namespace, nomes de arquivos, caminhos, referências de textura e estrutura de resources existentes (`assets/intoxicantes/models/item/`, `assets/intoxicantes/textures/item/`, `assets/intoxicantes/items/`). Não inventar outro namespace.
+- Perguntas obrigatórias antes de aprovar:
+  1. "Esta arma parece uma arma real estilizada em Minecraft, ou apenas um conjunto genérico de caixas?" — genérica = ainda não pronta.
+  2. "Em primeira pessoa, ela parece uma arma sendo utilizada em um jogo de tiro?" — se parece ferramenta, espada, besta, objeto lateral ou item apoiado de forma estranha, o transform precisa ser corrigido.
+  3. "A lateral apresenta proporções convincentes comparada a uma referência real?" — conferir principalmente cano, receiver, stock, pump/handguard, grip e magazine.
+- NÃO considerar uma arma concluída apenas porque compila, aparece no jogo, dispara, possui textura ou o formato básico. Compilar NÃO significa estar visualmente pronto.
+- Definição de pronto: silhueta, proporções, geometria, textura e materiais aprovados; munição coerente; primeira pessoa, terceira pessoa e GUI aprovados; pivôs preparados quando aplicável; preview gerado; verificação automática passou; build passou; nenhuma referência de asset quebrada; changelog atualizado; commit e push concluídos (conforme fluxo mestre do projeto).
+- Resultado esperado: "uma arma visualmente realista dentro da estética e das limitações do Minecraft, com proporções próximas às reais, modelo detalhado porém leve, boa textura, boa visualização no inventário e principalmente uma posição convincente em primeira pessoa."
 
-### 19. Regra de preservação
+## Padrão definitivo de veículos (regra do usuário)
 
-Ao melhorar uma arma existente: preservar o nome do item, o ID, o namespace e as integrações existentes; alterar apenas modelo, textura e transforms necessários. Não quebrar chamadas de código existentes.
+Regra trazida de outro projeto do usuário, onde o trator "SNC 75" era o modelo de referência. NESTE projeto o SNC 75 não existe: a referência passa a ser a qualidade DESCRITA abaixo — densidade de detalhes, proporção, hierarquia e acabamento — e vale integralmente por si mesma para qualquer veículo novo (carro, caminhão, trator, colheitadeira, máquina agrícola, implemento autopropelido ou outro). Na dúvida entre simplificar o modelo ou preservar/adicionar detalhes, SEMPRE escolher preservar o nível de detalhamento: é preferível gastar mais tempo modelando e entregar um veículo detalhado e bem estruturado do que produzir rápido um modelo simplificado.
 
-### 20. Resultado esperado
+### 1. Filosofia de modelagem
 
-"Uma arma visualmente realista dentro da estética e das limitações do Minecraft, com proporções próximas às reais, modelo detalhado porém leve, boa textura, boa visualização no inventário e principalmente uma posição convincente em primeira pessoa."
+- Veículos são modelos 3D detalhados compostos por cubos/cuboides, preservando a estética nativa voxel/Minecraft, com ALTO nível de detalhamento.
+- NUNCA criar veículos como: conjunto simples de poucos blocos; caixas genéricas de carroceria; modelos excessivamente low-poly; placeholders; formas sem detalhes mecânicos; ou modelos onde detalhe importante é só pintura na textura quando podia existir geometricamente.
+- O veículo deve ser reconhecível pela silhueta E ter detalhes suficientes para parecer uma máquina real estilizada no universo do jogo.
 
-### 21. Pack do usuário (`resourcepacks/minhas-texturas`) — NUNCA espelhar textura-atlas de arma 3D (bug da v1.2.44)
+### 2. Escala e coordenadas
 
-O pack do usuário SOBRESCREVE os assets do jar (regra geral de resource pack). Isso é desejado pra skins/blocos/itens-sprite, mas é FATAL pra armas 3D: se existir `textures/item/<arma>.png` no pack (ex.: a arte manual antiga 1254×1254 com 62% de fundo transparente), o jogo usa ELA no lugar do atlas 128×128 de materiais, e as UVs do modelo 3D caem em região transparente — a arma fica invisível/minúscula no jogo mesmo estando perfeita no jar (bug do revólver em 24/09/2026: alpha médio 1/255 nas 186 faces).
-- NUNCA copiar `textures/item/<arma>.png` de arma 3D pro pack. O atlas de materiais vive SÓ no jar.
-- Item novo em 3D: conferir que não existe PNG residual da versão antiga (sprite) no pack — mover pra `backups/` se existir.
-- Validação rápida: rodar as UVs do modelo contra a textura efetiva (jar + pack) e exigir alpha médio ~255 nas faces.
+- 16 unidades de modelagem = 1 bloco; +Y = para cima; -Z = frente do veículo.
+- Planejar TODAS as proporções antes de modelar: comprimento, largura, altura, entre-eixos, rodas, componentes. Não reduzir qualidade ou proporções para economizar cubos.
+
+### 3. Construção procedural — gerador como fonte principal
+
+- O modelo nasce de código procedural: gerador Python em `tools/` (mesmo padrão de `gen_escopeta.py` e `gen_revolver.py`), com funções reutilizáveis para componentes recorrentes: caixas/cuboides, peças centralizadas, vigas, discos voxelizados, rodas, eixos, estruturas, chassi, luzes, bancos, grades, implementos, articulações. Evitar posicionar centenas de componentes manualmente quando uma função reutilizável os produz de forma consistente.
+- Vale a regra geral do projeto: o gerador é a FONTE PRINCIPAL — editar sempre `tools/gen_veiculo.py`, nunca só o JSON gerado. Correção na raiz, sem scripts-patch paralelos.
+
+### 4. Nível de detalhe
+
+- Detalhes coerentes com o veículo real. Quando aplicável, modelar separadamente: chassi, longarinas, motor, transmissão, diferenciais, eixos, suspensão visível, escapamento, filtros, tanque, para-choques, contrapesos, capô, grades, entradas de ar, faróis, lanternas, banco, painel, volante, pedais, degraus, para-lamas, engates, braços, implementos, mecanismos externos e elementos estruturais.
+- Microdetalhes que fazem leitura visual também existem: parafusos, aros, cubos de roda, ranhuras, relevos, acabamento — mas sem cubo decorativo sem função. Geometria detalhada, porém intencional; não existe limite artificial baixo de cubos (centenas de elementos são o padrão, não caso excepcional).
+
+### 5. Rodas — padrão mínimo de qualidade
+
+- Nunca um cubo ou disco simples como roda.
+- Quando compatível com o veículo: pneu circular voxelizado (circunferência aproximada por múltiplos cuboides em faixas), paredes laterais, aro, cubo central, parafusos, banda de rodagem e garras/cravos quando aplicável. Os elementos de banda de rodagem acompanham radialmente a roda.
+
+### 6. Hierarquia e pivôs
+
+- Todo componente que possa se mover existe em grupo próprio com pivô correto, pensado DESDE a criação do modelo — nunca peça móvel direto na raiz se isso impedir animações futuras (rodas, direção, volante, capô, portas, implementos, braços hidráulicos, caçambas, eixos móveis, plataformas, partes dobráveis).
+- Estrutura conceitual de referência: `vehicle` → `chassis`; `front_left_steering` → `front_left_wheel`; `front_right_steering` → `front_right_wheel`; `rear_left_wheel`; `rear_right_wheel`; `hood`; `steering_wheel`; `attachment` → componentes do implemento.
+- Toda articulação planejada precisa de: grupo separado; origem/pivô correto; hierarquia correta; rotação válida; espaço geométrico para o movimento; ausência de colisões visuais graves durante o movimento. A geometria é criada considerando o movimento desde o início, não adaptada depois.
+
+### 7. Peças internas
+
+- Peça externa que possa abrir, levantar ou se mover leva modelado o que existe atrás dela. Capô que abre não deixa espaço vazio: bloco do motor, cabeçotes, bateria, tubulações, estruturas e componentes mecânicos essenciais visíveis. Articulação não pode revelar geometria incompleta.
+
+### 8. Materiais, texturas e pack
+
+- NUNCA uma única textura/material para todo o veículo. Separar material por tipo físico: pintura esmaltada, metal, aço, borracha, banda de rodagem, aro, banco, grade, vidro/lente, farol, lanterna, plástico, adesivos, componentes especiais — cada um com cor e leitura coerentes (o mesmo critério do atlas de materiais das armas).
+- Texturas geradas pela fonte em 128×128 (regra geral do projeto), aparência pixelada compatível com Minecraft, pequenas variações de superfície, sem ruído exagerado nem detalhe artificial sem propósito. Grade, lentes, decalques, painel, banco e borracha podem ter textura própria.
+- A textura COMPLEMENTA a geometria; nunca substitui geometria essencial.
+- Assim como nas armas 3D: textura-atlas de veículo NUNCA vai pro pack `resourcepacks/minhas-texturas` — o atlas vive SÓ no jar (o pack sobrescreve o jar e as UVs caem em região transparente).
+
+### 9. Geometria antes da textura
+
+- Ordem de prioridade: 1) silhueta correta; 2) proporções; 3) geometria estrutural; 4) componentes mecânicos; 5) pequenos detalhes; 6) materiais; 7) texturas. Nunca tentar corrigir modelo geometricamente pobre apenas com textura mais detalhada.
+
+### 10. Fidelidade visual e assimetria real
+
+- Antes de modelar um veículo real, usar referências suficientes para compreender proporções, formato da carroceria, posição das rodas, entre-eixos, tamanho relativo das rodas, localização dos componentes e o que torna aquele modelo reconhecível. Não precisa reproduzir cada milímetro, mas as características principais devem ser imediatamente reconhecíveis.
+- Assimetria real é preservada: escapamentos, filtros, tanques, controles, equipamentos, tubulações, placas e caixas ficam no lado correto quando há referência. Espelhar apenas peças realmente simétricas.
+
+### 11. Preview-estúdio obrigatório (antes de buildar e integrar)
+
+- Todo veículo tem, ANTES de buildar e integrar ao jogo, um preview 3D de inspeção e validação — NÃO um render estático. Segue o fluxo de aprovação visual: prévia na aba Preview do Freebuff, parar e esperar o "ok" antes de rodar geradores de recursos, build e testes.
+- Padrão do estúdio: HTML em `preview/` (aberto na aba Preview), renderização Three.js com antialiasing, sombras suaves, sRGB, ACES Filmic Tone Mapping, iluminação de estúdio, piso neutro, grade técnica discreta, OrbitControls com rotação livre, zoom e pan, câmera com damping, vistas Perspectiva/Frente/Lateral/Traseira com transições suaves, enquadramento automático pelo bounding box real, contador automático de cubos, dimensões automáticas em blocos, identificação do modelo, materiais e texturas reais, botão de reset e tela cheia.
+- Com componentes móveis, o estúdio oferece controles para testar as articulações (direção, rodas, volante, capô, portas, implementos, braços, plataformas, caçambas, mecanismos hidráulicos, dobráveis/removíveis), usando os MESMOS grupos, pivôs e hierarquias do modelo real.
+- O preview serve para detectar problemas de: proporção, pivô, rotação, hierarquia, interseção, materiais, texturas, enquadramento e geometria. Gerar, quando possível, versão offline autocontida (um HTML com tudo embutido, que abre direto no navegador).
+- REGRA DE APROVAÇÃO: se o preview de um novo veículo parecer mais simples, menos funcional ou menos polido que o padrão descrito aqui, ele ainda não está concluído.
+
+### 12. Validação e integração
+
+- Antes de considerar um veículo concluído, verificar: hierarquia, pivôs, rotações, dimensões, integridade dos grupos, geometria, materiais, texturas, exportação, articulações e possíveis interseções durante os movimentos.
+- Pergunta de aprovação final: "Este veículo tem o mesmo cuidado, densidade de detalhes, coerência de proporções e acabamento do padrão descrito nesta seção?" Se a resposta for não, o modelo ainda não está pronto. NÃO considerar pronto apenas porque compila, exporta, aparece no jogo, possui rodas ou a forma básica — a aprovação depende principalmente da qualidade visual.
+- A integração ao jogo (entidade, bloco, item, spawn ou como for implementada) segue as regras gerais do projeto: namespace `intoxicantes`, registro, assets, lang `pt_br`/`en_us`, guia e changelog no mesmo ciclo.
 
 ## Guia do SNC espelha a progressão real (regra do usuário)
 

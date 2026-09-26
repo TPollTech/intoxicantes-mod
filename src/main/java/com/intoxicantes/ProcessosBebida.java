@@ -27,6 +27,15 @@ import net.minecraft.world.item.TooltipFlag;
  * ModConfig (nada de relógio de parede do computador). O progresso mora nas
  * BlockEntities (sobrevive a save/restart/chunk descarregado) e toda a lógica
  * roda no servidor.
+ *
+ * v1.2.59 (GUI das máquinas): cada receita carrega o PRÓPRIO tempo em
+ * segundos ({@code tempoSeg}) — acabaram os 40s/30s do caldeirão espalhados
+ * fora do registro. As dornas/alambiques continuam com as bases globais
+ * (SEG_DORNA_BASE/SEG_ALAMBIQUE_BASE, que o Guia trava em teste). A regra de
+ * consumo é UNIVERSAL: aceita pilha MAIOR que a dose e consome EXATAMENTE a
+ * dose ({@code >=} na largada, {@code qtdIn} consumidos) — sobra fica no
+ * buffer pra o próximo lote. O par (input, qtdIn) → (output, qtdOut) é a
+ * UNIDADE DE PRODUÇÃO da máquina: nenhum número mágico fora daqui.
  */
 public final class ProcessosBebida {
 
@@ -68,9 +77,13 @@ public final class ProcessosBebida {
      * mostura (o lúpulo da fervura), carregado DEPOIS do principal — duas
      * doses no mesmo caldeirão, como na cervejaria real. secIn null = máquina
      * de ingrediente único (moenda, prensa).
+     *
+     * v1.2.59: {@code tempoSeg} = duração da PRIMEIRA dose (mostura) em
+     * segundos de design — a fervura continua fixa em 30s (as duas metades do
+     * ciclo de cerveja). Moenda/prensa usam só o tempoSeg.
      */
     public record Prima(Item input, int qtdIn, Item output, int qtdOut,
-            Item secIn, int secQtd, Item extraOut, int extraQtd) {}
+            Item secIn, int secQtd, Item extraOut, int extraQtd, int tempoSeg) {}
 
     // ==================================================== O REGISTRO
 
@@ -115,19 +128,20 @@ public final class ProcessosBebida {
         BARRIS.add(new Barril("vinho", IntoxicantesMod.MOSTO_DE_UVA, 4,
                 300, 300, IntoxicantesMod.VINHO, 4));
 
-        // ---------------- MÁQUINAS DE PRIMA
+        // ---------------- MÁQUINAS DE PRIMA (v1.2.59: tempo na receita)
         // MOENDA: 4 canas → 4 caldo + 1 bagaço (o bagaço queima na fornalha)
         MOENDAS.add(new Prima(IntoxicantesMod.CANA_DE_ACUCAR, 4,
                 IntoxicantesMod.CALDO_DE_CANA, 4, null, 0,
-                IntoxicantesMod.BAGACO_DE_CANA, 1));
+                IntoxicantesMod.BAGACO_DE_CANA, 1, 40));
         // PRENSA: 6 uvas → 4 mosto de uva (esmagadas e coadas)
         PRENSAS.add(new Prima(IntoxicantesMod.UVA, 6,
-                IntoxicantesMod.MOSTO_DE_UVA, 4, null, 0, null, 0));
+                IntoxicantesMod.MOSTO_DE_UVA, 4, null, 0, null, 0, 40));
         // CALDEIRÃO (mostura + fervura numa estação): 4 malte + 1 lúpulo →
         // 4 mosto lupulado. Precisa de ÁGUA embaixo (a diluição da mostura).
+        // mostura 40s + fervura 30s (a fervura fica no tempoSeg + 30 fixo)
         CALDEIROES.add(new Prima(IntoxicantesMod.MALTE, 4,
                 IntoxicantesMod.MOSTO_CERVEJA_LUPULADO, 4,
-                IntoxicantesMod.LOUPULO_FRESCO, 1, null, 0));
+                IntoxicantesMod.LOUPULO_FRESCO, 1, null, 0, 40));
     }
 
     // ==================================================== CONSULTAS
@@ -191,18 +205,21 @@ public final class ProcessosBebida {
         return Optional.empty();
     }
 
+    /** v1.2.59: aceita pilha MAIOR que a dose (a exigência de quantidade exata
+     *  que sobrava aqui era fonte do bug "exatamente 6"). */
     public static Optional<Prima> moendaQueAceita(Item item, int qtd) {
         for (Prima r : MOENDAS) {
-            if (r.input() == item && r.qtdIn() == qtd) {
+            if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
         }
         return Optional.empty();
     }
 
+    /** v1.2.59: aceita pilha MAIOR que a dose (idem moenda). */
     public static Optional<Prima> prensaQueAceita(Item item, int qtd) {
         for (Prima r : PRENSAS) {
-            if (r.input() == item && r.qtdIn() == qtd) {
+            if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
         }
@@ -243,6 +260,95 @@ public final class ProcessosBebida {
 
     public static List<Barril> barris() {
         return List.copyOf(BARRIS);
+    }
+
+    // ==================================================== CATÁLOGO PRA GUI (v1.2.59)
+    // A tela da máquina lista "o que ela produz" lendo o registro daqui —
+    // mesmo jeito do Guia. Nada de receita escrita duas vezes.
+
+    /** Receitas de prima por tipo de máquina (moenda/prensa/caldeirão). */
+    public static List<Prima> receitasPrima(MaquinaPrimaBlock.Tipo tipo) {
+        return switch (tipo) {
+            case MOENDA -> List.copyOf(MOENDAS);
+            case PRENSA -> List.copyOf(PRENSAS);
+            case CALDEIRAO -> List.copyOf(CALDEIROES);
+        };
+    }
+
+    /** Receitas de dorna (fermentação fora do barril). */
+    public static List<Dorna> receitasDorna() {
+        return List.copyOf(DORNAS);
+    }
+
+    /** Receitas de alambique (destilação). */
+    public static List<Alambique> receitasAlambique() {
+        return List.copyOf(ALAMBIQUES);
+    }
+
+    /** Receitas de barril (todas as bebidas engarrafáveis). */
+    public static List<Barril> receitasBarril() {
+        return List.copyOf(BARRIS);
+    }
+
+    // ==================================================== TEMPO NAS RECEITAS (v1.2.59)
+
+    /** Segundos de design da dose PRINCIPAL da prima (mostura, no caldeirão). */
+    public static int segPrima(Prima r) {
+        return r.tempoSeg();
+    }
+
+    /** Ticks da dose principal da prima, com a escala do config. */
+    public static int tempoPrima(Prima r) {
+        return ModConfig.ticksDeSegundos(r.tempoSeg());
+    }
+
+    // ==================================================== LOTE POR DOSE (v1.2.59)
+    // Regra universal das máquinas: pilha >= dose inicia UM lote; consome
+    // EXATAMENTE a dose; a sobra fica no buffer e o lote seguinte começa
+    // sozinho (produção contínua lote a lote — nunca tudo de uma vez).
+
+    /** A receita de dorna pra UM lote deste item (dose ignorando a pilha). */
+    public static Optional<Dorna> dornaQueAceitaLote(Item item) {
+        for (Dorna r : DORNAS) {
+            if (r.input() == item) {
+                return Optional.of(r);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** A receita de alambique pra UM lote deste item. */
+    public static Optional<Alambique> alambiqueQueAceitaLote(Item item) {
+        for (Alambique r : ALAMBIQUES) {
+            if (r.input() == item) {
+                return Optional.of(r);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** A receita de prima pra UM lote deste item neste tipo de máquina. */
+    public static Optional<Prima> primaQueAceitaLote(MaquinaPrimaBlock.Tipo tipo, Item item) {
+        return primaPrincipal(tipo, item);
+    }
+
+    /** A receita de prima em curso num lote (item + dose carregada). */
+    private static Optional<Prima> lote(List<Prima> lista, Item item, int qtdCarregada) {
+        for (Prima r : lista) {
+            if (r.input() == item && r.qtdIn() <= qtdCarregada) {
+                return Optional.of(r);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** A receita de prima do lote carregado por tipo (leitura do motor). */
+    public static Optional<Prima> primaDoLote(MaquinaPrimaBlock.Tipo tipo, Item item, int qtdCarregada) {
+        return lote(switch (tipo) {
+            case MOENDA -> MOENDAS;
+            case PRENSA -> PRENSAS;
+            case CALDEIRAO -> CALDEIROES;
+        }, item, qtdCarregada);
     }
 
     // ==================================================== CONSULTAS PRA GUIA

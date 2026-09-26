@@ -18,9 +18,11 @@ import com.mojang.blaze3d.platform.InputConstants;
 /**
  * v1.2.54 — CLIENT DA SAUDE. Tres pecas:
  *
- * 1. HUD CONTEXTUAL (o "HUDzinho"): sede (gota + barra) so quando < 100,
- *    vicio (agulha/estrela + barra) so quando > 0, abstinencia com TREMOR
- *    (o painel literalmente treme com o fregues). Nada na tela quando saudavel.
+ * 1. HUD CONTEXTUAL (o "HUDzinho"): SEDE colada em cima da barra de FOME
+ *    (lado direito do hotbar) e VICIO em cima da barra de VIDA (lado esquerdo).
+ *    So aparecem quando algo esta acontecendo (sede < 100, vicio > 0) e deslizam
+ *    pra cima se a armadura/bolhas de ar ocuparem a fileira. Abstinencia com
+ *    TREMOR (as barras literalmente treme com o fregues). Nada na tela quando saudavel.
  * 2. OVERLAY DAS VIAGENS: tintas de tela e efeitos por viagem ativa — o
  *    MORNO tinta ambar, o SONHO dessatura, o OVERDRIVE pulsa o zoom com a
  *    "batida", o VIAGEM cicla hue, e a ABSTINENCIA escurece as bordas.
@@ -48,13 +50,13 @@ public final class SaudeClient {
     private static net.minecraft.client.KeyMapping teclaProntuario;
 
     // paleta do HUD (a mesma vibe discreta do RelogioHud)
-    private static final int COR_FUNDO = 0x5A0E0C0A;
     private static final int COR_BORDA = 0x5A3A342C;
     private static final int COR_AGUA = 0xFF4AA8E8;
     private static final int COR_AGUA_FRACA = 0xFF2A5A80;
     private static final int COR_VICIO = 0xFFC050C8;
     private static final int COR_VICIO_FRACA = 0xFF5A2A60;
     private static final int COR_ABSTINENCIA = 0xFFD8B048;
+    private static final int COR_CRITICA = 0xFFE06050;
 
     public static void init() {
         // S2C: o sync periodico + o pedido de abrir o prontuario
@@ -140,70 +142,63 @@ public final class SaudeClient {
             return;
         }
 
-        int larguraPainel = 62;
-        int alturaPainel = vicio > 0 ? 30 : 18;
-        // canto INFERIOR ESQUERDO (o das armas é o direito; o relogio, o superior)
-        int x = 4;
-        int y = g.guiHeight() - alturaPainel - 4;
-        // TREMOR da abstinencia: o painel segue a mao do fregues
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+
+        // TREMOR da abstinencia: as barras seguem a mao do fregues
+        int tremerX = 0;
+        int tremerY = 0;
         if (estagioAbstinencia > 0) {
             long t = System.currentTimeMillis();
             int forca = Math.min(2, estagioAbstinencia);
-            x += (int) ((t / 60) % 2 == 0 ? forca : -forca);
-            y += (int) ((t / 90) % 2 == 0 ? -1 : 1);
+            tremerX = (int) ((t / 60) % 2 == 0 ? forca : -forca);
+            tremerY = (int) ((t / 90) % 2 == 0 ? -1 : 1);
         }
 
-        g.fill(x, y, x + larguraPainel, y + alturaPainel, COR_FUNDO);
-        g.fill(x, y, x + larguraPainel, y + 1, COR_BORDA);
-        g.fill(x, y + alturaPainel - 1, x + larguraPainel, y + alturaPainel, COR_BORDA);
+        // a fileira vanilla inteira: 10 icones de 9px (vida a esquerda, fome a direita)
+        final int larguraBarra = 81;
+        final int alturaBarra = 5;
+        final int fileiraBase = h - 49; // a fileira DE CIMA de vida/fome (que ficam em h-39)
 
-        Font fonte = mc.font;
-        int linha = y + 3;
-
-        // --- sede: gota + barra (so quando < 100)
+        // --- SEDE: colada EM CIMA da barra de fome (lado direito do hotbar)
         if (hidratacao < SaudeData.HIDRATACAO_MAX) {
-            desenharGota(g, x + 4, linha + 2, hidratacao <= 25);
-            int barraX = x + 12;
-            int barraW = larguraPainel - 16;
-            g.fill(barraX, linha + 1, barraX + barraW, linha + 5, COR_AGUA_FRACA);
-            g.fill(barraX, linha + 1, barraX + (int) (barraW * hidratacao / (float) SaudeData.HIDRATACAO_MAX),
-                    linha + 5, hidratacao <= 25 ? 0xFFE06050 : COR_AGUA);
-            g.text(fonte, String.valueOf(hidratacao), barraX + barraW + 1, linha, textoBarra(hidratacao), false);
-            linha += 12;
+            int y = fileiraBase;
+            // as bolhas de ar ocupam essa fileira quando aparecem: desliza pra cima
+            if (player.getAirSupply() < player.getMaxAirSupply()) {
+                y -= 10;
+            }
+            int x = w / 2 + 91 - larguraBarra + tremerX;
+            desenharBarra(g, x, y + tremerY, larguraBarra, alturaBarra,
+                    larguraBarra * hidratacao / SaudeData.HIDRATACAO_MAX,
+                    hidratacao <= 25 ? COR_CRITICA : COR_AGUA, COR_AGUA_FRACA);
         }
 
-        // --- vicio: estrela roxa + barra + estagio da sindrome
+        // --- VICIO: colado EM CIMA da barra de vida (lado esquerdo do hotbar)
         if (vicio > 0) {
-            g.fill(x + 4, linha + 1, x + 8, linha + 5, COR_VICIO); // pastilha do vício
-            int barraX = x + 12;
-            int barraW = larguraPainel - 16;
-            g.fill(barraX, linha + 1, barraX + barraW, linha + 5, COR_VICIO_FRACA);
-            g.fill(barraX, linha + 1, barraX + (int) (barraW * vicio / (float) SaudeData.VICIO_MAX),
-                    linha + 5, COR_VICIO);
-            g.text(fonte, String.valueOf(vicio), barraX + barraW + 1, linha, textoBarra(vicio), false);
-            linha += 12;
+            int y = fileiraBase;
+            // armadura (ou a segunda fileira de coracoes de absorcao) ocupa a fileira
+            if (player.getArmorValue() > 0
+                    || player.getHealth() + player.getAbsorptionAmount() > 20.0F) {
+                y -= 10;
+            }
+            int x = w / 2 - 91 + tremerX;
+            desenharBarra(g, x, y + tremerY, larguraBarra, alturaBarra,
+                    larguraBarra * vicio / SaudeData.VICIO_MAX, COR_VICIO, COR_VICIO_FRACA);
 
             if (estagioAbstinencia > 0) {
                 String rotulo = Component.translatable(
                         "hud.intoxicantes.saude.abstinencia", estagioAbstinencia).getString();
-                g.text(fonte, rotulo, x + 4, linha, COR_ABSTINENCIA, false);
+                g.text(mc.font, rotulo, w / 2 - 91, y + tremerY - 11, COR_ABSTINENCIA, false);
             }
         }
     }
 
-    private static int textoBarra(int valor) {
-        return valor <= 25 ? 0xFFE06050 : 0xFFD8D2C4;
-    }
-
-    /** Gota de agua 5x5 de pixels (cheia ou piscando quando critica). */
-    private static void desenharGota(GuiGraphicsExtractor g, int cx, int cy, boolean critica) {
-        boolean piscar = critica && (System.currentTimeMillis() / 300) % 2 == 0;
-        if (piscar) {
-            return;
-        }
-        g.fill(cx + 1, cy, cx + 3, cy + 4, COR_AGUA);   // corpo
-        g.fill(cx, cy + 1, cx + 4, cy + 3, COR_AGUA);   // ombros
-        g.fill(cx + 2, cy + 1, cx + 3, cy + 2, 0xFF8CC8F0); // brilho
+    /** A barra slim da casa: contorno escuro, fundo fraco e preenchimento forte. */
+    private static void desenharBarra(GuiGraphicsExtractor g, int x, int y,
+            int largura, int altura, int preenchido, int cor, int corFundo) {
+        g.fill(x - 1, y - 1, x + largura + 1, y + altura + 1, COR_BORDA);
+        g.fill(x, y, x + largura, y + altura, corFundo);
+        g.fill(x, y, x + preenchido, y + altura, cor);
     }
 
     // ==================================================== LEITURAS (pra visao das viagens)

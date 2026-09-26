@@ -127,6 +127,22 @@ public class BarrilBebidaBlock extends BaseEntityBlock {
         return super.playerWillDestroy(level, pos, state, player);
     }
 
+    /**
+     * v1.2.59 — O LOTE INVISÍVEL NO VAZIO: a BE do barril NÃO é Container (o
+     * lote em curso é um int), então {@code destroyBlock} (explosão, pistão,
+     * "/fill ar") não derrubava nada do lote — só {@code playerWillDestroy}
+     * devolvia. Idempotente com a rota de cima: {@code soltarConteudo}
+     * esvazia os slots e zera o lote, nunca dropa duas vezes.
+     */
+    @Override
+    protected void spawnAfterBreak(BlockState state, ServerLevel level, BlockPos pos,
+            ItemStack tool, boolean dropContents) {
+        if (level.getBlockEntity(pos) instanceof BarrilBebidaBlockEntity be) {
+            be.soltarConteudo(level);
+        }
+        super.spawnAfterBreak(state, level, pos, tool, dropContents);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
             Player player, BlockHitResult hit) {
@@ -134,7 +150,13 @@ public class BarrilBebidaBlock extends BaseEntityBlock {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide()) {
-            be.interagir((ServerLevel) level, player, ItemStack.EMPTY);
+            if (player.isShiftKeyDown()) {
+                // shift + mão vazia: recolhe garrafas prontas / status
+                be.interagir((ServerLevel) level, player, ItemStack.EMPTY);
+            } else {
+                // v1.2.59: botão direito abre a GUI do barril
+                player.openMenu(be);
+            }
         }
         return InteractionResult.SUCCESS_SERVER;
     }
@@ -148,11 +170,14 @@ public class BarrilBebidaBlock extends BaseEntityBlock {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS_SERVER;
         }
-        boolean usou = be.interagir((ServerLevel) level, player, stack);
-        if (usou) {
-            stack.shrink(1);
+        // SHIFT + item: inserção/engarrafamento rápido (a BE mesma consome —
+        // garrafa, insumo do lote; sem shrink aqui fora pra não morder 2×)
+        if (player.isShiftKeyDown()) {
+            be.interagir((ServerLevel) level, player, stack);
             return InteractionResult.SUCCESS_SERVER;
         }
+        // clique normal: abre a GUI (insere/garrafa pelos slots)
+        player.openMenu(be);
         return InteractionResult.SUCCESS_SERVER;
     }
 

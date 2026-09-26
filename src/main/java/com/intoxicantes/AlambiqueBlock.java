@@ -69,7 +69,13 @@ public class AlambiqueBlock extends MaquinaGrandeBlock {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide()) {
-            be.interagir((ServerLevel) level, player);
+            if (player.isShiftKeyDown()) {
+                // shift + mão vazia: recolhe o destilado (a rota de sempre)
+                be.interagir((ServerLevel) level, player);
+            } else {
+                // v1.2.59: botão direito abre a GUI do alambique
+                player.openMenu(be);
+            }
         }
         return InteractionResult.SUCCESS_SERVER;
     }
@@ -83,15 +89,31 @@ public class AlambiqueBlock extends MaquinaGrandeBlock {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS_SERVER;
         }
-        boolean aceitou = be.tentarCarregar((ServerLevel) level, player, stack);
-        if (aceitou) {
-            stack.shrink(be.qtdNecessaria(stack));
-            level.playSound(null, pos, SoundEvents.BLAZE_SHOOT,
-                    SoundSource.BLOCKS, 0.7F, 1.1F);
+        // SHIFT + item: inserção rápida (a BE mesma consome a dose certa)
+        if (player.isShiftKeyDown()) {
+            boolean aceitou = be.tentarCarregar((ServerLevel) level, player, stack);
+            if (aceitou) {
+                level.playSound(null, pos, SoundEvents.BLAZE_SHOOT,
+                        SoundSource.BLOCKS, 0.7F, 1.1F);
+            } else {
+                be.interagir((ServerLevel) level, player);
+            }
             return InteractionResult.SUCCESS_SERVER;
         }
-        be.interagir((ServerLevel) level, player);
+        // clique normal: abre a GUI
+        player.openMenu(be);
         return InteractionResult.SUCCESS_SERVER;
+    }
+
+    /** v1.2.59: quebrou o alambique, devolve o mosto e o destilado. */
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state,
+            Player player) {
+        if (level instanceof ServerLevel servidor
+                && level.getBlockEntity(posDoCorpo(state, pos)) instanceof AlambiqueBlockEntity be) {
+            be.soltarConteudo(servidor);
+        }
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
     /** Vapor e brilho do cobre quente (client, só quando destilando). */

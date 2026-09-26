@@ -1,5 +1,92 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.59 — AS MÁQUINAS GANHARAM GUI (rework do sistema de bebidas)
+
+### 🖥 GUI interativa pras 6 máquinas
+- **Botão direito abre a GUI de verdade** (menu sincronizado com o servidor):
+  Moenda, Prensa, Caldeirão, Dorna, Alambique e Barril — cada uma com uma
+  CENA própria desenhada no corpo (rolos dentados com cana entrando, fuso de
+  prensa esmagando uvas, tacho de cobre sobre chamas, tanque com visor de
+  nível e bolhas, alambique de cebola com serpentina em tonel d'água, barril
+  deitado com rótulo da bebida).
+- **Barra de progresso REAL**: lê o ContainerData da BlockEntity (servidor é
+  a autoridade) — nada de barra decorativa desgarrada do jogo.
+- **Painel de receitas na tela**: a máquina lista o que sabe fazer (insumo →
+  produto, dose e tempo direto do ProcessosBebida) e DIZ POR QUE não começou
+  ("sem água", "sem fogo", "saída cheia", "aguardando o lúpulo").
+- Rotas de interação: **clique = GUI**, **Shift+item = inserção rápida**,
+  **Shift+mão vazia = coleta**. Slots funcionam de verdade (pegar/por item).
+
+### ⚙ Motor de lotes (o fim do "exatamente 6")
+- Pilha **maior que a dose** é aceita: entram só DOSES INTEIRAS (até 4), a
+  sobra fica na mão do jogador — 13 uvas = 2 lotes + 1 de volta.
+- **Produção contínua**: fechou um lote, o seguinte começa sozinho com o que
+  sobrou no buffer.
+- **Saída cheia NÃO perde produto**: o lote fica pendente e entra quando
+  sobrar espaço (a GUI avisa).
+- Caldeirão mostura→fervura encadeados na mesma estação (lúpulo no slot
+  próprio; fervura começa sozinha quando ele chega).
+
+### 🛠 Correções que o rework trouxe à tona
+- **Barril quebrado sem jogador (explosão/pistão) perdia o lote**: a BE dele
+  não é Container; agora `spawnAfterBreak` devolve buffer + lote em curso em
+  qualquer destruição (idempotente com a rota do jogador).
+- **Bagaço duplicado na moenda**: se o slot extra estivesse cheio no
+  fechamento do lote, o retry re-produzia o caldo principal (4 → 8 de uma
+  dose só). Agora o retry só entrega o que faltou.
+- **Lote fantasma**: com sobra menor que a dose, a máquina não abre mais um
+  lote de timer órfão (a GUI mostrava "processando" eterno).
+- **Caldeirão sem água não avisava**: a fase SEM ÁGUA existia mas nunca era
+  reportada pra GUI.
+- Dicas de coleta atualizadas ("Shift + mão vazia recolhe").
+
+### 🧪 Testes
+- 6 gametests novos: buffer de doses inteiras + sobra na mão, produção
+  contínua encadeada (12 uvas → 8 mostos), saída cheia guardando lote,
+  quebra devolvendo tudo (dorna e barril), barra da GUI lendo o
+  ContainerData real. Suíte completa: 76 testes verdes.
+
+---
+
+## v1.2.58 — HUD NO LUGAR CERTO + OS 6 BUGS DA ESQUINA + TEXTURAS HD (25/09/2026)
+
+### 🧪 Barras da saúde ancoradas no HUD vanilla
+- **Sede agora fica EM CIMA da barra de fome** (lado direito do hotbar) e o
+  **vício EM CIMA da barra de vida** (lado esquerdo) — acabou o painelzinho
+  escondido no canto da tela, agora é leitura direta junto do que importa.
+- Barras slim com contorno, na largura da fileira vanilla (81px), só quando
+  fazem sentido (sede < 100, vício > 0) — casa saudável não desenha nada.
+- **Deslizam pra cima** quando a armadura ou as bolhas de ar ocuparem a fileira.
+- O rótulo de ABSTINÊNCIA agora paira sobre a barra do vício (e o tremor da
+  síndrome continua, agora treme cada barra no lugar).
+
+### 🛠 Os 6 bugs da esquina (raio-x pedido pelo usuário)
+- **Café sem fumaça**: beber o Extrato de Cafeína não solta mais fumaça de
+  fogueira na cara do fregues sóbrio (a cura da ressaca carregava um
+  `CAMPFIRE_COSY_SMOKE` esquecido na Embriaguez).
+- **Relógio enxergado**: o HUD do canto mostra SÓ A HORA (adeus "Dia 47") e a
+  fórmula foi conferida contra os markers oficiais do 26.3 (noon = tick 6000,
+  midnight = tick 18000) — a hora bate com a posição do sol. O "⏰ HH:MM" que
+  o mercado spamava no actionbar a cada 5s foi REMOVIDO.
+- **Suco e coco nasceram de novo**: as texturas eram placeholder de cor
+  chapada; agora são **HD 1254×1254** (padrão do pack, pintadas com shading),
+  e a ÁGUA DE COCO ganhou fonte de verdade (a receita antiga usava COCOA
+  BEANS — cacau! kkkk).
+- **Efeitos das drogas funcionando DE VERDADE**: os buffs vanilla duravam
+  10-15s dentro de viagens de 4-7 MINUTOS (eram aplicados 1× no início). Agora
+  cada efeito RENOVA os buffs a cada 5s enquanto a viagem dura — o pique, o
+  casaco e a visão do LSD aguentam a viagem inteira. Os 6 ícones HD + nomes
+  pt/en mataram o quadriculado roxo do inventário.
+- **Lúpulo e cevada com vida própria**: Chá de Lúpulo (regen 10s + remove
+  Overdrive/Viagem — o antídoto do psicodélico) e Pão de Cevada (+6 fome,
+  saturação 0.6).
+
+### 🌴 O coqueiro (o novo ciclo do coco)
+- Coqueiro construído do zero: tronco curvado, coroa de folhas e 1-2 COCOS
+  pendurados; spawn raro em Beach/Jungle/Stony Shore.
+- Coco no pé quebra pro item Coco — comível (+2 fome, +30 sede, a água da
+  mordida) — e Coco + garrafa d'água vira Água de Coco (+50 sede).
+
 ## v1.2.57 — "O QUÃO FUDIDO TU ESTÁ" + TEXTURAS HD + CONTROLES DE FPS (25/09/2026)
 
 ### 📋 O Prontuário renasce (tecla H)
