@@ -57,7 +57,7 @@ import org.jspecify.annotations.Nullable;
 public final class MarketSystem {
     private static final int MARKET_RANGE = 32;
     /** v1.2.45: o relógio roda no overworld TODO (o HUD mantém a última mensagem). */
-    private static final int CLOCK_INTERVAL = 100;
+    // v1.2.58: CLOCK_INTERVAL removido junto com o actionbar do relógio
     private static final int MANAGE_INTERVAL = 100;
     private static final int DISCOVER_INTERVAL = 600; // 30s entre tentativas de achar a estrutura
     private static final int SCAN_BUDGET_POR_TENTATIVA = 600; // chunks NOVOS por tentativa (o cursor nunca revista)
@@ -101,7 +101,6 @@ public final class MarketSystem {
     /** Centro da espiral fixado na sessao: o cursor so faz sentido com centro fixo. */
     @Nullable
     private static ChunkPos centroVarredura = null;
-    private static int clockCooldownTick = 0;
     /** v1.2.51: estado do GUICHÊ conhecido (a porta-grade) — detecção da virada. */
     private static boolean guicheFechadoAnterior = false;
     /** v1.2.19: a 1a avaliação pós-boot só sincroniza (sem tocar o arpejo). */
@@ -180,21 +179,9 @@ public final class MarketSystem {
                 zeladorDaPropriedade(overworld, pos);
             }
 
-            // 2.1) v1.2.45 — O RELÓGIO NO HUD (o pedido lá do início!): rodava
-            // num ciclo de 5s com CLOCK_INTERVAL=100 e display efêmero — o player
-            // via a mensagem 3s e ela sumia: "nunca apareceu". Agora é
-            // PERSISTENTE: mandamos a cada 5s pra TODO overworld (o client
-            // mantém a última), sempre que o mercado já foi descoberto.
-            if (--clockCooldownTick <= 0) {
-                clockCooldownTick = CLOCK_INTERVAL;
-                String hora = formatarHora(overworld);
-                for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                    if (player.level().dimension().equals(Level.OVERWORLD)) {
-                        player.sendSystemMessage(Component.translatable(
-                                "market.intoxicantes.relogio", hora), true);
-                    }
-                }
-            }
+            // 2.1) v1.2.58: o RELÓGIO DO MERCADO no actionbar MORREU — o HUD do
+            // canto (RelogioHud) já informa a hora do mundo direto, sem spam
+            // periódico em cima da hotbar.
 
             // 3) Gerenciador do Gago (throttle de 5s)
             if (--manageCooldown > 0) return;

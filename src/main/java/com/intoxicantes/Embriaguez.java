@@ -444,9 +444,7 @@ public final class Embriaguez {
         }
         player.sendSystemMessage(Component.translatable(
                 "effect.intoxicantes.cura", player.getName()));
-        player.level().sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE,
-                player.getX(), player.getY() + 1.8, player.getZ(),
-                6, 0.2, 0.2, 0.2, 0.01);
+        // v1.2.58: SEM fumaça — o extrato é um cafezinho, não um incenso.
     }
 
     /**

@@ -43,6 +43,9 @@ public final class Efeitos {
                     && quem.getRandom().nextInt(3) == 0) {
                 fregues.getFoodData().eat(1, 0.1F);
             }
+            // v1.2.58: a regen acompanha a VIAGEM inteira — o onEffectStarted
+            // sozinho durava 10s e morria no primeiro minuto de viagem.
+            renovar(quem, MobEffects.REGENERATION, 200, 0);
             return true;
         }
 
@@ -50,22 +53,24 @@ public final class Efeitos {
         public boolean shouldApplyEffectTickThisTick(int duracaoRestante, int amplificador) {
             return duracaoRestante % 60 == 0; // 1x a cada 3 segundos
         }
-
-        @Override
-        public void onEffectStarted(LivingEntity quem, int amplificador) {
-            // regen lenta por cima (a morgue cura o corpo devagar)
-            quem.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 0, true, false));
-        }
     });
 
     /** T2: o OPIO — casaco quente. "Nao doer nada" = resistencia + regen. */
     public static final Holder<MobEffect> MORNO = registrar("morno", new MobEffect(MobEffectCategory.NEUTRAL, 0xB5783C) {
         @Override
-        public void onEffectStarted(LivingEntity quem, int amplificador) {
-            quem.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 0, true, false));
-            quem.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 0, true, false));
+        public boolean applyEffectTick(ServerLevel level, LivingEntity quem, int amplificador) {
+            // v1.2.58: o casaco quente RENOVA a cada 5s enquanto a viagem dura
+            // (antes: 10s de buff e 4:50 de nada)
+            renovar(quem, MobEffects.RESISTANCE, 200, 0);
+            renovar(quem, MobEffects.REGENERATION, 200, 0);
             // corpo de chumbo: o teto pesa
-            quem.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 200, 1, true, false));
+            renovar(quem, MobEffects.SLOWNESS, 200, 1);
+            return true;
+        }
+
+        @Override
+        public boolean shouldApplyEffectTickThisTick(int duracaoRestante, int amplificador) {
+            return duracaoRestante % 100 == 0; // renova a cada 5 segundos
         }
     });
 
@@ -77,20 +82,16 @@ public final class Efeitos {
             if (quem.getRandom().nextInt(4) == 0 && quem.onGround()) {
                 quem.push(0, -0.12, 0); // afunda no colchao
             }
+            // v1.2.58: a anestesia RENOVA a cada 5s (a viagem toda)
+            renovar(quem, MobEffects.RESISTANCE, 200, 1);
+            renovar(quem, MobEffects.REGENERATION, 200, 1);
+            renovar(quem, MobEffects.SLOWNESS, 200, 2);
             return true;
         }
 
         @Override
         public boolean shouldApplyEffectTickThisTick(int duracaoRestante, int amplificador) {
-            return duracaoRestante % 20 == 0; // 1x por segundo
-        }
-
-        @Override
-        public void onEffectStarted(LivingEntity quem, int amplificador) {
-            quem.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, 200, 1, true, false));
-            quem.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 300, 1, true, false));
-            // a anestesia total: lento, sem pressa, sem mundo
-            quem.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 300, 2, true, false));
+            return duracaoRestante % 100 == 0; // nod a cada 5s + renovacao junto
         }
     });
 
@@ -102,28 +103,31 @@ public final class Efeitos {
             if (quem instanceof net.minecraft.world.entity.player.Player fregues) {
                 fregues.getFoodData().eat(0, -0.5F); // gasta saturacao de verdade
             }
+            // v1.2.58: o burst RENOVA a cada 5s (o pique dura a viagem toda)
+            renovar(quem, MobEffects.SPEED, 200, 0);
+            renovar(quem, MobEffects.HASTE, 200, 0);
             return true;
         }
 
         @Override
         public boolean shouldApplyEffectTickThisTick(int duracaoRestante, int amplificador) {
-            return duracaoRestante % 40 == 0; // 1x cada 2 segundos
-        }
-
-        @Override
-        public void onEffectStarted(LivingEntity quem, int amplificador) {
-            // o burst em si (além do vanilla que o item já aplica)
-            quem.addEffect(new MobEffectInstance(MobEffects.SPEED, 200, 0, true, false));
-            quem.addEffect(new MobEffectInstance(MobEffects.HASTE, 200, 0, true, false));
+            return duracaoRestante % 100 == 0; // queima + renovacao cada 5s
         }
     });
 
     /** T4: o LSD — a viagem. O tick do efeito é o pulso da alma (visual no client). */
     public static final Holder<MobEffect> VIAGEM = registrar("viagem", new MobEffect(MobEffectCategory.NEUTRAL, 0xC040E0) {
         @Override
-        public void onEffectStarted(LivingEntity quem, int amplificador) {
-            // a visao abre: night vision dura a viagem inteira
-            quem.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 600, 0, true, false));
+        public boolean applyEffectTick(ServerLevel level, LivingEntity quem, int amplificador) {
+            // v1.2.58: a visao ABERTA RENOVA a cada 5s — night vision que morre
+            // em 30s numa viagem de 7 minutos era zeitgeber de placebo
+            renovar(quem, MobEffects.NIGHT_VISION, 400, 0);
+            return true;
+        }
+
+        @Override
+        public boolean shouldApplyEffectTickThisTick(int duracaoRestante, int amplificador) {
+            return duracaoRestante % 100 == 0;
         }
     });
 
@@ -160,6 +164,21 @@ public final class Efeitos {
      */
     public static void carga() {
         // no-op: o static initializer da classe já registrou tudo
+    }
+
+    /**
+     * v1.2.58: renovação de buff vanilla DENTRO da viagem — o combo
+     * "onEffectStarted com duração curta" morria no primeiro minuto. Ambient
+     * = sem partículas piscando na cara; visible=false = sem spam de ícones
+     * vanilla (o ícone da viagem em si já conta a história).
+     */
+    private static void renovar(LivingEntity quem, Holder<MobEffect> buff, int ticks, int amplificador) {
+        MobEffectInstance atual = quem.getEffect(buff);
+        // renova só quando está acabando (menos de 60 ticks): sem resetar o
+        // contador a cada tick e sem piscar o ícone vanilla no HUD
+        if (atual == null || atual.getDuration() < 60) {
+            quem.addEffect(new MobEffectInstance(buff, ticks, amplificador, true, false));
+        }
     }
 
     private static Holder<MobEffect> registrar(String nome, MobEffect efeito) {

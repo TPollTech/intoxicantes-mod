@@ -348,6 +348,10 @@ public final class SaudeSystem {
         if (stack.is(IntoxicantesMod.AGUA_DE_COCO)) {
             SaudeData.alterarHidratacao(player, 50);
         }
+        // v1.2.58: o COCO in natura — morder o fruto já bebe a água dele (+30)
+        if (stack.is(IntoxicantesMod.COCO_FRUTO)) {
+            SaudeData.alterarHidratacao(player, 30);
+        }
     }
 
     // ==================================================== QUEDA (o aftershock)

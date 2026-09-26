@@ -10,14 +10,11 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
 
 /**
- * v1.2.53 — O RELÓGIO DE SEMPRE NO HUD: canto superior esquerdo, discreto —
- * um painel escuro translúcido com o ícone sol/lua (o ciclo do dia em 1
- * olhada), a hora do mundo (HH:MM) e o dia atual. Sufocado no canto, não
- * cobre hotbar, crosshair nem o HUD das armas (que vive embaixo à direita).
+ * v1.2.58 — O RELÓGIO SIMPLIFICADO: canto superior esquerdo, SÓ a hora do
+ * mundo (o "Dia N" saiu — quem quer o dia vê o debug ou a lua kkkk).
  *
- * A hora usa a fórmula vanilla: tick 0 = 06:00 (amanhecer), 1000 ticks = 1h.
- * Desenha com fills (sem textura nova) — ícone de sol é um ponto com raios,
- * o de lua um crescente de dois quadrados.
+ * A hora segue o clock oficial do overworld (os markers da timeline: noon =
+ * tick 6000, midnight = tick 18000), com o offset +6h do amanhecer vanilla.
  */
 public final class RelogioHud {
 
@@ -25,7 +22,6 @@ public final class RelogioHud {
     private static final int COR_FUNDO = 0x5A0E0C0A;
     private static final int COR_BORDA = 0x5A3A342C;
     private static final int COR_HORA = 0xFFE8D8B0;
-    private static final int COR_DIA = 0xFF8A8274;
     private static final int COR_SOL = 0xFFE8C84A;
     private static final int COR_LUA = 0xFFC8CCD8;
 
@@ -49,19 +45,16 @@ public final class RelogioHud {
         }
 
         long tempo = mc.level.getOverworldClockTime();
-        long dia = tempo / 24000L + 1L;
         long ticks = ((tempo % 24000L) + 24000L) % 24000L;
         int horas = (int) ((ticks / 1000L + 6L) % 24L);
         int minutos = (int) ((ticks % 1000L) * 60L / 1000L);
         boolean diaLuz = ticks < 12500L; // sol até ~18:30, depois lua
 
         String hora = String.format("%02d:%02d", horas, minutos);
-        String rotuloDia = "Dia " + dia;
 
         Font fonte = mc.font;
         int larguraHora = fonte.width(hora);
-        int larguraDia = fonte.width(rotuloDia);
-        int largura = 10 + larguraHora + 6 + larguraDia + 5;
+        int largura = 10 + larguraHora + 5;
         int altura = 12;
         int x = 4;
         int y = 4;
@@ -74,7 +67,6 @@ public final class RelogioHud {
 
         int tx = x + 10;
         g.text(fonte, hora, tx, y + 2, COR_HORA, false);
-        g.text(fonte, rotuloDia, tx + larguraHora + 6, y + 3, COR_DIA, false);
     }
 
     /**

@@ -228,6 +228,32 @@ def carregar_mod():
 carregar_mod()
 
 
+def carregar_feature_types_java():
+    """Features registradas EM JAVA (registrarFeature ou FEATURE_TYPE direto)
+    sao invisiveis pra varredura de JSONs — coleta dos .java do mod.
+    (ex: intoxicantes:coqueiro, registrada via MapCodec no IntoxicantesMod)"""
+    extras = set()
+    src = os.path.join(ROOT, "src", "main", "java")
+    for raiz, _, arquivos in os.walk(src):
+        for a in arquivos:
+            if not a.endswith(".java"):
+                continue
+            try:
+                txt = open(os.path.join(raiz, a), encoding="utf-8").read()
+            except Exception:
+                continue
+            extras.update(re.findall(r'registrarFeature\(\s*"([a-z0-9_/]+)"', txt))
+            # registro direto: BuiltInRegistries.FEATURE_TYPE ... fromNamespaceAndPath(MOD_ID, "nome")
+            for m in re.finditer(
+                    r'BuiltInRegistries\.FEATURE_TYPE.{0,400}?fromNamespaceAndPath\(MOD_ID,\s*"([a-z0-9_/]+)"',
+                    txt, re.S):
+                extras.add(m.group(1))
+    return {"intoxicantes:" + n for n in extras}
+
+
+FEATURE_TYPES_MOD = carregar_feature_types_java()
+
+
 # ============================================================ helpers
 def ref_valida(ref, prefixo):
     """'ns:caminho' existe como data/<ns>/<prefixo>/<caminho>.json (vanilla ou mod)?"""
@@ -363,7 +389,7 @@ def _checar_predicado(rel, i, pred):
 
 def validar_feature(rel, feat):
     t = feat.get("type", "")
-    if t and t not in VANILLA_FEATURE_TYPES:
+    if t and t not in VANILLA_FEATURE_TYPES and t not in FEATURE_TYPES_MOD:
         erro(f"{rel}: feature type inexistente: {t} "
              f"(existentes: {len(VANILLA_FEATURE_TYPES)} tipos, ex: {sorted(VANILLA_FEATURE_TYPES)[:4]})")
     # simple_block / random_patch: estados de bloco

@@ -1,5 +1,44 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.58 — HUD NO LUGAR CERTO + OS 6 BUGS DA ESQUINA + TEXTURAS HD (25/09/2026)
+
+### 🧪 Barras da saúde ancoradas no HUD vanilla
+- **Sede agora fica EM CIMA da barra de fome** (lado direito do hotbar) e o
+  **vício EM CIMA da barra de vida** (lado esquerdo) — acabou o painelzinho
+  escondido no canto da tela, agora é leitura direta junto do que importa.
+- Barras slim com contorno, na largura da fileira vanilla (81px), só quando
+  fazem sentido (sede < 100, vício > 0) — casa saudável não desenha nada.
+- **Deslizam pra cima** quando a armadura ou as bolhas de ar ocuparem a fileira.
+- O rótulo de ABSTINÊNCIA agora paira sobre a barra do vício (e o tremor da
+  síndrome continua, agora treme cada barra no lugar).
+
+### 🛠 Os 6 bugs da esquina (raio-x pedido pelo usuário)
+- **Café sem fumaça**: beber o Extrato de Cafeína não solta mais fumaça de
+  fogueira na cara do fregues sóbrio (a cura da ressaca carregava um
+  `CAMPFIRE_COSY_SMOKE` esquecido na Embriaguez).
+- **Relógio enxergado**: o HUD do canto mostra SÓ A HORA (adeus "Dia 47") e a
+  fórmula foi conferida contra os markers oficiais do 26.3 (noon = tick 6000,
+  midnight = tick 18000) — a hora bate com a posição do sol. O "⏰ HH:MM" que
+  o mercado spamava no actionbar a cada 5s foi REMOVIDO.
+- **Suco e coco nasceram de novo**: as texturas eram placeholder de cor
+  chapada; agora são **HD 1254×1254** (padrão do pack, pintadas com shading),
+  e a ÁGUA DE COCO ganhou fonte de verdade (a receita antiga usava COCOA
+  BEANS — cacau! kkkk).
+- **Efeitos das drogas funcionando DE VERDADE**: os buffs vanilla duravam
+  10-15s dentro de viagens de 4-7 MINUTOS (eram aplicados 1× no início). Agora
+  cada efeito RENOVA os buffs a cada 5s enquanto a viagem dura — o pique, o
+  casaco e a visão do LSD aguentam a viagem inteira. Os 6 ícones HD + nomes
+  pt/en mataram o quadriculado roxo do inventário.
+- **Lúpulo e cevada com vida própria**: Chá de Lúpulo (regen 10s + remove
+  Overdrive/Viagem — o antídoto do psicodélico) e Pão de Cevada (+6 fome,
+  saturação 0.6).
+
+### 🌴 O coqueiro (o novo ciclo do coco)
+- Coqueiro construído do zero: tronco curvado, coroa de folhas e 1-2 COCOS
+  pendurados; spawn raro em Beach/Jungle/Stony Shore.
+- Coco no pé quebra pro item Coco — comível (+2 fome, +30 sede, a água da
+  mordida) — e Coco + garrafa d'água vira Água de Coco (+50 sede).
+
 ## v1.2.57 — "O QUÃO FUDIDO TU ESTÁ" + TEXTURAS HD + CONTROLES DE FPS (25/09/2026)
 
 ### 📋 O Prontuário renasce (tecla H)
