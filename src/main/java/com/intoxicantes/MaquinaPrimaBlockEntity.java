@@ -509,6 +509,53 @@ public class MaquinaPrimaBlockEntity extends BlockEntity
         }
         setChanged();
         sincronizar();
+        // v1.2.60: efeitos por máquina, guiados pelo progresso REAL do lote
+        // (mesmo gancho 1/s que o motor — nada por tick, nada client-side)
+        efeitosDeProcesso(level);
+    }
+
+    /**
+     * v1.2.60 — a assinatura sonora/particular de cada ofício: a MOENDA
+     * "tritaca" (tranco curto, grave → agudo com o lote), a PRENSA "tranca"
+     * (fuso forçando, grave → tenso), o CALDEIRÃO fervilha (chiado, alto →
+     * ferver mais suave) e o vapor engrossa no fim do lote — tudo com
+     * SoundEvents vanilla no mesmo padrão das outras máquinas (v1.2.55).
+     */
+    private void efeitosDeProcesso(ServerLevel level) {
+        float progresso = ticksTotal > 0
+                ? 1F - ticksRestantes / (float) ticksTotal : 0F;
+        switch (tipoMaquina()) {
+            case MOENDA -> {
+                // tranco de moinho a cada ~7s, acelerando o tom com o lote
+                if ((ticksRestantes / 20) % 7 == 0) {
+                    level.playSound(null, worldPosition, SoundEvents.GRINDSTONE_USE,
+                            SoundSource.BLOCKS, 0.45F, 0.75F + 0.35F * progresso);
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT,
+                            worldPosition.getX() + 0.5, worldPosition.getY() + 0.65,
+                            worldPosition.getZ() + 0.5, 2, 0.3, 0.1, 0.3, 0.1);
+                }
+            }
+            case PRENSA -> {
+                // o fuso forçando: tranco grave a cada ~8s, tenso no fim
+                if ((ticksRestantes / 20) % 8 == 0) {
+                    level.playSound(null, worldPosition, SoundEvents.PISTON_EXTEND,
+                            SoundSource.BLOCKS, 0.4F, 0.6F + 0.2F * progresso);
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.SPLASH,
+                            worldPosition.getX() + 0.5, worldPosition.getY() + 0.6,
+                            worldPosition.getZ() + 0.5, 3, 0.3, 0.05, 0.3, 0.0);
+                }
+            }
+            case CALDEIRAO -> {
+                // fervura: chiado de fervura, relaxando o pitch (ferve mais)
+                if ((ticksRestantes / 20) % 9 == 0) {
+                    level.playSound(null, worldPosition, SoundEvents.LAVA_EXTINGUISH,
+                            SoundSource.BLOCKS, 0.3F, 1.4F - 0.4F * progresso);
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
+                            worldPosition.getX() + 0.5, worldPosition.getY() + 0.8,
+                            worldPosition.getZ() + 0.5, 1, 0.25, 0.05, 0.25, 0.004);
+                }
+            }
+        }
     }
 
     /** Estado: timer rodando (mostura, fervura, moagem ou prensagem). */

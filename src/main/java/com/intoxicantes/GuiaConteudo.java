@@ -460,6 +460,16 @@ public final class GuiaConteudo {
         maquina(maquinas, "caldeirao", IntoxicantesMod.CALDEIRAO_MOSTURA.asItem(), "caldeirao_mostura",
                 pCaldeirao, ing(Items.IRON_INGOT, 5), ing(Items.SMOOTH_STONE_SLAB, 3));
 
+        // v1.2.61: a NOVA INTERAÇÃO das máquinas — GUI, shift+item, shift+mão vazia
+        maquinas.entrada("interacao", ic(IntoxicantesMod.PRENSA_UVAS.asItem()))
+                .add(new PagTitulo("maquinas.interacao.hero"))
+                .add(new PagTexto("maquinas.interacao.1"))
+                .add(new PagItem(ic(IntoxicantesMod.CALDEIRAO_MOSTURA.asItem()),
+                        "maquinas.interacao.gui"))
+                .add(new PagItem(ic(IntoxicantesMod.UVA), "maquinas.interacao.inserir"))
+                .add(new PagTexto("maquinas.interacao.recolher"))
+                .add(new PagDica("maquinas.interacao.dica"));
+
         // ================================================== 6. ARMAS
         GuiaCategoria armas = cat("armas", IntoxicantesMod.ESCOPETA);
         armas.entrada("escopeta", ic(IntoxicantesMod.ESCOPETA))

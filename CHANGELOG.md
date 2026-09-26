@@ -1,5 +1,56 @@
 # CHANGELOG - Intoxicantes Mod
 
+## v1.2.61 — MÁQUINAS VIVAS: CENAS ANIMADAS, EFEITOS SONOROS E RECEITAS EM DATAPACK (26/09/2026)
+
+### ⚗️ Catálogo de receitas virou DATAPACK (data-driven de verdade)
+- As receitas de dorna, alambique, barril, moenda, prensa e caldeirão saíram
+  do código e agora moram em **JSON** em
+  `data/intoxicantes/processo_bebida/<maquina>/` — **um arquivo por receita**, com
+  serializer próprio (`CatalogoBebidas`, `SimpleJsonResourceReloadListener`).
+- Um datapack pode **adicionar, mudar ou remover receitas SEM tocar em código**
+  (ou sem o mod): campos `input/qtdIn/output/qtdOut`, insumo secundário
+  (`secIn/secQtd`), subproduto (`extraOut/extraQtd`) e `tempoSeg`.
+- **FONTE ÚNICA preservada**: máquinas, GUIs e o Guia continuam lendo pelo
+  `ProcessosBebida` (fachada intacta, que delega ao catálogo) — nada escrito
+  em dois lugares. Se o datapack não trouxer nada, os defaults de fábrica
+  alimentam o catálogo (nunca quebra o jogo).
+- 11 receitas default espelhadas em JSON: 2 dorna, 2 alambique, 4 barril,
+  1 moenda, 1 prensa, 1 caldeirão.
+
+### 🎬 Cenas das GUIs agora ANIMAM com o lote real (nada inventado no client)
+- Todas as 6 máquinas têm animação própria na cena, guiada pelo
+  **`ContainerData`** (restante/total/fase): lote parado = cena imóvel —
+  o relógio de frames só escolhe o quadro da oscilação (mesmo papel do bob
+  de itens vanilla).
+- Dorna: borbulhas aceleram conforme o progresso; Caldeirão: vapor aumenta;
+  Alambique: a serpentina goteja com o calor; Prensa: o fuso desce com o
+  avanço; Moenda: o rolo gira; Barril: a tampa pulsa na fermentação.
+
+### 🔊 Sons ambientes + partículas por máquina processando (padrão v1.2.55)
+- Server-side, no tick, com intensidade guiada pelo progresso real do lote:
+- **Dorna**: borbulhar (`BUBBLE_COLUMN_UPWARDS_AMBIENT`) + `BUBBLE_POP` na
+  superfície; fervura forte escurece com fumaça de fogueira.
+- **Alambique**: chiado/vapores + gotejar da serpentina
+  (`POINTED_DRIPSTONE_DRIP_WATER`) com brilho; fogo baixo solta fumaça.
+- **Moenda**: tranco do rolo (`GRINDSTONE_USE`) + faíscas de bagaço (`CRIT`).
+- **Prensa**: tranco do fuso (`PISTON_EXTEND`) + respingo do mosto (`SPLASH`).
+- **Caldeirão**: borbulhar de fervura + fumaça; **Barril**: borbulhar na
+  fermentação e o `BOTTLE_FILL` do engarrafamento já existentes mantidos.
+
+### 📖 Guia do SNC
+- Nova seção **MÁQUINAS → Como conversar com suas máquinas**: clique-direito
+  abre a **GUI cênica**, **Shift + item** insere/coleta direto, **Shift + mão
+  vazia** recolhe o conteúdo. As 5 dicas antigas de interação (que ensinavam
+  a rota pré-GUI) foram reescritas — pt_br e en_us.
+
+### ✅ Qualidade
+- **82 gametests verdes**: 76 do rework + 1 novo do catálogo datapack (o
+  JSON carrega fim a fim e o Guia/GUIs leem a mesma fonte) + 5 novos de
+  layout das GUIs (slots no painel, menu = tela, sem colisão, filtro por
+  catálogo, shift-click vai e volta sem vazar).
+- Correções do codec de receita pro formato da DFU 10 (adaptador do record
+  `Prima` com `Optional<Item>`; `ByteBufCodecs.list()` via `apply`).
+
 ## v1.2.59 — AS MÁQUINAS GANHARAM GUI (rework do sistema de bebidas)
 
 ### 🖥 GUI interativa pras 6 máquinas

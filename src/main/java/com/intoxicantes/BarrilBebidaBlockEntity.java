@@ -299,10 +299,16 @@ public class BarrilBebidaBlockEntity extends BlockEntity
         } else if (ticksRestantes <= 0) {
             concluir(level);
         } else {
-            // borbulha ocasional (1 a cada ~17s)
+            // borbulha ocasional (1 a cada ~17s; v1.2.60: pitch sobe com o
+            // progresso REAL da fase e solta a partícula de bolha estourando)
             if ((ticksRestantes / 20) % 17 == 0) {
+                float progresso = ticksTotalFase > 0
+                        ? 1F - ticksRestantes / (float) ticksTotalFase : 0F;
                 level.playSound(null, worldPosition, SoundEvents.BUBBLE_COLUMN_UPWARDS_AMBIENT,
-                        SoundSource.BLOCKS, 0.5F, 0.8F);
+                        SoundSource.BLOCKS, 0.5F, 0.8F + 0.2F * progresso);
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.BUBBLE_POP,
+                        worldPosition.getX() + 0.5, worldPosition.getY() + 0.6,
+                        worldPosition.getZ() + 0.5, 2, 0.25, 0.05, 0.25, 0.02);
             }
         }
         setChanged();

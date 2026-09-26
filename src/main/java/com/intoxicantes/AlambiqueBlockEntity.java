@@ -321,8 +321,15 @@ public class AlambiqueBlockEntity extends BlockEntity
                     net.minecraft.sounds.SoundSource.BLOCKS, 0.9F, 0.7F);
         } else {
             setChanged();
-            // v1.2.55: o VAPOR do destilado (1 puff por segundo, server-side)
-            if (level.getRandom().nextInt(2) == 0) {
+            // v1.2.60: o CHIADO do vapor na serpentina (a cada ~11s de jogo)
+            if ((ticksRestantes / 20) % 11 == 0) {
+                level.playSound(null, worldPosition, SoundEvents.LAVA_EXTINGUISH,
+                        net.minecraft.sounds.SoundSource.BLOCKS, 0.25F, 1.5F);
+            }
+            // v1.2.55/60: o VAPOR do destilado engrossa no fim do lote
+            int periodoVapor = 1 + Math.min(2, Math.round(
+                    2 * ticksRestantes / (float) Math.max(1, ticksTotal)));
+            if (level.getRandom().nextInt(periodoVapor) == 0) {
                 level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
                         worldPosition.getX() + 0.85, worldPosition.getY() + 0.78,
                         worldPosition.getZ() + 0.73, 1, 0.03, 0.02, 0.03, 0.002);

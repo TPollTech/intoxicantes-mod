@@ -285,8 +285,15 @@ public class DornaBebidaBlockEntity extends BlockEntity
         ticksRestantes -= INTERVALO;
         // som ocasional de borbulha (a cada ~13s de jogo, o lote "respira")
         if (ticksRestantes > 0 && (ticksRestantes / 20) % 13 == 0) {
+            // v1.2.60: o borbulhar ACELERA com o lote — o pitch sobe com o
+            // progresso REAL (lote fresco grave, quase pronto agitado)
+            float progresso = ticksTotal > 0
+                    ? 1F - ticksRestantes / (float) ticksTotal : 0F;
             level.playSound(null, worldPosition, SoundEvents.BUBBLE_COLUMN_UPWARDS_AMBIENT,
-                    SoundSource.BLOCKS, 0.6F, 0.85F);
+                    SoundSource.BLOCKS, 0.6F, 0.85F + 0.25F * progresso);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.BUBBLE_POP,
+                    worldPosition.getX() + 0.5, worldPosition.getY() + 0.85,
+                    worldPosition.getZ() + 0.5, 3, 0.25, 0.05, 0.25, 0.02);
         }
         if (ticksRestantes <= 0) {
             ticksRestantes = 0;
@@ -301,8 +308,11 @@ public class DornaBebidaBlockEntity extends BlockEntity
                     SoundSource.BLOCKS, 0.9F, 0.8F);
         } else {
             setChanged();
-            // v1.2.55: o VAPOR da fermentação (1 puff por segundo, server-side)
-            if (level.getRandom().nextInt(3) == 0) {
+            // v1.2.55/60: o VAPOR da fermentação engrossa no fim do lote
+            // (lote fresco ~1 puff a cada 4s; quase pronto, todo segundo)
+            int periodoVapor = 1 + Math.min(3, Math.round(
+                    3 * ticksRestantes / (float) Math.max(1, ticksTotal)));
+            if (level.getRandom().nextInt(periodoVapor) == 0) {
                 level.sendParticles(net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE,
                         worldPosition.getX() + 0.5, worldPosition.getY() + 0.75,
                         worldPosition.getZ() + 0.5, 1, 0.2, 0.05, 0.2, 0.004);

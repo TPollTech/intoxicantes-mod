@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 
@@ -199,6 +200,162 @@ public class GuiMaquinasGameTest {
                     "A fase sincronizada deve ser DESTILANDO");
             helper.succeed();
         });
+    }
+
+    // ==================================================== LAYOUT DA GUI (v1.2.60)
+
+    /**
+     * O painel é 208×222; as posições dos slots vêm do {@link TipoMaquina}.
+     * Estes testes provam que o MENU constrói a geometria certa (mesma fonte
+     * que a tela usa pra desenhar) e que nada colide.
+     */
+    private static final int GUI_L = 208;
+    private static final int GUI_H = 222;
+    /** Janela do painel de invenção (início/altura do inventário do jogador). */
+    private static final int INV_Y = 148;
+    private static final int LBL_ALT = 4; // "Inventário" + respiro acima da grade
+
+    @GameTest(maxTicks = 100)
+    public void layoutTodosOsSlotsDentroDoPainelSemSobreporInventario(GameTestHelper helper) {
+        // TODAS as 6 máquinas: cada slot da máquina deve ficar dentro do painel
+        // e ACIMA da área do inventário do jogador (148 é a linha da mochila).
+        int barraTotal = 0;
+        for (TipoMaquina tipo : TipoMaquina.values()) {
+            for (int[] xy : tipo.slotsGui) {
+                helper.assertTrue(xy[0] >= 0 && xy[0] + 18 <= GUI_L,
+                        tipo + ": slot x=" + xy[0] + " fora do painel 208");
+                helper.assertTrue(xy[1] >= 0 && xy[1] + 18 <= GUI_H,
+                        tipo + ": slot y=" + xy[1] + " fora do painel 222");
+                helper.assertTrue(xy[1] + 18 <= INV_Y,
+                        tipo + ": slot invade a área do inventário (y=" + xy[1] + ")");
+                barraTotal++;
+            }
+            int[] barra = tipo.barraGui;
+            helper.assertTrue(barra[0] >= 0 && barra[0] + barra[2] <= GUI_L,
+                    tipo + ": barra fora do painel");
+            helper.assertTrue(barra[1] + 6 <= INV_Y,
+                    tipo + ": barra invade o inventário");
+        }
+        helper.assertTrue(barraTotal > 0, "As 6 máquinas foram varridas");
+        helper.succeed();
+    }
+
+    @GameTest(maxTicks = 100)
+    public void layoutMenuDaPrensaBateComOTipoMaquina(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var pos = helper.absolutePos(BlockPos.ZERO);
+        level.setBlockAndUpdate(pos, IntoxicantesMod.PRENSA_UVAS.defaultBlockState());
+        var be = (MaquinaPrimaBlockEntity) level.getBlockEntity(pos);
+
+        var menu = (MenuMaquinaSNC) be.createMenu(1, player.getInventory(), player);
+
+        helper.assertTrue(menu.slots.size() == TipoMaquina.PRENSA.totalSlots()
+                + MenuMaquinaSNC.SLOTS_JOGADOR,
+                "O menu deve ter " + TipoMaquina.PRENSA.totalSlots()
+                        + " slots da máquina + 36 do jogador");
+        // geometria: o menu usa AS MESMAS coordenadas que a tela desenha
+        for (int i = 0; i < TipoMaquina.PRENSA.totalSlots(); i++) {
+            Slot slot = menu.slots.get(i);
+            int[] esperado = TipoMaquina.PRENSA.slotsGui[i];
+            helper.assertTrue(slot.x == esperado[0] && slot.y == esperado[1],
+                    "Slot " + i + " deve estar em (" + esperado[0] + "," + esperado[1]
+                            + ") — a mesma posição que a GUI pinta");
+        }
+        // inventário do jogador: 27 mochila + 9 hotbar nas linhas esperadas
+        int n = TipoMaquina.PRENSA.totalSlots();
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 9; c++) {
+                Slot slot = menu.slots.get(n + r * 9 + c);
+                helper.assertTrue(slot.y == 148 + r * 18 && slot.x == 8 + c * 18,
+                        "Mochila fora da grade 18px (linha " + r + ")");
+            }
+        }
+        for (int c = 0; c < 9; c++) {
+            Slot slot = menu.slots.get(n + 27 + c);
+            helper.assertTrue(slot.y == 206 && slot.x == 8 + c * 18,
+                    "Hotbar fora da linha 206");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(maxTicks = 100)
+    public void layoutSlotsNaoColidemEntreSi(GameTestHelper helper) {
+        // AABB simples: nenhum par de slots da MESMA máquina se sobrepõe
+        // (slots têm 18px de passo; o teste pega colisão de layout novo).
+        for (TipoMaquina tipo : TipoMaquina.values()) {
+            int[][] slots = tipo.slotsGui;
+            for (int a = 0; a < slots.length; a++) {
+                for (int b = a + 1; b < slots.length; b++) {
+                    boolean colide = slots[a][0] < slots[b][0] + 18
+                            && slots[b][0] < slots[a][0] + 18
+                            && slots[a][1] < slots[b][1] + 18
+                            && slots[b][1] < slots[a][1] + 18;
+                    helper.assertTrue(!colide,
+                            tipo + ": slots " + a + " e " + b + " se sobrepõem");
+                }
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(maxTicks = 100)
+    public void layoutFiltroDeInsumoBateComOCatalogo(GameTestHelper helper) {
+        // o slot de entrada recusa o que nenhuma receita usa (a GUI pinta o
+        // mesmo filtro: MenuMaquinaSNC.aceitaInsumo é código comum)
+        helper.assertTrue(!MenuMaquinaSNC.aceitaInsumo(TipoMaquina.PRENSA,
+                new ItemStack(IntoxicantesMod.MALTE)),
+                "A prensa não aceita malte (isso é do caldeirão)");
+        helper.assertTrue(MenuMaquinaSNC.aceitaInsumo(TipoMaquina.PRENSA,
+                new ItemStack(IntoxicantesMod.UVA)),
+                "A prensa aceita uvas");
+        helper.assertTrue(MenuMaquinaSNC.aceitaInsumo(TipoMaquina.BARRIL,
+                new ItemStack(IntoxicantesMod.CACHACA_JOVEM)),
+                "O barril aceita cachaça jovem");
+        helper.assertTrue(!MenuMaquinaSNC.aceitaInsumo(TipoMaquina.BARRIL,
+                new ItemStack(IntoxicantesMod.UVA)),
+                "O barril não aceita uva direto");
+        // slot de SAÍDA: nada entra (o produto só sai)
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var pos = helper.absolutePos(BlockPos.ZERO);
+        level.setBlockAndUpdate(pos, IntoxicantesMod.PRENSA_UVAS.defaultBlockState());
+        var be = (MaquinaPrimaBlockEntity) level.getBlockEntity(pos);
+        var menu = (MenuMaquinaSNC) be.createMenu(1, player.getInventory(), player);
+        Slot saida = menu.slots.get(TipoMaquina.PRENSA.idxOut);
+        helper.assertTrue(!saida.mayPlace(new ItemStack(IntoxicantesMod.MOSTO_DE_UVA)),
+                "Slot de saída não aceita produto (só sai)");
+        helper.succeed();
+    }
+
+    @GameTest(maxTicks = 100)
+    public void layoutShiftClickVaEVaiSemVazar(GameTestHelper helper) {
+        // shift-click: uvas do jogador entram no buffer; produto da saída volta
+        var level = helper.getLevel();
+        var player = helper.makeMockServerPlayerInLevel();
+        var pos = helper.absolutePos(BlockPos.ZERO);
+        level.setBlockAndUpdate(pos, IntoxicantesMod.PRENSA_UVAS.defaultBlockState());
+        var be = (MaquinaPrimaBlockEntity) level.getBlockEntity(pos);
+        var menu = (MenuMaquinaSNC) be.createMenu(1, player.getInventory(), player);
+
+        // put na mão + quickMoveStack do slot da hotbar (0)
+        player.getInventory().clearContent();
+        player.getInventory().setItem(0, new ItemStack(IntoxicantesMod.UVA, 7));
+        var devolve = menu.quickMoveStack(player, menu.slots.size() - 9); // hotbar 0
+        helper.assertTrue(be.getItem(0).getCount() == 6,
+                "Shift-click carrega 1 dose (6) no buffer");
+        helper.assertTrue(contaMao(player, IntoxicantesMod.UVA) == 1,
+                "A 7ª uva sobra na mão (a dose é inteira até no shift)");
+        helper.assertTrue(devolve.getCount() == 1,
+                "O quickMove devolve a sobra pro slot de origem");
+
+        // agora o produto: pôr mosto na saída e shift-click de volta
+        be.setItem(TipoMaquina.PRENSA.idxOut,
+                new ItemStack(IntoxicantesMod.MOSTO_DE_UVA, 4));
+        menu.quickMoveStack(player, TipoMaquina.PRENSA.idxOut);
+        helper.assertTrue(contaMao(player, IntoxicantesMod.MOSTO_DE_UVA) == 4,
+                "Shift-click da saída leva o produto pro inventário");
+        helper.succeed();
     }
 
     // ==================================================== HELPERS

@@ -352,6 +352,7 @@ public class IntoxicantesMod implements ModInitializer {
                     new net.minecraft.world.level.block.entity.BlockEntityType<>(
                             PainelLedBlockEntity::new, java.util.Set.of(PAINEL_LED)));
 
+
     // ============================================================ ITENS DE COMANDO
     // v1.2.38: o CONTROLE REMOTO do painel de LED — aponta pro display e
     // edita (texto, cor, brilho, modo) sem tocar no bloco
@@ -510,6 +511,7 @@ public class IntoxicantesMod implements ModInitializer {
                             .persistent(com.mojang.serialization.Codec.STRING)
                             .networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.STRING_UTF8)
                             .build());
+
 
     // ============================================================ SEMENTES (BlockItem das plantas)
     public static final Item SEMENTE_MACONHA = seedItem("semente_maconha", MACONHA_PLANT);
@@ -924,6 +926,7 @@ public class IntoxicantesMod implements ModInitializer {
         // v1.2.36: rede da CENTRAL DE COMANDO (painel de LED + letreiro)
         CentralComandoNetworking.register();
 
+
         // v1.2.32: rede da 12 — o kick de camera (S2C). O registro do codec e'
         // global na JVM: precisa existir antes do 1o tiro em qualquer lado.
         net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.clientboundPlay().register(
@@ -1135,10 +1138,14 @@ public class IntoxicantesMod implements ModInitializer {
             MarketSystem.save(worldDir);
         });
 
-        // ======================================================== BEBIDAS: O LIVRO-DE-RECEITAS
+        // ======================================================== BEBIDAS: O LIVRO-RECEITAS
         // v1.2.50: o registro central dos processos (dorna, alambique, barris,
         // moenda, prensa, caldeirão). Chamar antes de qualquer máquina rodar.
         ProcessosBebida.registrar();
+        // v1.2.60: o catálogo virou DATAPACK (JSON em
+        // data/intoxicantes/processo_bebida/<maquina>/) com serializer próprio;
+        // os defaults de fábrica continuam valendo se a pasta vier vazia.
+        CatalogoBebidas.registrar();
 
         // ======================================================== WORLDGEN: MATOS SELVAGENS
         // Plantacoes abandonadas/plantas selvagens espalhadas pelo mundo.

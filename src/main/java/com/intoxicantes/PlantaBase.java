@@ -33,7 +33,7 @@ public record PlantaBase(String nome, List<String> blocos) {
 
     public static final StreamCodec<ByteBuf, PlantaBase> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.STRING_UTF8, PlantaBase::nome,
-            ByteBufCodecs.STRING_UTF8.listOf(), PlantaBase::blocos,
+            ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list()), PlantaBase::blocos,
             PlantaBase::new);
 
     public int total() {
@@ -63,6 +63,6 @@ public record PlantaBase(String nome, List<String> blocos) {
     /** Corta a lista no LIMITE (a varredura grande é truncada, nunca estoura). */
     public static PlantaBase truncada(String nome, List<String> blocos) {
         return new PlantaBase(nome,
-                blocos.size() > LIMITE ? blocos.subList(0, LIMITE) : blocos);
+                blocos.size() > LIMITE ? List.copyOf(blocos.subList(0, LIMITE)) : List.copyOf(blocos));
     }
 }

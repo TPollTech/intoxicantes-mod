@@ -156,8 +156,10 @@ public class MenuMaquinaSNC extends AbstractContainerMenu {
                 return ItemStack.EMPTY;
             }
         } else {
-            // jogador → máquina (cada slot filtra o que aceita)
-            if (!this.moveItemStackTo(pilha, 0, n, false)) {
+            // jogador → máquina: insumo por DOSES INTEIRAS; o resto (2ª dose,
+            // garrafas) segue pelo caminho cru (cada slot filtra o que aceita)
+            if (!this.moverInsumoEmDoses(pilha)
+                    && !this.moveItemStackTo(pilha, 0, n, false)) {
                 // não coube na máquina: troca mochila ↔ hotbar
                 if (index < n + 27) {
                     if (!this.moveItemStackTo(pilha, n + 27, n + 36, false)) {
@@ -171,10 +173,70 @@ public class MenuMaquinaSNC extends AbstractContainerMenu {
 
         if (pilha.isEmpty()) {
             slot.setByPlayer(ItemStack.EMPTY);
-        } else {
-            slot.setChanged();
+            return ItemStack.EMPTY;
         }
-        return original;
+        slot.setChanged();
+        // v1.2.60: devolve a SOBRA (não a cópia original — devolver a cópia
+        // restaurava a pilha cheia no slot = dupe de shift-click).
+        return pilha;
+    }
+
+    /**
+     * v1.2.60: o shift-click segue a MESMA regra da mão — só entram DOSES
+     * INTEIRAS no insumo (7 uvas → 6 no buffer, 1 volta pro slot). O
+     * moveItemStackTo cru ignora a dose e estaciona resto que nunca fecha
+     * lote. Itens de slot auxiliar (lúpulo, garrafas) seguem pelo caminho
+     * cru, porque não são insumo de receita.
+     */
+    private boolean moverInsumoEmDoses(ItemStack pilha) {
+        var dose = doseDe(this.tipo, pilha);
+        if (dose.isEmpty()) {
+            return false;
+        }
+        int qtdIn = dose.get();
+        int idx = this.tipo.idxInsumo();
+        ItemStack atual = this.maquina.getItem(idx);
+        if (!atual.isEmpty()
+                && !ItemStack.isSameItemSameComponents(atual, pilha)) {
+            return false;
+        }
+        int existente = atual.isEmpty() ? 0 : atual.getCount();
+        int inteiras = (existente + pilha.getCount()) / qtdIn * qtdIn;
+        int add = inteiras - existente;
+        if (add <= 0) {
+            return false;
+        }
+        ItemStack parte = pilha.split(Math.min(add, pilha.getCount()));
+        if (atual.isEmpty()) {
+            this.maquina.setItem(idx, parte);
+        } else {
+            atual.grow(parte.getCount());
+        }
+        this.maquina.setChanged();
+        return true;
+    }
+
+    /** A dose (qtdIn) que a receita desta máquina cobra do item, se houver. */
+    private static java.util.Optional<Integer> doseDe(TipoMaquina tipo,
+            ItemStack stack) {
+        var item = stack.getItem();
+        return switch (tipo) {
+            case MOENDA -> ProcessosBebida
+                    .primaPrincipal(MaquinaPrimaBlock.Tipo.MOENDA, item)
+                    .map(ProcessosBebida.Prima::qtdIn);
+            case PRENSA -> ProcessosBebida
+                    .primaPrincipal(MaquinaPrimaBlock.Tipo.PRENSA, item)
+                    .map(ProcessosBebida.Prima::qtdIn);
+            case CALDEIRAO -> ProcessosBebida
+                    .primaPrincipal(MaquinaPrimaBlock.Tipo.CALDEIRAO, item)
+                    .map(ProcessosBebida.Prima::qtdIn);
+            case DORNA -> ProcessosBebida.dornaDe(item)
+                    .map(ProcessosBebida.Dorna::qtdIn);
+            case ALAMBIQUE -> ProcessosBebida.alambiqueDe(item)
+                    .map(ProcessosBebida.Alambique::qtdIn);
+            case BARRIL -> ProcessosBebida.barrilQueAceita(item)
+                    .map(ProcessosBebida.Barril::qtdIn);
+        };
     }
 
     @Override

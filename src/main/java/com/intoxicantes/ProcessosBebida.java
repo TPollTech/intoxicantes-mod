@@ -1,6 +1,5 @@
 package com.intoxicantes;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,62 +85,44 @@ public final class ProcessosBebida {
             Item secIn, int secQtd, Item extraOut, int extraQtd, int tempoSeg) {}
 
     // ==================================================== O REGISTRO
+    // v1.2.60 — DATAPACK: as listas moram no CatalogoBebidas (JSON de
+    // data/intoxicantes/processo_bebida/<maquina>/ com serializer próprio).
+    // Esta classe continua a FACHADA única de leitura (máquinas, GUIs e Guia
+    // não sabem de onde os números vêm — fonte única preservada).
 
-    private static final List<Dorna> DORNAS = new ArrayList<>();
-    private static final List<Alambique> ALAMBIQUES = new ArrayList<>();
-    private static final List<Barril> BARRIS = new ArrayList<>();
-    private static final List<Prima> MOENDAS = new ArrayList<>();
-    private static final List<Prima> PRENSAS = new ArrayList<>();
-    private static final List<Prima> CALDEIROES = new ArrayList<>();
+    private static List<Dorna> DORNAS() {
+        return CatalogoBebidas.dornas();
+    }
 
+    private static List<Alambique> ALAMBIQUES() {
+        return CatalogoBebidas.alambiques();
+    }
+
+    private static List<Barril> BARRIS() {
+        return CatalogoBebidas.barris();
+    }
+
+    private static List<Prima> listaDe(MaquinaPrimaBlock.Tipo tipo) {
+        return switch (tipo) {
+            case MOENDA -> CatalogoBebidas.moendas();
+            case PRENSA -> CatalogoBebidas.prensas();
+            case CALDEIRAO -> CatalogoBebidas.caldeiroes();
+        };
+    }
+
+    /**
+     * Legado do registro em código: hoje só AQUECE o catálogo (os defaults de
+     * fábrica entram em memória antes do reload do datapack — o Guia e os
+     * tooltips de item construídos no init já têm receita pra ler). Mantido
+     * porque GuiaConteudo e o boot de gametests o chamam.
+     */
     static void registrar() {
-        if (!DORNAS.isEmpty()) {
-            return; // já registrado (recarga de classe em dev não duplica)
-        }
-
-        // ---------------- FERMENTAÇÃO DE DORNA (cachaça e rum, o "sistema geral")
-        // 4 caldo de cana → 4 mosto fermentado (a DORNA leva para a frente do alambique)
-        DORNAS.add(new Dorna(IntoxicantesMod.CALDO_DE_CANA, 4,
-                IntoxicantesMod.MOSTO_CANA_FERMENTADO, 4));
-        // melaço (caldo reduzido na fornalha) → mosto de rum: 1 melaço = 1 lote
-        DORNAS.add(new Dorna(IntoxicantesMod.MELACO, 1,
-                IntoxicantesMod.MOSTO_RUM_FERMENTADO, 4));
-
-        // ---------------- DESTILAÇÃO DE ALAMBIQUE (a MESMA máquina pros dois)
-        // destilar CONCENTRA: 4 de mosto rendem 2 de destilado jovem
-        ALAMBIQUES.add(new Alambique(IntoxicantesMod.MOSTO_CANA_FERMENTADO, 4,
-                IntoxicantesMod.CACHACA_JOVEM, 2));
-        ALAMBIQUES.add(new Alambique(IntoxicantesMod.MOSTO_RUM_FERMENTADO, 4,
-                IntoxicantesMod.RUM_JOVEM, 2));
-
-        // ---------------- BARRIS (fermentação e/ou maturação + engarrafamento)
-        // cachaça: 2 jovens do alambique descansam na madeira (só fase 2)
-        BARRIS.add(new Barril("cachaca", IntoxicantesMod.CACHACA_JOVEM, 2,
-                0, 600, IntoxicantesMod.CACHACA, 4));
-        // cerveja: 1 lote do caldeirão FERMENTA e condiciona no mesmo barril
-        BARRIS.add(new Barril("cerveja", IntoxicantesMod.MOSTO_CERVEJA_LUPULADO, 4,
-                480, 120, IntoxicantesMod.CERVEJA, 4));
-        // rum: 2 jovens envelhecem na madeira escura tostada
-        BARRIS.add(new Barril("rum", IntoxicantesMod.RUM_JOVEM, 2,
-                0, 600, IntoxicantesMod.RUM, 4));
-        // vinho: 1 lote da prensa FERMENTA e matura na adega
-        BARRIS.add(new Barril("vinho", IntoxicantesMod.MOSTO_DE_UVA, 4,
-                300, 300, IntoxicantesMod.VINHO, 4));
-
-        // ---------------- MÁQUINAS DE PRIMA (v1.2.59: tempo na receita)
-        // MOENDA: 4 canas → 4 caldo + 1 bagaço (o bagaço queima na fornalha)
-        MOENDAS.add(new Prima(IntoxicantesMod.CANA_DE_ACUCAR, 4,
-                IntoxicantesMod.CALDO_DE_CANA, 4, null, 0,
-                IntoxicantesMod.BAGACO_DE_CANA, 1, 40));
-        // PRENSA: 6 uvas → 4 mosto de uva (esmagadas e coadas)
-        PRENSAS.add(new Prima(IntoxicantesMod.UVA, 6,
-                IntoxicantesMod.MOSTO_DE_UVA, 4, null, 0, null, 0, 40));
-        // CALDEIRÃO (mostura + fervura numa estação): 4 malte + 1 lúpulo →
-        // 4 mosto lupulado. Precisa de ÁGUA embaixo (a diluição da mostura).
-        // mostura 40s + fervura 30s (a fervura fica no tempoSeg + 30 fixo)
-        CALDEIROES.add(new Prima(IntoxicantesMod.MALTE, 4,
-                IntoxicantesMod.MOSTO_CERVEJA_LUPULADO, 4,
-                IntoxicantesMod.LOUPULO_FRESCO, 1, null, 0, 40));
+        CatalogoBebidas.dornas();
+        CatalogoBebidas.alambiques();
+        CatalogoBebidas.barris();
+        CatalogoBebidas.moendas();
+        CatalogoBebidas.prensas();
+        CatalogoBebidas.caldeiroes();
     }
 
     // ==================================================== CONSULTAS
@@ -149,7 +130,7 @@ public final class ProcessosBebida {
     /** A fermentação de dorna que consome {@code qtd} deste item (a pilha da mão
      *  pode ser MAIOR: consome só o qtdIn — v1.2.51, fim da exigência de quantidade exata). */
     public static Optional<Dorna> dornaQueAceita(Item item, int qtd) {
-        for (Dorna r : DORNAS) {
+        for (Dorna r : DORNAS()) {
             if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
@@ -159,7 +140,7 @@ public final class ProcessosBebida {
 
     /** Alguma receita de dorna usa este item? (tooltip da máquina) */
     public static Optional<Dorna> dornaDe(Item item) {
-        for (Dorna r : DORNAS) {
+        for (Dorna r : DORNAS()) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -168,7 +149,7 @@ public final class ProcessosBebida {
     }
 
     public static Optional<Alambique> alambiqueQueAceita(Item item, int qtd) {
-        for (Alambique r : ALAMBIQUES) {
+        for (Alambique r : ALAMBIQUES()) {
             if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
@@ -177,7 +158,7 @@ public final class ProcessosBebida {
     }
 
     public static Optional<Alambique> alambiqueDe(Item item) {
-        for (Alambique r : ALAMBIQUES) {
+        for (Alambique r : ALAMBIQUES()) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -187,7 +168,7 @@ public final class ProcessosBebida {
 
     /** A receita de barril de uma bebida (id "cachaca", "cerveja"...). */
     public static Optional<Barril> barrilDe(String bebida) {
-        for (Barril r : BARRIS) {
+        for (Barril r : BARRIS()) {
             if (r.bebida().equals(bebida)) {
                 return Optional.of(r);
             }
@@ -197,7 +178,7 @@ public final class ProcessosBebida {
 
     /** Qual barril aceita este insumo? (tooltip/instinto do jogador) */
     public static Optional<Barril> barrilQueAceita(Item item) {
-        for (Barril r : BARRIS) {
+        for (Barril r : BARRIS()) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -208,7 +189,7 @@ public final class ProcessosBebida {
     /** v1.2.59: aceita pilha MAIOR que a dose (a exigência de quantidade exata
      *  que sobrava aqui era fonte do bug "exatamente 6"). */
     public static Optional<Prima> moendaQueAceita(Item item, int qtd) {
-        for (Prima r : MOENDAS) {
+        for (Prima r : listaDe(MaquinaPrimaBlock.Tipo.MOENDA)) {
             if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
@@ -218,7 +199,7 @@ public final class ProcessosBebida {
 
     /** v1.2.59: aceita pilha MAIOR que a dose (idem moenda). */
     public static Optional<Prima> prensaQueAceita(Item item, int qtd) {
-        for (Prima r : PRENSAS) {
+        for (Prima r : listaDe(MaquinaPrimaBlock.Tipo.PRENSA)) {
             if (r.input() == item && r.qtdIn() <= qtd) {
                 return Optional.of(r);
             }
@@ -226,14 +207,9 @@ public final class ProcessosBebida {
         return Optional.empty();
     }
 
-    /** A receita da máquina de prima por TIPO (moenda/prensa/caldeirão). */
+    /** A receita de máquina de prima por TIPO (moenda/prensa/caldeirão). */
     public static Optional<Prima> primaDe(MaquinaPrimaBlock.Tipo tipo, Item item, int qtd) {
-        List<Prima> lista = switch (tipo) {
-            case MOENDA -> MOENDAS;
-            case PRENSA -> PRENSAS;
-            case CALDEIRAO -> CALDEIROES;
-        };
-        for (Prima r : lista) {
+        for (Prima r : listaDe(tipo)) {
             // v1.2.51: aceita pilha MAIOR que a receita (consome só qtdIn);
             // antes exigia contagem EXATA (6 uvas = 6, nem 7, nem uma pilha)
             if (r.input() == item && r.qtdIn() <= qtd) {
@@ -245,12 +221,7 @@ public final class ProcessosBebida {
 
     /** Alguma receita deste tipo de máquina usa o insumo como PRINCIPAL? */
     public static Optional<Prima> primaPrincipal(MaquinaPrimaBlock.Tipo tipo, Item item) {
-        List<Prima> lista = switch (tipo) {
-            case MOENDA -> MOENDAS;
-            case PRENSA -> PRENSAS;
-            case CALDEIRAO -> CALDEIROES;
-        };
-        for (Prima r : lista) {
+        for (Prima r : listaDe(tipo)) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -259,7 +230,7 @@ public final class ProcessosBebida {
     }
 
     public static List<Barril> barris() {
-        return List.copyOf(BARRIS);
+        return List.copyOf(BARRIS());
     }
 
     // ==================================================== CATÁLOGO PRA GUI (v1.2.59)
@@ -268,26 +239,22 @@ public final class ProcessosBebida {
 
     /** Receitas de prima por tipo de máquina (moenda/prensa/caldeirão). */
     public static List<Prima> receitasPrima(MaquinaPrimaBlock.Tipo tipo) {
-        return switch (tipo) {
-            case MOENDA -> List.copyOf(MOENDAS);
-            case PRENSA -> List.copyOf(PRENSAS);
-            case CALDEIRAO -> List.copyOf(CALDEIROES);
-        };
+        return List.copyOf(listaDe(tipo));
     }
 
     /** Receitas de dorna (fermentação fora do barril). */
     public static List<Dorna> receitasDorna() {
-        return List.copyOf(DORNAS);
+        return List.copyOf(DORNAS());
     }
 
     /** Receitas de alambique (destilação). */
     public static List<Alambique> receitasAlambique() {
-        return List.copyOf(ALAMBIQUES);
+        return List.copyOf(ALAMBIQUES());
     }
 
     /** Receitas de barril (todas as bebidas engarrafáveis). */
     public static List<Barril> receitasBarril() {
-        return List.copyOf(BARRIS);
+        return List.copyOf(BARRIS());
     }
 
     // ==================================================== TEMPO NAS RECEITAS (v1.2.59)
@@ -309,7 +276,7 @@ public final class ProcessosBebida {
 
     /** A receita de dorna pra UM lote deste item (dose ignorando a pilha). */
     public static Optional<Dorna> dornaQueAceitaLote(Item item) {
-        for (Dorna r : DORNAS) {
+        for (Dorna r : DORNAS()) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -319,7 +286,7 @@ public final class ProcessosBebida {
 
     /** A receita de alambique pra UM lote deste item. */
     public static Optional<Alambique> alambiqueQueAceitaLote(Item item) {
-        for (Alambique r : ALAMBIQUES) {
+        for (Alambique r : ALAMBIQUES()) {
             if (r.input() == item) {
                 return Optional.of(r);
             }
@@ -344,11 +311,7 @@ public final class ProcessosBebida {
 
     /** A receita de prima do lote carregado por tipo (leitura do motor). */
     public static Optional<Prima> primaDoLote(MaquinaPrimaBlock.Tipo tipo, Item item, int qtdCarregada) {
-        return lote(switch (tipo) {
-            case MOENDA -> MOENDAS;
-            case PRENSA -> PRENSAS;
-            case CALDEIRAO -> CALDEIROES;
-        }, item, qtdCarregada);
+        return lote(listaDe(tipo), item, qtdCarregada);
     }
 
     // ==================================================== CONSULTAS PRA GUIA
