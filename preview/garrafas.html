@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SNC Adventures · Garrafas 3D</title>
+  <style>
+    :root{color-scheme:dark;--paper:#f1e8d8;--muted:#a99d8b;--gold:#dcac6a;--panel:#191713;--line:#40372c}
+    *{box-sizing:border-box}body{margin:0;background:#11110f;color:var(--paper);font-family:Inter,"Segoe UI",sans-serif}
+    button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+    header{height:88px;padding:22px 30px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .eyebrow{font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}h1{font-size:22px;margin:5px 0 0;font-weight:500;letter-spacing:-.04em}
+    .status{border:1px solid #7e643d;color:#ecc48b;border-radius:24px;padding:8px 12px;font-size:11px;background:#3c2b1922}
+    main{display:grid;grid-template-columns:268px minmax(0,1fr);height:calc(100dvh - 88px)}
+    aside{padding:24px 20px;border-right:1px solid var(--line);overflow:auto;background:var(--panel)}
+    .intro{color:var(--muted);font-size:12px;line-height:1.65;margin:9px 0 22px}
+    #products{display:grid;gap:6px}.product{display:flex;align-items:center;gap:11px;text-align:left;padding:11px 12px;border:1px solid transparent;border-radius:7px;background:transparent;font-size:12px}
+    .product:hover{background:#ffffff06}.product.active{background:#b38c4920;border-color:#a27845;color:#ffe0b5}
+    .swatch{width:12px;height:25px;border:1px solid #fff5;border-radius:3px;box-shadow:inset 3px 0 #ffffff24}.name{flex:1}.idx{font-size:9px;color:#968977}
+    .section{padding-top:24px;margin-top:24px;border-top:1px solid var(--line)}.section h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:#c3b9aa}
+    .steps{font-size:12px;line-height:1.7;color:var(--muted)}kbd{display:inline-block;background:#352c22;border:1px solid #574838;border-radius:3px;padding:0 5px;font-size:10px;color:#f4dcc0}
+    .stage{position:relative;min-width:0;overflow:hidden;display:grid;grid-template-rows:minmax(200px,1fr) auto auto;background:radial-gradient(ellipse at 50% 30%,#373026,#131411 70%)}
+    #scene{display:block;width:100%;height:100%;touch-action:none;cursor:grab}#scene:active{cursor:grabbing}
+    .controls{position:absolute;top:19px;left:22px;right:22px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;pointer-events:none}
+    .group{display:flex;gap:4px;padding:4px;border:1px solid #63554366;border-radius:7px;background:#171613d9;pointer-events:auto}
+    .group button{background:transparent;border:0;border-radius:4px;padding:8px 10px;font-size:10px;color:#c3b6a4}.group button:hover,.group button.active{background:#80623b55;color:#ffe5bc}
+    .detail{padding:17px 26px;background:#191713e8;border-top:1px solid #63554355;pointer-events:none}.detail .counter{font-size:10px;color:var(--gold);letter-spacing:.14em}h2#name{font-size:26px;font-weight:400;letter-spacing:-.04em;margin:7px 0 7px}
+    #description{font-size:13px;color:#ded2c0;line-height:1.55;max-width:700px;margin:0}.specs{display:flex;gap:24px;margin-top:13px;font-size:11px;color:#bfb3a2}.specs b{color:#f1d9b5;font-weight:500;display:inline;margin-right:5px;font-size:12px}
+    footer{border-top:1px solid #63554355;background:#131310db;padding:12px 23px;display:flex;justify-content:space-between;gap:18px;font-size:11px;line-height:1.6;color:#c2b6a3}
+    footer strong{font-weight:500;color:#d1b997}.hint{white-space:nowrap}#error{display:none;position:absolute;inset:30%;background:#422b25;padding:22px;color:#ffdccc;font-size:14px;z-index:10}
+    @media(max-width:800px){header{height:72px;padding:15px 18px}h1{font-size:18px}.status{max-width:140px;font-size:9px}main{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);height:calc(100dvh - 72px)}aside{padding:9px 12px;border:0;border-bottom:1px solid var(--line);overflow:hidden}aside .eyebrow,aside .intro,.section{display:none}#products{display:flex;overflow:auto;gap:4px}.product{flex:none;padding:7px 8px;font-size:11px}.swatch{height:16px;width:8px}.idx{display:none}.controls{left:10px;right:10px;top:10px}.group button{padding:7px;font-size:10px}.detail{padding:13px 17px}h2#name{font-size:23px}#description{font-size:12px}.specs{gap:14px;font-size:10px;flex-wrap:wrap}footer{padding:11px 15px;font-size:10px}.hint{display:none}}
+    @media(max-width:540px){.specs{display:none}.controls{gap:4px}.group button{font-size:9px;padding:6px}.group{gap:1px}.status{padding:6px 8px}.eyebrow{font-size:8px}.stage{overflow:auto;grid-template-rows:minmax(260px,1fr) auto auto}h1{font-size:16px}header{padding:11px 13px}}
+  </style>
+</head>
+<body>
+  <header><div><div class="eyebrow">SNC Adventures · Atelier de bebidas</div><h1>Do inventário para a mesa.</h1></div><span class="status">Prévia para aprovação</span></header>
+  <main>
+    <aside>
+      <div class="eyebrow">A coleção completa</div>
+      <p class="intro">24 peças: as 8 bebidas, as 8 vazias<br>e os 8 frascos de etapa.<br>Vidro, conteúdo e pequenos detalhes — sem marcas comerciais.</p>
+      <nav id="products" aria-label="Selecionar bebida"></nav>
+      <section class="section"><h2>Mesma bebida, dois usos</h2><div class="steps"><kbd>Usar</kbd> para beber normalmente.<br><kbd>Agachar + usar</kbd> sobre a mesa para expor uma unidade.<br>Mão vazia para recolher.</div></section>
+      <section class="section"><h2>Sobre esta prévia</h2><div class="steps">Estudo 3D interativo, ainda fora do Minecraft. Os efeitos, receitas e nomes dos itens existentes serão preservados.</div></section>
+    </aside>
+    <section class="stage" aria-label="Estúdio 3D interativo">
+      <canvas id="scene" aria-label="Arraste para girar; use a roda para aproximar"></canvas>
+      <div class="controls">
+        <div class="group" id="views"><button data-view="perspective" class="active">Perspectiva</button><button data-view="front">Frente</button><button data-view="side">Lateral</button><button data-view="top">Topo</button></div>
+        <div class="group"><button id="table">Ver as 8 na mesa</button><button id="spin" aria-pressed="false">Girar</button><button id="reset">Resetar</button><button id="fullscreen" aria-label="Abrir tela cheia">⛶</button></div>
+      </div>
+      <div class="detail"><div class="counter" id="counter">01 / 08</div><h2 id="name">Carregando a coleção…</h2><p id="description"></p><div class="specs"><span><b id="height">—</b>altura em blocos</span><span><b id="parts">—</b>cuboides nativos</span><span><b>128 × 128</b>atlas por bebida</span></div></div>
+      <footer><span><strong>Prévia conceitual de materiais.</strong> A iluminação e a transparência serão conferidas no jogo após aprovação.</span><span class="hint">Arraste para girar · Roda para zoom · Botão direito para mover</span></footer>
+      <div id="error" role="alert"></div>
+    </section>
+  </main>
+  <script src="vendor/three.min.js"></script>
+  <script>
+  'use strict';
+  const $=id=>document.getElementById(id);
+  let renderer,scene,camera,catalog,selected=0,all=false,auto=false,group,tableGroup;
+  let theta=2.55,phi=1.18,radius=23,target=new THREE.Vector3(0,5.5,0),drag=null;
+  const materialCache=new Map(),bottleModels=[];
+  function geometry(d,c){
+    const parts=[],wall=c.wall;
+    function box(name,x0,y0,z0,x1,y1,z1,material){parts.push({name,from:[x0,y0,z0],to:[x1,y1,z1],material});}
+    function solid(name,y0,y1,w,depth,mat){const b=Math.min(w,depth)*c.bevel;box(name+'_miolo',8-w/2,y0,8-depth/2+b,8+w/2,y1,8+depth/2-b,mat);for(const s of[-1,1]){const z=s<0?8-depth/2:8+depth/2-b;box(name+'_borda_'+s,8-w/2+b,y0,z,8+w/2-b,y1,z+b,mat);}}
+    function ring(name,y0,y1,w,depth,mat){const b=Math.min(w,depth)*c.bevel;for(const s of[-1,1]){let z=s<0?8-depth/2:8+depth/2-wall,x=s<0?8-w/2:8+w/2-wall;box(name+'_frente_'+s,8-w/2+b,y0,z,8+w/2-b,y1,z+wall,mat);box(name+'_lado_'+s,x,y0,8-depth/2+b,x+wall,y1,8+depth/2-b,mat);for(const o of[-1,1]){let cx=s<0?8-w/2+b-wall:8+w/2-b,cz=o<0?8-depth/2:8+depth/2-b;box(name+'_quina_v_'+s+'_'+o,cx,y0,cz,cx+wall,y1,cz+b,mat);cx=s<0?8-w/2:8+w/2-b;cz=o<0?8-depth/2+b-wall:8+depth/2-b;box(name+'_quina_h_'+s+'_'+o,cx,y0,cz,cx+b,y1,cz+wall,mat);}}}
+    const ss=d.sections;solid('fundo_espesso',0,ss[0][1],ss[0][2],ss[0][3],'edge');
+    ss.slice(1).forEach(([y0,y1,w,depth],idx)=>{const n=idx+1;ring('vidro_'+n,y0,y1,w,depth,'glass');if(n<ss.length-1)solid('ombro_'+n,y1-.035,y1,w-wall*2,depth-wall*2,'glass');const top=Math.min(d.liquidLevel,y1-.04);if(top>y0+.045)solid('liquido_'+n,y0+.04,top,w-wall*2.8,depth-wall*2.8,'liquid');});
+    const base=ss.reduce((a,b)=>a[2]>b[2]?a:b);ring('aro_base',.42,.62,base[2]+.03,base[3]+.03,'edge');
+    const neck=ss.at(-1);ring('boca',neck[1]-.45,neck[1]-.18,neck[2]+.16,neck[3]+.16,'edge');ring('colar',d.sealY,d.sealY+.22,neck[2]+.17,neck[3]+.17,'seal');
+    const cap=d.cap;solid('fechamento',cap.y,cap.y+cap.height,cap.width,cap.depth,cap.kind==='cork'?'cork':'cap');
+    if(['screw','crown'].includes(cap.kind)){for(let n=0;n<3;n++){const y=cap.y+.12+n*.2;ring('friso_tampa_'+n,y,y+.06,cap.width+.055,cap.depth+.055,'gold');}}
+    if(['foil','cork'].includes(cap.kind))box('lacre_vertical',7.79,d.sealY+.02,8-cap.depth/2-.03,8.21,cap.y+cap.height+.015,8-cap.depth/2+.04,'seal');
+    const ly=d.labelY,lh=d.labelHeight,lw=d.labelWidth,body=ss.find(s=>s[0]<=ly&&ly<s[1]),z=8-body[3]/2;
+    box('rotulo_frente',8-lw/2,ly,z-.065,8+lw/2,ly+lh,z-.015,'label');box('rotulo_verso',8-lw*.36,ly+.28,16-z+.015,8+lw*.36,ly+lh-.28,16-z+.06,'back_label');
+    box('reflexo_corpo',8-body[2]*.5+.09,body[0]+.4,8-body[3]*.22,8-body[2]*.5+.145,body[1]-.28,8-body[3]*.22+.19,'highlight');
+    if(d.foam){const sec=ss.find(s=>s[0]<=d.liquidLevel&&d.liquidLevel<=s[1]);solid('espuma',d.liquidLevel-.06,d.liquidLevel+.10,sec[2]-wall*3,sec[3]-wall*3,'foam');}
+    return parts;
+  }
+  function labelTexture(d,back){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const cx=canvas.getContext('2d');cx.fillStyle='#'+d.palette.label;cx.fillRect(0,0,128,128);
+    for(let y=0;y<128;y++)for(let x=0;x<128;x++){cx.fillStyle=`rgba(80,54,22,${((x*13+y*7)%9)/220})`;cx.fillRect(x,y,1,1);}
+    cx.strokeStyle='#'+d.palette.ink;cx.lineWidth=2;cx.strokeRect(8,8,112,112);cx.strokeStyle='#'+d.palette.gold;cx.strokeRect(12,12,104,104);cx.fillStyle='#'+d.palette.ink;cx.textAlign='center';cx.textBaseline='middle';
+    if(back){for(const y of[30,40,50,68,78,88])cx.fillRect(25,y,78-(y%3)*5,2);}else{
+      cx.font='bold 15px Georgia';cx.fillText(d.label[0],64,39,99);cx.font='10px Georgia';cx.fillText(d.label[1],64,58,96);
+      // Mesmos símbolos declarativos usados pelo atlas de produção.
+      const motif=catalog.symbols[d.symbol];
+      motif.forEach((line,y)=>[...line].forEach((pixel,x)=>{if(pixel==='1')cx.fillRect(46+x*4,76+y*4,4,4);}));
+    }
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.magFilter=THREE.NearestFilter;texture.minFilter=THREE.LinearMipmapLinearFilter;return texture;
+  }
+  function material(d,kind){const key=d.id+'/'+kind;if(materialCache.has(key))return materialCache.get(key);const colors={...d.palette,highlight:'ecf9ec',foam:'f0e3b7',cork:d.palette.cap,back_label:d.palette.label};const options={color:'#'+colors[kind],roughness:kind==='glass'?.13:kind==='cap'?.35:.74,metalness:['cap','gold'].includes(kind)?.45:0};
+    if(kind==='glass'){options.transparent=true;options.opacity=82/255;options.depthWrite=false;options.side=THREE.FrontSide;}
+    if(kind==='highlight'){options.transparent=true;options.opacity=148/255;options.depthWrite=false;}
+    if(['label','back_label'].includes(kind)){options.map=labelTexture(d,kind==='back_label');options.color=0xffffff;}
+    const mat=new THREE.MeshStandardMaterial(options);materialCache.set(key,mat);return mat;
+  }
+  function makeBottle(d){const result=new THREE.Group(),parts=geometry(d,catalog);for(const p of parts){const size=p.to.map((v,i)=>v-p.from[i]);const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),material(d,p.material));mesh.position.set((p.from[0]+p.to[0])/2-8,(p.from[1]+p.to[1])/2,(p.from[2]+p.to[2])/2-8);mesh.castShadow=!['glass','highlight'].includes(p.material);mesh.receiveShadow=true;mesh.name=p.name;if(p.material==='glass')mesh.renderOrder=2;result.add(mesh);}result.userData.parts=parts.length;return result;}
+  function cube(parent,w,h,d,x,y,z,color){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,roughness:.88}));mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);}
+  function rebuild(){group.clear();tableGroup.clear();if(all){catalog.bottles.forEach((d,i)=>{const m=bottleModels[i];m.position.set((i-(catalog.bottles.length-1)/2)*7.6,0,0);m.rotation.y=0;group.add(m);});const half=catalog.bottles.length*7.6/2;cube(tableGroup,half*2+14,1.1,14,0,-.56,0,0x51412f);for(const x of[-(half-8),half-8])for(const z of[-5,5])cube(tableGroup,1.5,10,1.5,x,-6,z,0x3e3327);$('name').textContent='Vinte e quatro jeitos de encher a mesa.';$('description').textContent='Mesma escala: cheias, vazias e frascos de etapa, cada um com formato, líquido e fechamento próprios.';$('counter').textContent='COLEÇÃO COMPLETA · '+String(catalog.bottles.length).padStart(2,'0')+' PEÇAS';$('parts').textContent=bottleModels.reduce((n,m)=>n+m.userData.parts,0);const hs=catalog.bottles.map(d=>(d.cap.y+d.cap.height)/16);$('height').textContent=Math.min(...hs).toFixed(2).replace('.',',')+'–'+Math.max(...hs).toFixed(2).replace('.',',');radius=64;theta=3.03;phi=1.1;target.set(0,3,0);}else{const d=catalog.bottles[selected],m=bottleModels[selected];m.position.set(0,0,0);m.rotation.y=0;group.add(m);cube(tableGroup,16,.8,16,0,-.41,0,0x51412f);for(let n=0;n<5;n++)cube(tableGroup,15.9,.025,.035,0,-.004,-6+n*3,0x2d251d);$('name').textContent=d.name;$('description').textContent=d.description;$('counter').textContent=String(selected+1).padStart(2,'0')+' / '+String(catalog.bottles.length).padStart(2,'0');$('parts').textContent=m.userData.parts;$('height').textContent=((d.cap.y+d.cap.height)/16).toFixed(2).replace('.',',');radius=23;theta=2.55;phi=1.18;target.set(0,(d.cap.y+d.cap.height)/2,0);}
+    $('table').textContent=all?'Ver garrafa selecionada':'Ver as '+catalog.bottles.length+' na mesa';$('table').classList.toggle('active',all);document.querySelectorAll('.product').forEach((b,i)=>b.classList.toggle('active',i===selected));document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view==='perspective'));fitCamera();}
+  function fitCamera(){if(!camera||!catalog)return;const aspect=Math.max(.2,camera.aspect),half=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));const w=all?catalog.bottles.length*7.6+12:10,h=all?26:17;radius=Math.max(w/(2*half*aspect),h/(2*half))*1.12;camera.far=Math.max(250,radius*4);camera.updateProjectionMatrix();}
+  function setup(){const canvas=$('scene');renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.35;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(36,1,.05,250);scene.add(new THREE.HemisphereLight(0xfff5dc,0x323429,1.65));const light=new THREE.DirectionalLight(0xffe3b7,3);light.position.set(-14,24,-17);light.castShadow=true;light.shadow.mapSize.set(2048,2048);Object.assign(light.shadow.camera,{left:-42,right:42,top:25,bottom:-25});light.shadow.bias=-.0003;scene.add(light);const fill=new THREE.DirectionalLight(0xcfe9f7,1.7);fill.position.set(18,14,5);scene.add(fill);const rim=new THREE.DirectionalLight(0xffd79b,1.2);rim.position.set(-12,11,12);scene.add(rim);group=new THREE.Group();tableGroup=new THREE.Group();scene.add(group,tableGroup);
+    catalog.bottles.forEach((d,i)=>{bottleModels.push(makeBottle(d));const btn=document.createElement('button');btn.className='product';btn.innerHTML=`<span class="swatch" style="background:#${d.palette.liquid}"></span><span class="name">${d.name}</span><span class="idx">0${i+1}</span>`;btn.addEventListener('click',()=>{selected=i;all=false;rebuild();});$('products').append(btn);});
+    new ResizeObserver(()=>{const rect=canvas.getBoundingClientRect();renderer.setSize(rect.width,rect.height,false);camera.aspect=rect.width/rect.height;fitCamera();}).observe(canvas);
+    canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,button:e.button};canvas.setPointerCapture(e.pointerId);});canvas.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.button===2){target.x-=dx*.018;target.y+=dy*.018;}else{theta-=dx*.007;phi=Math.max(.05,Math.min(Math.PI-.08,phi-dy*.007));}drag.x=e.clientX;drag.y=e.clientY;});canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(all?26:10,Math.min(all?190:48,radius*Math.exp(e.deltaY*.001)));},{passive:false});
+    $('table').onclick=()=>{all=!all;rebuild();};$('spin').onclick=()=>{auto=!auto;$('spin').classList.toggle('active',auto);$('spin').setAttribute('aria-pressed',String(auto));};$('reset').onclick=()=>{auto=false;$('spin').classList.remove('active');$('spin').setAttribute('aria-pressed','false');rebuild();};$('fullscreen').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.querySelector('.stage').requestFullscreen();document.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{const v=btn.dataset.view;({perspective:()=>{theta=2.55;phi=1.18},front:()=>{theta=Math.PI;phi=Math.PI/2},side:()=>{theta=Math.PI/2;phi=Math.PI/2},top:()=>{theta=Math.PI;phi=.04}})[v]();document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===btn));});
+    rebuild();let last=0;function render(now){requestAnimationFrame(render);if(auto)theta+=(Math.min(now-last,50)/1000)*.22;last=now;camera.position.set(target.x+radius*Math.sin(phi)*Math.sin(theta),target.y+radius*Math.cos(phi),target.z+radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(target);renderer.render(scene,camera);}requestAnimationFrame(render);
+  }
+  fetch('../tools/garrafas.json').then(r=>{if(!r.ok)throw Error('Catálogo indisponível');return r.json();}).then(data=>{
+    // v1.2.65: a coleção virou 24 peças — as 8 bebidas cheias, as 8 VAZIAS
+    // (recipiente devolvido, sem líquido) e os 8 FRASCOS DE ETAPA.
+    const vazias=data.bottles.map(d=>({...d,id:d.id+'_vazia',name:d.name+' (vazia)',liquidLevel:0,foam:false,description:'O recipiente devolvido: mesma identidade, tampa e rótulo — sem líquido nem espuma.'}));
+    // MESMOS números do intermediario() do gen_garrafas.py — prévia = produção.
+    const frascos=(data.intermediarios||[]).map(d=>({...d,sections:[[0,.8,5.2,5.2],[.8,9.2,5.2,5.2]],liquidLevel:8.6,foam:false,cap:{kind:'screw',y:9.02,height:1.1,width:3.3,depth:3.3},labelY:3.1,labelHeight:3.2,labelWidth:4.4,sealY:8.4}));
+    data.bottles.push(...vazias,...frascos);
+    catalog=data;setup();}).catch(error=>{$('error').style.display='block';$('error').textContent='Não foi possível abrir o estúdio: '+error.message+'. Abra esta prévia pelo servidor local do projeto.';console.error(error);});
+  </script>
+</body>
+</html>

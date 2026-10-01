@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SNC Adventures · Saquinhos de sementes</title>
+  <style>
+    :root{color-scheme:dark;--bg:#171711;--panel:#201f17;--line:#494334;--paper:#efe7d3;--muted:#b6ac92;--gold:#d3b47b}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--paper);font-family:"Segoe UI",sans-serif}button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}header{height:84px;padding:18px 27px;display:flex;align-items:center;justify-content:space-between;gap:22px;border-bottom:1px solid var(--line)}.eyebrow{font-size:9px;letter-spacing:.19em;font-weight:600;color:var(--gold);text-transform:uppercase}h1{font-size:24px;letter-spacing:-.035em;font-weight:400;margin:5px 0 0}.status{font-size:10px;padding:9px 13px;border:1px solid #766044;background:#523d252d;border-radius:18px;color:#e7cca0;white-space:nowrap}main{height:calc(100dvh - 84px);min-height:570px;display:grid;grid-template-columns:286px minmax(0,1fr)}aside{padding:24px 21px;border-right:1px solid var(--line);background:var(--panel);overflow:auto}.intro{font-size:12px;color:var(--muted);line-height:1.7;margin:12px 0 23px}.intro strong{font-weight:500;color:#e5ddc4}nav{display:grid;gap:5px}.seed{display:flex;align-items:center;gap:11px;text-align:left;padding:11px 12px;border:1px solid transparent;background:transparent;border-radius:5px;font-size:12px}.seed:hover{background:#ffffff05;border-color:#655b43}.seed.active{background:#b89b5a19;border-color:#b39a69;color:#f6dfb4}.mark{width:17px;height:24px;flex:none;background:var(--color);border:1px solid #ffffff45;border-radius:5px 5px 4px 4px;box-shadow:inset 3px 0 #ffffff17}.seed .name{flex:1}.seed .idx{font-size:9px;color:#9c9078}.note{margin-top:25px;padding-top:21px;border-top:1px solid var(--line)}.note h2{font-size:11px;font-weight:500;letter-spacing:.05em;margin:0 0 10px;color:#dcca9f}.note p{font-size:11px;line-height:1.75;color:var(--muted);margin:0}.note p+p{margin-top:13px}.parts{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}.tag{border:1px solid #5d5540;font-size:9px;padding:5px 7px;border-radius:3px;color:#c7b990}
+    .studio{display:grid;grid-template-rows:minmax(300px,1fr) auto auto;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 34%,#514939,#2d2b20 55%,#1c241c 100%)}.viewport{position:relative;min-height:0;overflow:hidden}canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}.toolbar{position:absolute;top:16px;left:17px;right:17px;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;pointer-events:none}.buttons{display:flex;gap:2px;background:#211f17ed;border:1px solid #7f705177;border-radius:5px;padding:4px;pointer-events:auto}.buttons button{background:transparent;border:0;padding:8px 9px;font-size:10px;color:#cdbda0;border-radius:3px}.buttons button:hover,.buttons button.active{color:#ffe5b6;background:#94764943}.badge{position:absolute;left:22px;bottom:20px;background:#201f17e8;border-left:2px solid var(--gold);padding:9px 12px;max-width:285px;pointer-events:none}.badge strong{display:block;font-size:11px;font-weight:500;color:#ead4ad}.badge span{display:block;font-size:10px;line-height:1.65;margin-top:3px;color:#bbae8f}.detail{padding:17px 26px;background:#24251beb;border-top:1px solid #73694677}.detail h2{font-size:25px;font-weight:400;letter-spacing:-.025em;margin:6px 0 8px}#description{font-size:12px;line-height:1.65;color:#d1c5a9;margin:0;max-width:750px}.specs{display:flex;gap:19px;flex-wrap:wrap;margin-top:13px;color:#b9ad8c;font-size:10px}.specs b{color:#e9d6ae;font-weight:500}footer{padding:11px 24px;border-top:1px solid #645c4366;font-size:10px;color:#b4a58a;display:flex;justify-content:space-between;gap:18px;line-height:1.65;background:#1b2118ed}footer strong{font-weight:500;color:#dac29a}.hint{white-space:nowrap}#error{display:none;position:absolute;inset:30% 12%;padding:22px;background:#352b22;border:1px solid #a47853;font-size:13px;line-height:1.6;z-index:20}
+    @media(max-width:950px){main{grid-template-columns:248px minmax(0,1fr)}aside{padding:22px 17px}.toolbar{left:10px;right:10px;top:10px}.buttons button{font-size:9px;padding:7px}.hint{display:none}.badge{left:15px;bottom:15px}.detail{padding:17px 20px}.specs{gap:13px}}
+    @media(max-width:680px){header{height:72px;padding:13px 15px}h1{font-size:20px}.eyebrow{font-size:8px}.status{max-width:134px;white-space:normal;font-size:8px;line-height:1.6;padding:6px 8px;border-radius:4px}main{height:auto;min-height:calc(100dvh - 72px);grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}aside{padding:9px 10px;border-right:0;border-bottom:1px solid var(--line);overflow:hidden}aside>.eyebrow,.intro,.note{display:none}nav{display:flex;overflow:auto;gap:4px;padding:2px}.seed{flex:none;padding:8px;font-size:10px;gap:6px}.mark{width:10px;height:15px}.seed .idx{display:none}.studio{grid-template-rows:390px auto auto}.viewport{min-height:390px}.toolbar{left:8px;right:8px;top:9px;gap:5px}.buttons{gap:0;padding:3px}.buttons button{font-size:8px;padding:6px}.badge{padding:8px 10px;bottom:12px;left:12px;max-width:255px}.badge strong{font-size:10px}.badge span{font-size:9px}.detail{padding:16px}.detail h2{font-size:23px}#description{font-size:12px}.specs{font-size:9px;gap:12px}footer{padding:11px 16px;font-size:9px}}
+    @media(max-width:380px){h1{font-size:18px}.buttons button{font-size:7px;padding:6px 5px}.studio{grid-template-rows:350px auto auto}.viewport{min-height:350px}.specs{gap:9px}.status{max-width:121px}}
+  </style>
+</head>
+<body>
+  <header><div><div class="eyebrow">SNC Adventures · Atelier do viveiro</div><h1>Saquinhos do viveiro.</h1></div><span class="status">PROPOSTA VISUAL · fora do Minecraft</span></header>
+  <main>
+    <aside><div class="eyebrow">Saquinhos de tecido</div><p class="intro">Volume de saco cheio, boca franzida e cordão de verdade. Cada cultivo ganha <strong>seu próprio desenho botânico</strong>, com o selo <strong>SNC</strong> na frente e no verso.</p><nav id="products" aria-label="Escolher sementes"></nav><div class="note"><h2>Uma família, seis desenhos</h2><p>Lona crua, costura clara e etiqueta bordada. Folha, cone, cacho, ramo, flor e espiga — a espécie se reconhece pelo desenho, além da faixa.</p><div class="parts"><span class="tag">Base bojuda</span><span class="tag">Nó em volume</span><span class="tag">Costura</span><span class="tag">Selo SNC</span></div></div><div class="note"><h2>Sobre este estudo</h2><p>Modelos em cuboides nativos e atlas de 128 × 128. A geometria segue a fonte canônica planejada.</p><p>As vistas de inventário, mão e mesa são simulações do estúdio. Posição, iluminação e escala ainda precisam ser conferidas no Minecraft após aprovação.</p></div></aside>
+    <section class="studio" aria-label="Estúdio dos saquinhos de sementes">
+      <div class="viewport" id="viewport"><canvas id="scene" aria-label="Arraste para girar o saquinho; roda para aproximar"></canvas><div class="toolbar"><div class="buttons" id="views"><button data-view="iso" class="active">Isométrica</button><button data-view="front">Frente</button><button data-view="back">Verso</button><button data-view="inventory">Inventário</button><button data-view="hand">Mão</button><button data-view="table">Mesa · 6</button></div><div class="buttons"><button id="zoomIn" aria-label="Aproximar">+</button><button id="zoomOut" aria-label="Afastar">−</button><button id="spin" aria-pressed="false">Girar</button><button id="reset">Enquadrar</button></div></div><div class="badge"><strong id="badgeTitle">Saquinho de tecido cru</strong><span id="badgeText">Cordão e costura em volume. Selo SNC bordado.</span></div><div id="error" role="alert"></div></div>
+      <div class="detail"><div class="eyebrow" id="counter">01 / 06 · proposta visual</div><h2 id="name">Carregando o viveiro…</h2><p id="description"></p><div class="specs"><span><b>128 × 128</b> atlas por saquinho</span><span><b id="parts">—</b> cuboides</span><span><b>SNC</b> na frente e no verso</span></div></div>
+      <footer><span><strong>Prévia para aprovação.</strong> Mantém os mesmos itens de plantar; a mesa mostra apenas a escala da coleção.</span><span class="hint">Arraste para girar · Roda para zoom · Botão direito para mover</span></footer>
+    </section>
+  </main>
+  <!-- SEMENTES_CATALOGO_BEGIN -->
+<script type="application/json" id="catalog">
+{
+  "seeds": [
+    {
+      "id": "semente_maconha",
+      "name": "Maconha",
+      "symbol": "folha",
+      "width": 6.5,
+      "depth": 4.6,
+      "height": 8.8,
+      "band": "788753",
+      "accent": "98ac69",
+      "ink": "495633",
+      "description": "Folha de sete pontas bordada, faixa oliva e saco largo de tecido cru."
+    },
+    {
+      "id": "semente_lupulo",
+      "name": "Lúpulo",
+      "symbol": "cone",
+      "width": 6.0,
+      "depth": 4.9,
+      "height": 9.0,
+      "band": "758c53",
+      "accent": "b2c079",
+      "ink": "4d6037",
+      "description": "Cone de lúpulo com escamas sobrepostas, faixa musgo e corpo mais profundo."
+    },
+    {
+      "id": "semente_uva",
+      "name": "Uva",
+      "symbol": "cacho",
+      "width": 6.7,
+      "depth": 4.7,
+      "height": 8.7,
+      "band": "8b6b91",
+      "accent": "ac87b5",
+      "ink": "63506b",
+      "description": "Cacho com pequenas uvas e folha recortada, faixa ameixa e base bojuda."
+    },
+    {
+      "id": "semente_cafe",
+      "name": "Café",
+      "symbol": "cafe",
+      "width": 5.9,
+      "depth": 4.4,
+      "height": 9.3,
+      "band": "8b6050",
+      "accent": "c47959",
+      "ink": "674837",
+      "description": "Ramo com cerejas de café e folhas opostas, faixa terracota e perfil estreito."
+    },
+    {
+      "id": "semente_papoula",
+      "name": "Papoula",
+      "symbol": "flor",
+      "width": 6.2,
+      "depth": 4.3,
+      "height": 8.9,
+      "band": "af6860",
+      "accent": "d59870",
+      "ink": "7c4d48",
+      "description": "Flor de papoula com centro escuro, faixa coral e costura clara aparente."
+    },
+    {
+      "id": "semente_cevada",
+      "name": "Cevada",
+      "symbol": "espiga",
+      "width": 6.8,
+      "depth": 4.8,
+      "height": 9.6,
+      "band": "b29a5e",
+      "accent": "d2b877",
+      "ink": "76623e",
+      "description": "Espiga com grãos e aristas, faixa palha e o saquinho mais alto da coleção."
+    }
+  ],
+  "profile": [
+    [
+      0.0,
+      0.05,
+      0.74,
+      0.74
+    ],
+    [
+      0.05,
+      0.13,
+      0.9,
+      0.91
+    ],
+    [
+      0.13,
+      0.35,
+      1.0,
+      1.0
+    ],
+    [
+      0.35,
+      0.57,
+      0.99,
+      1.0
+    ],
+    [
+      0.57,
+      0.69,
+      0.86,
+      0.89
+    ],
+    [
+      0.69,
+      0.78,
+      0.63,
+      0.66
+    ],
+    [
+      0.78,
+      0.89,
+      0.38,
+      0.4
+    ],
+    [
+      0.89,
+      1.0,
+      0.49,
+      0.47
+    ]
+  ],
+  "tiles": {
+    "cloth": [
+      0,
+      0,
+      64,
+      64
+    ],
+    "fold": [
+      64,
+      0,
+      32,
+      32
+    ],
+    "band": [
+      96,
+      0,
+      32,
+      32
+    ],
+    "cord": [
+      64,
+      32,
+      16,
+      32
+    ],
+    "thread": [
+      80,
+      32,
+      16,
+      32
+    ],
+    "seal": [
+      96,
+      32,
+      32,
+      32
+    ],
+    "label": [
+      0,
+      64,
+      64,
+      64
+    ],
+    "back": [
+      64,
+      64,
+      64,
+      64
+    ]
+  },
+  "symbols": {
+    "folha": [
+      ".......g.......",
+      ".......g.......",
+      "...g...g...g...",
+      "....g..g..g....",
+      ".g...g.g.g...g.",
+      "..gg.ggggg.gg..",
+      "...ggggggggg...",
+      "....ggggggg....",
+      ".....ggggg.....",
+      "...ggggggggg...",
+      "..gg...b...gg..",
+      ".......b.......",
+      ".......b......."
+    ],
+    "cone": [
+      ".......b.......",
+      "......ggg......",
+      ".....ggggg.....",
+      "....ggGggGg....",
+      "...ggGggGggg...",
+      "...gGggGggGg...",
+      "...ggGggGggg...",
+      "...gGggGggGg...",
+      "....ggGggGg....",
+      ".....ggGgg.....",
+      "......ggg......",
+      ".......g......."
+    ],
+    "cacho": [
+      "......bb.gg....",
+      "......b.gggg...",
+      "....bbb..gg....",
+      "...FfF.FfF.....",
+      "...FFF.FFF.....",
+      "..FfF.FfF.FfF..",
+      "..FFF.FFF.FFF..",
+      "...FfF.FfF.....",
+      "...FFF.FFF.....",
+      "....FfF.FfF....",
+      "....FFF.FFF....",
+      "......FfF......",
+      "......FFF......"
+    ],
+    "cafe": [
+      "......b........",
+      "..ggg.b.ggg....",
+      ".ggGggbggGgg...",
+      "..ggg.b.ggg....",
+      ".....FfF.......",
+      ".....FFF.......",
+      "...gg.b.gg.....",
+      "..ggGgbgGgg....",
+      "...gg.b.gg.....",
+      ".....FfF.FfF...",
+      ".....FFF.FFF...",
+      "......b........",
+      "......b........"
+    ],
+    "flor": [
+      "....FfF.FfF....",
+      "...FFFFFFFFF...",
+      "...FFFFFFFFF...",
+      "..FfFFFFFfFFF..",
+      "..FFFFbbbFFFF..",
+      "..FFFFbWbFFFF..",
+      "...FFFbbbFFF...",
+      "....FFFFFFF....",
+      ".....FFFFF.....",
+      ".......b.......",
+      "....gg.b.......",
+      "...ggGgb.......",
+      ".......b......."
+    ],
+    "espiga": [
+      ".......b.......",
+      "...b...b...b...",
+      "....b..b..b....",
+      ".....FfbFf.....",
+      "....FFfbFFf....",
+      ".....FfbFf.....",
+      "...b.FfbFf.b...",
+      "....FFfbFFf....",
+      ".....FfbFf.....",
+      "....FFfbFFf....",
+      ".....FfbFf.....",
+      "......bbb......",
+      ".......b......."
+    ]
+  },
+  "font": {
+    "A": [
+      "010",
+      "101",
+      "111",
+      "101",
+      "101"
+    ],
+    "B": [
+      "110",
+      "101",
+      "110",
+      "101",
+      "110"
+    ],
+    "C": [
+      "011",
+      "100",
+      "100",
+      "100",
+      "011"
+    ],
+    "D": [
+      "110",
+      "101",
+      "101",
+      "101",
+      "110"
+    ],
+    "E": [
+      "111",
+      "100",
+      "110",
+      "100",
+      "111"
+    ],
+    "F": [
+      "111",
+      "100",
+      "110",
+      "100",
+      "100"
+    ],
+    "G": [
+      "011",
+      "100",
+      "101",
+      "101",
+      "011"
+    ],
+    "H": [
+      "101",
+      "101",
+      "111",
+      "101",
+      "101"
+    ],
+    "I": [
+      "111",
+      "010",
+      "010",
+      "010",
+      "111"
+    ],
+    "J": [
+      "001",
+      "001",
+      "001",
+      "101",
+      "010"
+    ],
+    "K": [
+      "101",
+      "101",
+      "110",
+      "101",
+      "101"
+    ],
+    "L": [
+      "100",
+      "100",
+      "100",
+      "100",
+      "111"
+    ],
+    "M": [
+      "101",
+      "111",
+      "111",
+      "101",
+      "101"
+    ],
+    "N": [
+      "101",
+      "111",
+      "111",
+      "111",
+      "101"
+    ],
+    "O": [
+      "010",
+      "101",
+      "101",
+      "101",
+      "010"
+    ],
+    "P": [
+      "110",
+      "101",
+      "110",
+      "100",
+      "100"
+    ],
+    "Q": [
+      "010",
+      "101",
+      "101",
+      "111",
+      "011"
+    ],
+    "R": [
+      "110",
+      "101",
+      "110",
+      "101",
+      "101"
+    ],
+    "S": [
+      "011",
+      "100",
+      "010",
+      "001",
+      "110"
+    ],
+    "T": [
+      "111",
+      "010",
+      "010",
+      "010",
+      "010"
+    ],
+    "U": [
+      "101",
+      "101",
+      "101",
+      "101",
+      "111"
+    ],
+    "V": [
+      "101",
+      "101",
+      "101",
+      "101",
+      "010"
+    ],
+    "W": [
+      "101",
+      "101",
+      "111",
+      "111",
+      "101"
+    ],
+    "X": [
+      "101",
+      "101",
+      "010",
+      "101",
+      "101"
+    ],
+    "Y": [
+      "101",
+      "101",
+      "010",
+      "010",
+      "010"
+    ],
+    "Z": [
+      "111",
+      "001",
+      "010",
+      "100",
+      "111"
+    ],
+    " ": [
+      "000",
+      "000",
+      "000",
+      "000",
+      "000"
+    ]
+  },
+  "display": {
+    "gui": {
+      "rotation": [
+        25,
+        225,
+        0
+      ],
+      "translation": [
+        0,
+        3,
+        0
+      ],
+      "scale": [
+        0.92,
+        0.92,
+        0.92
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        2.8,
+        0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.95,
+        0.95,
+        0.95
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        165,
+        -8
+      ],
+      "translation": [
+        -1,
+        7,
+        -1.25
+      ],
+      "scale": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    "firstperson_lefthand": {
+      "rotation": [
+        0,
+        165,
+        -8
+      ],
+      "translation": [
+        -1,
+        7,
+        -1.25
+      ],
+      "scale": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    "thirdperson_righthand": {
+      "rotation": [
+        90,
+        0,
+        -8
+      ],
+      "translation": [
+        0,
+        2.5,
+        0.5
+      ],
+      "scale": [
+        0.75,
+        0.75,
+        0.75
+      ]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [
+        90,
+        0,
+        -8
+      ],
+      "translation": [
+        0,
+        2.5,
+        0.5
+      ],
+      "scale": [
+        0.75,
+        0.75,
+        0.75
+      ]
+    }
+  }
+}
+</script>
+<!-- SEMENTES_CATALOGO_END -->
+  <script src="vendor/three.min.js"></script>
+  <script>
+  'use strict';
+  (()=>{
+    const $=id=>document.getElementById(id),C=JSON.parse($('catalog').textContent);
+    let renderer,scene,camera,objects,props,selected=0,view='iso',spinning=false,drag=null;
+    let theta=2.66,phi=1.14,radius=22,target=new THREE.Vector3(0,4.2,0);
+    let inventoryCenter=new THREE.Vector3(0,6.2,0),inventorySize=new THREE.Vector3(19,19,0);
+    const bags=[],materials=new Map(),primitive=new Map();
+    function parts(seed){const out=[],w=seed.width,d=seed.depth,h=seed.height;
+      function box(name,x0,y0,z0,x1,y1,z1,mat,faces=null,rotation=null){out.push({name,from:[x0,y0,z0],to:[x1,y1,z1],material:mat,face_materials:faces||{},rotation});}
+      function solid(name,y0,y1,width,depth,mat){const bevel=Math.min(width,depth)*.13;box(name+'_miolo',8-width/2,y0,8-depth/2+bevel,8+width/2,y1,8+depth/2-bevel,mat);for(const sign of[-1,1]){const z=sign<0?8-depth/2:8+depth/2-bevel;box(name+'_borda_'+sign,8-width/2+bevel,y0,z,8+width/2-bevel,y1,z+bevel,mat);}}
+      C.profile.forEach(([y0,y1,ww,dd],n)=>solid('tecido_'+n,y0*h,y1*h,ww*w,dd*d,n>=5?'fold':'cloth'));
+      for(const sign of[-1,1]){const z=sign<0?8-d/2-.035:8+d/2+.005;box('faixa_'+sign,8-w*.37,h*.135,z,8+w*.37,h*.21,z+.03,'band');}
+      box('rotulo_frente',8-w*.32,h*.225,8-d/2-.075,8+w*.32,h*.565,8-d/2-.04,'cloth',{north:'label'});
+      box('rotulo_verso',8-w*.29,h*.225,8+d/2+.04,8+w*.29,h*.565,8+d/2+.075,'cloth',{south:'back'});
+      for(const side of[-1,1]){for(let n=0;n<9;n++){const y=h*(.16+n*.042),x=8+side*(w/2-.025);box('ponto_lateral_'+side+'_'+n,x-.033,y,7.85,x+.033,y+.095,8.15,'thread');}for(let n=0;n<3;n++){const x=8+side*(.58+n*.43),z=8-d*(.27-n*.015);box('prega_'+side+'_'+n,x-.065,h*.61,z-.035,x+.065,h*(.685-n*.016),z+.075,'fold');}}
+      const nw=w*.38,nd=d*.40,cy=h*.823;
+      for(const sign of[-1,1]){const z=8+sign*(nd/2+.02);box('cordao_horizontal_'+sign,8-nw/2-.055,cy,z-.055,8+nw/2+.055,cy+.14,z+.055,'cord');const x=8+sign*(nw/2+.02);box('cordao_lateral_'+sign,x-.055,cy,8-nd/2,x+.055,cy+.14,8+nd/2,'cord');}
+      const fz=8-nd/2-.17;box('no_do_cordao',7.75,cy-.10,fz-.11,8.25,cy+.30,fz+.18,'cord');
+      for(const sign of[-1,1]){const cx=8+sign*.65;box('laco_topo_'+sign,cx-.48,cy+.18,fz-.08,cx+.48,cy+.29,fz+.04,'cord');box('laco_base_'+sign,cx-.48,cy-.26,fz-.08,cx+.48,cy-.15,fz+.04,'cord');box('laco_borda_'+sign,cx+sign*.4-.055,cy-.19,fz-.08,cx+sign*.4+.055,cy+.22,fz+.04,'cord');box('ponta_do_laco_'+sign,8+sign*.20-.055,cy-.92,fz-.05,8+sign*.20+.055,cy-.06,fz+.06,'cord',null,{origin:[8,cy,fz],axis:'z',angle:sign*22.5});}
+      return out;
+    }
+    function atlas(seed){const c=document.createElement('canvas');c.width=c.height=128;const cx=c.getContext('2d'),colors={cloth:'bfa978',fold:'ac9669',band:seed.band,cord:'9b8050',thread:'e2cf9d',seal:seed.accent,label:'e8dabc',back:'ded0b0'};
+      Object.entries(C.tiles).forEach(([mat,[x0,y0,w,h]],index)=>{const rgb=[0,2,4].map(n=>parseInt(colors[mat].slice(n,n+2),16));for(let y=0;y<h;y++)for(let x=0;x<w;x++){const grain=((x*193+y*389+x*y*17+index*61)%19)-9,weave=(x%3===0?4:-2)+(y%4===0?3:0),shade=9*(1-y/Math.max(1,h-1))-7*x/Math.max(1,w-1)+grain*.45+weave;cx.fillStyle='rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v+shade)))).join(',')+')';cx.fillRect(x0+x,y0+y,1,1);}});
+      function text(word,center,y,scale,color){word=word.toUpperCase().replaceAll('Ú','U').replaceAll('É','E');const x0=Math.floor(center-(word.length*4-1)*scale/2);cx.fillStyle=color;[...word].forEach((ch,n)=>(C.font[ch]||C.font[' ']).forEach((row,yy)=>[...row].forEach((p,xx)=>{if(p==='1')cx.fillRect(x0+(n*4+xx)*scale,y+yy*scale,scale,scale);})));}
+      for(const mat of['label','back']){const[x0,y0]=C.tiles[mat];cx.strokeStyle='#bba478';cx.lineWidth=1;cx.strokeRect(x0+2.5,y0+2.5,59,59);cx.fillStyle='#f4e8ce';for(let n=4;n<60;n+=5){cx.fillRect(x0+n,y0+4,3,1);cx.fillRect(x0+n,y0+59,3,1);}text('SNC',x0+32,y0+7,3,'#55472f');}
+      const symbol=C.symbols[seed.symbol],palette={g:'#'+seed.accent,G:'#'+seed.ink,F:'#'+seed.band,f:'#'+seed.accent,b:'#77613f',W:'#efdaa2'},ox=Math.floor(32-Math.max(...symbol.map(r=>r.length))),oy=89;symbol.forEach((row,yy)=>[...row].forEach((ch,xx)=>{if(palette[ch]){cx.fillStyle=palette[ch];cx.fillRect(ox+xx*2,oy+yy*2,2,2);}}));text(seed.name,32,119,1,'#'+seed.ink);text('ADVENTURES',96,91,1,'#'+seed.ink);text('SEMENTES',96,102,1,'#6f6146');cx.fillStyle='#b5a17b';for(const y of[113,117])cx.fillRect(78,y,36,1);return c;
+    }
+    function material(seed,kind,full){const key=seed.id+'/'+kind;if(materials.has(key))return materials.get(key);const[x,y,w,h]=C.tiles[kind],c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(full,x+1,y+1,w-2,h-2,0,0,w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;const mat=new THREE.MeshStandardMaterial({map:t,roughness:.93});materials.set(key,mat);return mat;}
+    function bag(seed){const g=new THREE.Group(),full=atlas(seed),ps=parts(seed),faceOrder=['east','west','up','down','south','north'];for(const p of ps){const size=p.to.map((v,n)=>v-p.from[n]),m=new THREE.Mesh(new THREE.BoxGeometry(...size),faceOrder.map(face=>material(seed,p.face_materials[face]||p.material,full)));m.position.set((p.from[0]+p.to[0])/2-8,(p.from[1]+p.to[1])/2,(p.from[2]+p.to[2])/2-8);m.name=p.name;m.castShadow=m.receiveShadow=true;if(p.rotation){const origin=new THREE.Vector3(p.rotation.origin[0]-8,p.rotation.origin[1],p.rotation.origin[2]-8),pivot=new THREE.Group();m.position.sub(origin);pivot.position.copy(origin);pivot.rotation[p.rotation.axis]=THREE.MathUtils.degToRad(p.rotation.angle);pivot.add(m);g.add(pivot);}else g.add(m);}g.userData.parts=ps.length;return g;}
+    function cube(parent,w,h,d,x,y,z,color){const key=[w,h,d,color].join('/');if(!primitive.has(key))primitive.set(key,{geo:new THREE.BoxGeometry(w,h,d),mat:new THREE.MeshStandardMaterial({color,roughness:.9})});const p=primitive.get(key),m=new THREE.Mesh(p.geo,p.mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m;}
+    function table(w,d){cube(props,w,.9,d,0,-.49,0,0x6b593b);for(let n=-Math.floor(d/2)+1;n<d/2;n+=2.8)cube(props,w-.08,.024,.04,0,-.027,n,0x403526);for(const x of[-w/2+1.5,w/2-1.5])for(const z of[-d/2+1.5,d/2-1.5])cube(props,.25,.05,.25,x,-.015,z,0xbaa786);}
+    function inventoryModel(b){
+      const pivot=new THREE.Group(),tr=C.display.gui;
+      objects.remove(b);b.position.set(0,-8,0);
+      pivot.position.set(tr.translation[0],8+tr.translation[1],tr.translation[2]);
+      pivot.rotation.set(...tr.rotation.map(THREE.MathUtils.degToRad),'ZYX');
+      pivot.scale.fromArray(tr.scale);pivot.add(b);objects.add(pivot);
+      // O transform gira em torno do centro nativo Y=8. O enquadramento usa
+      // o centro real após essa rotação; o fundo nunca atravessa o corpo.
+      objects.updateMatrixWorld(true);
+      const bounds=new THREE.Box3().setFromObject(objects),size=bounds.getSize(new THREE.Vector3());
+      inventoryCenter=bounds.getCenter(new THREE.Vector3());
+      const width=Math.max(15,size.x+7),height=Math.max(15,size.y+7),z=bounds.min.z-16;
+      inventorySize.set(width+3,height+3,0);
+      const background=cube(props,width,height,.4,inventoryCenter.x,inventoryCenter.y,z,0x414739);
+      background.castShadow=background.receiveShadow=false;
+      for(const x of[-width/2-.1,width/2+.1]){
+        const edge=cube(props,.17,height+.4,.45,inventoryCenter.x+x,inventoryCenter.y,z,0xc0aa79);
+        edge.castShadow=edge.receiveShadow=false;
+      }
+      for(const y of[-height/2-.1,height/2+.1]){
+        const edge=cube(props,width+.4,.17,.45,inventoryCenter.x,inventoryCenter.y+y,z,0xc0aa79);
+        edge.castShadow=edge.receiveShadow=false;
+      }
+    }
+    function rebuild(){objects.clear();props.clear();bags.forEach(b=>{b.position.set(0,0,0);b.rotation.set(0,0,0);b.scale.setScalar(1);});const seed=C.seeds[selected],b=bags[selected];if(view==='table'){C.seeds.forEach((s,n)=>{const m=bags[n];m.position.set((n%3-1)*8.1,0,n<3?-4.6:4.6);objects.add(m);});table(29,22);$('name').textContent='Os seis saquinhos, na mesma escala.';$('description').textContent='Mesma família de tecido, seis ilustrações bordadas e proporções próprias. A mesa é uma comparação do estúdio; os itens continuam sendo sementes para plantar.';$('counter').textContent='COLEÇÃO COMPLETA · 6 / 6';$('parts').textContent=bags.reduce((n,m)=>n+m.userData.parts,0);$('badgeTitle').textContent='Coleção SNC Adventures';$('badgeText').textContent='Folha, cone, cacho, ramo, flor e espiga.';}else{objects.add(b);$('name').textContent='Sementes de '+seed.name;$('description').textContent=seed.description;$('counter').textContent=String(selected+1).padStart(2,'0')+' / 06 · proposta visual';$('parts').textContent=b.userData.parts;if(view==='hand'){cube(props,3.4,2.2,3.8,1.2,-1.02,.7,0xb58f67);cube(props,3.3,5.3,3.7,1.2,-4.72,.7,0x626c4c);cube(props,3.4,.45,3.8,1.2,-2.37,.7,0x94936b);const tr=C.display.firstperson_righthand;b.rotation.set(...tr.rotation.map(THREE.MathUtils.degToRad));b.scale.fromArray(tr.scale);b.position.y=.03;$('badgeTitle').textContent='Mão · estudo de proporção';$('badgeText').textContent='Simulação de apoio e tamanho, ainda fora do jogo.';}else if(view==='inventory'){inventoryModel(b);$('badgeTitle').textContent='Inventário · enquadramento';$('badgeText').textContent='Rotação e escala planejadas para o ícone 3D.';}else{table(15,13);$('badgeTitle').textContent=view==='back'?'Verso com a assinatura SNC':'Saquinho de tecido cru';$('badgeText').textContent=view==='back'?'SNC Adventures e sementes na etiqueta traseira.':'Cordão e costura em volume. Selo SNC bordado.';}}
+      document.querySelectorAll('.seed').forEach((el,n)=>{el.classList.toggle('active',n===selected);el.setAttribute('aria-pressed',String(n===selected));});document.querySelectorAll('[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===view));frame();}
+    function frame(){const h=C.seeds[selected].height;target.set(0,view==='hand'?1.1:view==='table'?3.8:view==='inventory'?6.2:h*.46,0);theta=view==='hand'?.36:view==='back'?0:view==='inventory'?0:view==='front'?Math.PI:view==='table'?3.08:2.66;phi=view==='front'||view==='back'||view==='inventory'?Math.PI/2:view==='table'?.94:1.14;if(view==='inventory')target.copy(inventoryCenter);const a=camera?camera.aspect:1,w=view==='table'?32:view==='inventory'?inventorySize.x:14,height=view==='hand'?19:view==='table'?18:view==='inventory'?inventorySize.y:14;radius=Math.max(w/(2*Math.tan(THREE.MathUtils.degToRad(36/2))*a),height/(2*Math.tan(THREE.MathUtils.degToRad(36/2))))*1.04;}
+    function zoom(v){radius=Math.max(9,Math.min(110,radius*v));}
+    function setup(){renderer=new THREE.WebGLRenderer({canvas:$('scene'),antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.27;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(36,1,.1,250);scene.add(new THREE.HemisphereLight(0xfff1cc,0x293127,1.5));const sun=new THREE.DirectionalLight(0xffe6b4,2.4);sun.position.set(-11,24,-18);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-26,right:26,top:26,bottom:-26,near:.1,far:100});sun.shadow.bias=-.0003;scene.add(sun);const fill=new THREE.DirectionalLight(0xdbecfb,1.1);fill.position.set(17,13,9);scene.add(fill);objects=new THREE.Group();props=new THREE.Group();scene.add(objects,props);C.seeds.forEach((s,n)=>{bags.push(bag(s));const btn=document.createElement('button');btn.className='seed';btn.innerHTML='<span class="mark" style="--color:#'+s.band+'"></span><span class="name">'+s.name+'</span><span class="idx">0'+(n+1)+'</span>';btn.onclick=()=>{selected=n;if(view==='table')view='iso';rebuild();};$('products').append(btn);});
+      new ResizeObserver(()=>{const r=$('viewport').getBoundingClientRect();renderer.setSize(r.width,r.height,false);const old=camera.aspect;camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix();if(Math.abs(old-camera.aspect)>.05)frame();}).observe($('viewport'));const canvas=$('scene');canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,button:e.button};canvas.setPointerCapture(e.pointerId);});canvas.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(drag.button===2){const right=new THREE.Vector3();camera.getWorldDirection(right);right.cross(camera.up).normalize();target.addScaledVector(right,-dx*radius*.0013);target.y+=dy*radius*.0013;}else{theta-=dx*.007;phi=Math.max(.05,Math.min(2.1,phi-dy*.007));}drag.x=e.clientX;drag.y=e.clientY;});canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(e.deltaY*.001));},{passive:false});document.querySelectorAll('[data-view]').forEach(el=>el.onclick=()=>{view=el.dataset.view;rebuild();});$('zoomIn').onclick=()=>zoom(.82);$('zoomOut').onclick=()=>zoom(1.22);$('spin').onclick=()=>{spinning=!spinning;$('spin').classList.toggle('active',spinning);$('spin').setAttribute('aria-pressed',String(spinning));};$('reset').onclick=()=>{spinning=false;$('spin').classList.remove('active');$('spin').setAttribute('aria-pressed','false');frame();};rebuild();let last=0;function render(now){requestAnimationFrame(render);if(spinning)theta+=Math.min(now-last,50)*.0002;last=now;camera.position.set(target.x+radius*Math.sin(phi)*Math.sin(theta),target.y+radius*Math.cos(phi),target.z+radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(target);renderer.render(scene,camera);}requestAnimationFrame(render);}
+    try{setup();}catch(error){$('error').style.display='block';$('error').textContent='Não foi possível abrir o estúdio: '+error.message+'. Abra pelo servidor local com WebGL habilitado.';console.error(error);}
+  })();
+  </script>
+</body>
+</html>

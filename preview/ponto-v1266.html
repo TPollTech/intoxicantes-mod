@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Prévia v1.2.66 — GUI do Ponto do Traficante</title>
+<style>
+  :root{
+    --asfalto:#23262B; --asfalto2:#2E3238; --faixa:#D9B23A; --madeira:#6B4A2B;
+    --madeira2:#4A3320; --papel:#F1E4C3; --papel2:#D8C79A; --tinta:#2B2417;
+    --tinta2:#8A7B5A; --verde:#1E6B38; --verdeh:#2E8A4A; --verdeb:#083D1E;
+    --verm:#B03030; --ouro:#C8971E; --ouro2:#F2D06B; --ciano:#39D0C4;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#141518; color:#cfd2d6; font-family:'Segoe UI',Arial,sans-serif; padding:18px;}
+  h1{font-size:17px; color:#fff;} h1 b{color:var(--ciano);}
+  .sub{font-size:12.5px; color:#9aa0a6; margin:4px 0 14px;}
+  .controles{margin:0 0 12px; display:flex; gap:14px; align-items:center; font-size:12.5px;}
+  .controles label{cursor:pointer; user-select:none;}
+  .controles input{accent-color:var(--ciano);}
+  .palco{display:inline-block; transform:scale(1.7); transform-origin:top left;}
+  .moldura{width:calc(310px * 1.7 + 8px); height:calc(380px * 1.7 + 8px); padding:4px;}
+  /* ===== painel em pixels de Minecraft (310×380), escalado 1.7x ===== */
+  .painel{position:relative; width:310px; height:380px; background:var(--asfalto);
+    box-shadow:3px 3px 0 rgba(0,0,0,.4); font-family:'Courier New',monospace; font-size:11px;
+    line-height:1; color:var(--tinta); overflow:hidden;}
+  .painel::before{content:""; position:absolute; inset:0;
+    border:4px solid var(--madeira); outline:1px solid var(--madeira2); pointer-events:none;}
+  .risquinho{position:absolute; left:10px; right:10px; height:1px; background:rgba(255,255,255,.06);}
+  /* cabeçalho */
+  .cab{position:absolute; top:8px; left:0; right:0; text-align:center;}
+  .faixa{height:3px; margin:0 10px; background:repeating-linear-gradient(90deg,var(--faixa) 0 12px,transparent 12px 22px);}
+  .letreiro{margin-top:5px; color:var(--ciano);}
+  .subtit{margin-top:3px; color:#9AA0A6;}
+  .clip{white-space:nowrap; overflow:hidden;} /* = plainSubstrByWidth */
+  /* barra de desconto */
+  .desconto{position:absolute; top:36px; left:6px; right:6px; height:18px; background:var(--asfalto2);
+    border:1px solid var(--madeira2); color:#9AA0A6; padding:5px 0 0 6px;}
+  .desconto.ativo{color:var(--ouro2);}
+  /* abas (3 × 97px, cabem DENTRO dos 310) */
+  .abas{position:absolute; top:58px; left:6px; display:flex;}
+  .aba{width:97px; height:16px; background:var(--papel2); border:1px solid var(--madeira2);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--tinta);}
+  .aba.ativa{background:var(--madeira); color:#fff;}
+  /* lista */
+  .lista{position:absolute; top:78px; left:6px; right:6px; bottom:44px; background:rgba(217,200,154,.09);}
+  .linha{position:relative; height:32px; padding:3px 0 0 2px;}
+  .linha.zebra{background:rgba(217,200,154,.16);}
+  .linha:hover{background:rgba(255,255,255,.12);}
+  .ico{position:absolute; left:2px; top:2px; width:16px; height:16px; image-rendering:pixelated;}
+  .nome{position:absolute; left:20px; top:4px; right:60px; color:var(--tinta);}
+  .detalhe{position:absolute; left:20px; top:14px; right:60px; color:var(--tinta2);}
+  .detalhe.ruim{color:var(--verm);}
+  .preco{position:absolute; left:185px; top:8px; color:var(--ouro2);}
+  .preco.ruim{color:var(--verm);}
+  .botao{position:absolute; right:14px; top:5px; width:54px; height:16px; background:var(--verde);
+    border:1px solid var(--verdeb); color:#F3E9CF; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .botao:hover{background:var(--verdeh);}
+  .botao.fora{background:#5A5A50; color:#d8d3c2; cursor:default;}
+  .titulo-fiado{position:absolute; left:4px; top:4px; right:70px; color:var(--tinta);}
+  .nivel-fiado{position:absolute; left:4px; top:15px; right:66px; color:var(--tinta2);}
+  .det-fiado{position:absolute; left:4px; top:24px; right:70px; color:var(--tinta2);}
+  /* rodapé */
+  .rodape{position:absolute; left:8px; right:8px; bottom:30px; border-top:1px solid var(--madeira2); padding-top:4px;}
+  .saldo{color:var(--tinta);}
+  .rodape2{margin-top:4px; color:var(--tinta2);}
+  .rodape2.devendo{color:var(--verm);}
+  .fechar{position:absolute; right:0px; bottom:-24px; width:46px; height:14px; background:var(--verde);
+    border:1px solid var(--verdeb); color:#F3E9CF; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .fechar:hover{background:var(--verdeh);}
+  /* ícones fake (quadradinhos com a cor do produto) */
+  .ico span{display:block; width:16px; height:16px; border:1px solid rgba(0,0,0,.55);}
+  .c-seda{background:#7fae5a;} .c-coca{background:#e9e6df;} .c-her{background:#c8b28a;}
+  .c-lsd{background:#7fc4d8;} .c-base{background:#8a7148;} .c-opio{background:#a98fc0;} .c-caf{background:#5d4a33;}
+  /* legendas */
+  .notas{margin-top:14px; font-size:12.5px; max-width:900px; line-height:1.5;}
+  .notas li{margin-left:18px; margin-top:4px;}
+  .tag-ok{color:#63d68d; font-weight:600;} .tag-ruim{color:#ef8a8a; font-weight:600;}
+  /* comparação antes/depois */
+  .compara{margin-top:16px; display:flex; gap:26px; align-items:flex-start;}
+  .mini{width:220px; font-size:11.5px;}
+  .mini .mp{position:relative; height:52px; background:var(--asfalto); border:3px solid var(--madeira); margin-top:5px;}
+  .mini .mt{position:absolute; top:6px; height:14px; background:var(--papel2); border:1px solid var(--madeira2);
+    font-family:'Courier New',monospace; font-size:9px; display:flex; align-items:center; justify-content:center;}
+  .mini.estourou .mt3{left:212px; width:103px; outline:1px dashed var(--verm); background:#c76;}
+  .mini.certo .mt3{left:6px; width:97px;}
+  .mini.certo .mt2{left:103px;} .mini.certo .mt1{left:0px;}
+  .mini.estourou .mt1{left:6px;} .mini.estourou .mt2{left:109px;}
+</style>
+</head>
+<body>
+<h1>Prévia <b>v1.2.66</b> — O Ponto do Traficante (GUI refeita)</h1>
+<div class="sub">Escala 1.7× · geometria exata do código (painel 310×380, abas 97px, linha 32px, botão 54×16) · aperte F5 depois de cada mudança no Java</div>
+
+<div class="controles">
+  <label><input type="checkbox" id="gigante"> mostrar com textos gigantes (prova do truncamento)</label>
+  <span style="color:#6b7076">|</span>
+  <span id="dica-aba" style="color:#9aa0a6"></span>
+</div>
+
+<div class="moldura"><div class="palco"><div class="painel" id="painel"></div></div></div>
+
+<div class="compara">
+  <div class="mini estourou">
+    <b class="tag-ruim">ANTES (v1.2.44)</b>
+    <div class="mp"><div class="mt mt1">Estoque</div><div class="mt mt2">Fiado</div><div class="mt mt3">Vender colheita</div></div>
+    <div>3 abas de 100px + 3px = <b>324px</b> num painel de <b>310px</b> — a 3ª saía 14px pra fora da moldura.</div>
+  </div>
+  <div class="mini certo">
+    <b class="tag-ok">AGORA (v1.2.66)</b>
+    <div class="mp"><div class="mt mt1">Estoque</div><div class="mt mt2">Fiado</div><div class="mt mt3">Vender cru</div></div>
+    <div>larguraAba = (310−18)/3 = <b>97px</b> — as 3 cabem dentro do painel.</div>
+  </div>
+</div>
+
+<div class="notas">
+  <ul>
+    <li><b>Estoque</b>: só DROGA (seda, cocaína, heroína, LSD, baseado, ópio, extrato) — o Gago não vende mais nada disso.</li>
+    <li><b>Vender cru</b>: o camelo COMPRA seda ×8 / ópio ×8 / cocaína ×4 a 90% do preço do dia; o preço vem do SERVIDOR (payload <code>cruPrecos</code>), o client não chuta mais número. Dica cruza pro Gago: “colheita de bebida é com ele”.</li>
+    <li><b>Fiado</b>: igual, com a dívida global — “o Gago também cobra”.</li>
+    <li><b>Truncamento</b>: TODO texto é cortado pela largura real da fonte (marque “textos gigantes” e veja nada vazar).</li>
+    <li><b>Fix de fundo</b>: <code>ingressarTraf</code> agora roda <code>refreshTradeStock()</code> antes de montar o payload (1º clique nascia com estoque −1/0).</li>
+    <li>Beba no Gago: cardápio dele virou 21 itens SÓ de bebida (bebidas + 8 garrafas vazias + insumos + vidro), exclusivos de fidelidade no tema.</li>
+  </ul>
+</div>
+
+<script>
+const ESTOQUE = [
+  {n:"Seda de Maconha",      d:"6 na caixa",  p:"R$12", c:"c-seda"},
+  {n:"Cocaína",              d:"4 na caixa",  p:"R$42", c:"c-coca"},
+  {n:"Heroína",              d:"4 na caixa",  p:"R$44", c:"c-her"},
+  {n:"LSD Trip",             d:"4 na caixa",  p:"R$48", c:"c-lsd"},
+  {n:"Baseado",              d:"6 na caixa",  p:"R$34", c:"c-base"},
+  {n:"Ópio",                 d:"Esgotado",    p:"R$14", c:"c-opio", fora:true},
+  {n:"Extrato de Cafeína",   d:"6 na caixa",  p:"R$20", c:"c-caf"},
+];
+const GIGANTE_ESTOQUE = ESTOQUE.map(e => ({...e,
+  n: e.n + " com um nome estupidamente comprado pra testar",
+  d: e.d + " (detalhe gigante também tem que cortar)"}));
+const CRU = [
+  {n:"Seda de Maconha", d:"ele compra o lote de 8 na hora (90%% do preço do dia)", p:"R$9",  c:"c-seda"},
+  {n:"Ópio",            d:"ele compra o lote de 8 na hora (90%% do preço do dia)", p:"R$10", c:"c-opio"},
+  {n:"Cocaína",         d:"ele compra o lote de 4 na hora (90%% do preço do dia)", p:"R$28", c:"c-coca"},
+];
+let aba = 0;
+const NOMES_ABA = ["Estoque","Fiado","Vender cru"];
+const DICAS = ["comprar droga do dia", "fiado do camelo", "vender CRU de droga"];
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+function render(){
+  const g = document.getElementById("gigante").checked;
+  const p = document.getElementById("painel");
+  let h = "";
+  for (let y=96; y<340; y+=24) h += `<div class="risquinho" style="top:${y}px"></div>`;
+  const letreiro = g ? "PONTA DA FAIXA — PREÇO DE RUA E MAIS UM MONTE DE LETREIRO PRA CORTAR"
+                     : "PONTA DA FAIXA — PREÇO DE RUA";
+  const subtit   = g ? "estoque do dia · fila é desconto · texto comprado demais de propósito"
+                     : "estoque do dia · fila é desconto";
+  h += `<div class="cab"><div class="faixa"></div>
+        <div class="letreiro clip">${esc(letreiro)}</div>
+        <div class="subtit clip" style="margin:3px 10px 0">${esc(subtit)}</div></div>`;
+  const desc = g ? "Desconto: 5% · compras hoje: 2 · TEM LANÇAMENTO! E ainda cabe mais texto aqui pra provar o corte"
+                 : "Desconto: 5% · compras hoje: 2 · TEM LANÇAMENTO!";
+  h += `<div class="desconto ativo clip">${esc(desc)}</div>`;
+  h += `<div class="abas">` + NOMES_ABA.map((n,i)=>
+        `<div class="aba clip ${i===aba?"ativa":""}" onclick="aba=${i};render()">${esc(g?n+" XXXXXXXX":n)}</div>`).join("") + `</div>`;
+  h += `<div class="lista">`;
+
+  if (aba === 0){
+    const itens = g ? GIGANTE_ESTOQUE : ESTOQUE;
+    itens.forEach((e,i)=>{
+      h += `<div class="linha ${i%2===0?"zebra":""}">
+        <div class="ico"><span class="${e.c}"></span></div>
+        <div class="nome clip">${esc(e.n)}</div>
+        <div class="detalhe clip ${e.fora?"ruim":""}">${esc(e.d)}</div>
+        <div class="preco ${e.fora?"":"clip"}">${e.p}</div>
+        <div class="botao ${e.fora?"fora":""}">${e.fora?"Esgotado":"R$"}</div></div>`;
+    });
+  } else if (aba === 1){
+    const ped = g ? "Me empresta aí! (R$ 50 na hora) — título gigante pra testar o corte do painel"
+                  : "Me empresta aí! (R$ 50 na hora)";
+    const niv = "Nível de confiança: 1 · em aberto: 2 compras · dívida: R$ 115";
+    h += `<div class="linha zebra">
+      <div class="titulo-fiado clip">${esc(ped)}</div>
+      <div class="nivel-fiado clip">${esc(niv)}</div>
+      <div class="det-fiado clip">0 juros se você for da confiança (nível 2)</div>
+      <div class="botao">Emprestar</div></div>`;
+    h += `<div class="linha">
+      <div class="titulo-fiado clip">Pagar a dívida (todo dinheiro na mão)</div>
+      <div class="nivel-fiado clip">${esc(niv)}</div>
+      <div class="det-fiado clip">quitou tudo = sobe o nível de confiança</div>
+      <div class="botao">Pagar</div></div>`;
+  } else {
+    CRU.forEach((e,i)=>{
+      const det = g ? e.d + " (e o detalhe continua gigante aqui)" : e.d;
+      h += `<div class="linha ${i%2===0?"zebra":""}">
+        <div class="ico"><span class="${e.c}"></span></div>
+        <div class="nome clip">${esc(e.n)}</div>
+        <div class="detalhe clip">${esc(det)}</div>
+        <div class="preco">${e.p}</div>
+        <div class="botao">Vender</div></div>`;
+    });
+  }
+  h += `</div>`;
+  const dev = g ? "Fiado: R$ 115 (dívida é global: o Gago também cobra, o Juça sabe, todo mundo sabe)"
+                : "Fiado: R$ 115 (dívida é global: o Gago também cobra)";
+  h += `<div class="rodape"><div class="saldo clip">Carteira: R$ 128</div>
+        <div class="rodape2 devendo clip">${esc(dev)}</div>
+        <div class="fechar">Fechar</div></div>`;
+  p.innerHTML = h;
+  document.getElementById("dica-aba").textContent = "aba ativa: " + NOMES_ABA[aba] + " (" + DICAS[aba] + ")";
+}
+document.getElementById("gigante").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>
